@@ -149,7 +149,7 @@ def multilayer_ladder_trace_expression(N, layers):
         ladder_modes.append(tr_modes)
         ladder_types.append(tr_types)
 
-    return ladder_modes, ladder_types
+    return [ladder_modes], [ladder_types]
 
 def include_observable(ladder_modes, ladder_types, observable_modes, observable_types):
     '''
