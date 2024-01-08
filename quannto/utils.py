@@ -1,0 +1,120 @@
+import numpy as np
+import scipy.linalg as LA
+
+def hermitian_matrix(m):
+    '''
+    Transforms the input matrix into a hermitian matrix.
+    If the input matrix is real, the resultant matrix is real and symmetric.
+    
+    :param m: Matrix to be made hermitian
+    :return: Hermitian matrix
+    '''
+    return 0.5*(m + m.T)
+
+def unitary_from_hermitian(H):
+    '''
+    Creates a unitary matrix from a hermitian one by complex exponentiation.
+
+    :param H: Hermitian matrix
+    :return: Unitary matrix of the input matrix
+    '''
+    unitary = LA.expm(1j*H)
+    return unitary
+
+def create_omega(N):
+    '''
+    Creates the omega matrix for N modes needed to verify the uncertainty principle 
+    of the quantum system quadratures.
+    Used when having an xpxp-ordering of the modes.
+
+    :param N: Dimensions/modes of the quantum system
+    :return: Omega matrix of size 2Nx2N
+    '''
+    omega = np.zeros((2*N,2*N), dtype='complex')
+    for i in range(0, 2*N, 2):
+        omega[i, i+1] = 1
+        omega[i+1, i] = -1
+    return omega
+
+def create_J(N):
+    '''
+    Creates the J matrix for N modes needed to verify the uncertainty principle 
+    of the quantum system quadratures. 
+    Used when representing the quadratures as xxpp order.
+
+    :param N: Dimensions/modes of the quantum system
+    :return: J matrix of size 2Nx2N
+    '''
+    J = np.zeros((2*N, 2*N), dtype='complex')
+    J[0:N, N:2*N] = np.eye(N)
+    J[N:2*N, 0:N] = -1*np.eye(N)
+    return J
+
+class CanonicalLadderTransformations:
+    '''
+    This class contains the methods to go from/to canonical basis to/from Fock basis.
+    '''
+    def __init__(self, dim):
+        self.to_ladder = np.eye(2*dim, dtype='complex')
+        self.to_ladder[0:dim, dim:] = 1j * np.eye(dim)
+        self.to_ladder[dim:, 0:dim] = np.eye(dim)
+        self.to_ladder[dim:, dim:] *= -1j
+        self.to_ladder *= 2**(-0.5)
+        self.to_ladder_dagger = self.to_ladder.conj().T
+        
+    def build_ustar_u(self, unitary):
+        dim = len(unitary)
+        ustar_u = np.zeros((2*dim, 2*dim), dtype='complex')
+        ustar_u[0:dim, 0:dim] = unitary.conj()
+        ustar_u[dim:, dim:] = unitary
+        return ustar_u
+        
+    def to_ladder_op(self, symplectic_transf):
+        return self.to_ladder @ symplectic_transf @ self.to_ladder_dagger
+    
+    def to_canonical_op(self, unitary):
+        ustar_u = self.build_ustar_u(unitary)
+        return self.to_ladder_dagger @ ustar_u @ self.to_ladder
+    
+def check_symp_orth(SO):
+    '''
+    Verifies the symplectic and the orthogonal conditions on the input matrix.
+
+    :param SO: Matrix to be verified
+    '''
+    N = int(len(SO)/2)
+    X_prime = SO[0:N, 0:N]
+    Y_prime = SO[0:N, N:]
+    cond_1_prime = X_prime@Y_prime.T - Y_prime@X_prime.T
+    print(f'Symplecticity condition:')
+    print(np.allclose(cond_1_prime, np.zeros((N, N))))
+
+    cond_2_prime = X_prime@X_prime.T + Y_prime@Y_prime.T
+    print(f'Orthogonality condition:')
+    print(np.allclose(cond_2_prime, np.eye(N)))
+    print()
+    
+def check_det_and_positive(V):
+    '''
+    Checks if the input (covariance) matrix is positive and prints its determinant.
+
+    :param V: (Covariance) matrix to be verified
+    '''
+    print('Covariance matrix determinant:')
+    print(LA.det(V))
+    cm_eigvals = LA.eigvals(V)
+    print(f'V >= 0 \n{np.all(np.around(cm_eigvals, decimals=4) >= 0)}\n')
+    
+def check_uncertainty_pple(V):
+    '''
+    Checks if the input (covariance) matrix obeys the uncertainty principle printing 
+    the eigenvalues of the uncertainty principle matrix.
+
+    :param V: (Covariance) matrix to be verified
+    '''
+    i_J = 1j*create_J(int(len(V)/2))
+    uncert_eigvals = LA.eigvals(V + i_J)
+    print('V + iJ >= 0: ')
+    print(np.all(np.around(uncert_eigvals, decimals=4) >= 0))
+    print('Eigenvalues:')
+    print(uncert_eigvals)

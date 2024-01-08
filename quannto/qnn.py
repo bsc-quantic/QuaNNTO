@@ -1,0 +1,162 @@
+import numpy as np
+import time
+from utils import *
+from expectation_value import *
+
+class ProfilingQNN:
+    '''
+    Data structure containing the times for each part of the training process 
+    of a QNN with a particular number of modes and layers.
+    '''
+    def __init__(self, N, layers):#, num_observables):
+        self.N = N
+        self.layers = layers
+        #self.num_observables = num_observables
+        self.build_qnn_times = []
+        self.input_prep_times = []
+        self.gauss_times = []
+        self.K_exp_vals_times = []
+        self.ladder_superpos_times = []
+        self.nongauss_times = []
+
+    def avg_times(self):
+        avg_times = {}
+        avg_times["Build QNN"] = sum(self.build_qnn_times)/len(self.build_qnn_times)
+        avg_times["Input preparation"] = sum(self.input_prep_times)/len(self.input_prep_times)
+        avg_times["Gaussian transformation"] = sum(self.gauss_times)/len(self.gauss_times)
+        avg_times["Ladder pairs exp.vals"] = sum(self.K_exp_vals_times)/len(self.K_exp_vals_times)
+        avg_times["Ladder superposition coefs"] = sum(self.ladder_superpos_times)/len(self.ladder_superpos_times)
+        avg_times["Non-gaussianity"] = sum(self.nongauss_times)/len(self.nongauss_times)
+        return avg_times
+    
+
+class QNN:
+    '''
+    Class for continuous variables quantum (optics) neural network building, training, profiling and evaluation.
+    '''
+    def __init__(self, N, layers, 
+                 perf_match, ladder_modes, ladder_types,
+                 perf_match_norm, ladder_modes_norm, ladder_types_norm):
+        self.N = N
+        self.layers = layers
+        self.perf_matchings = perf_match
+        self.ladder_modes = ladder_modes
+        self.ladder_types = ladder_types
+        self.perf_matchings_norm = perf_match_norm
+        self.ladder_modes_norm = ladder_modes_norm
+        self.ladder_types_norm = ladder_types_norm
+        self.u_bar = CanonicalLadderTransformations(N)
+        self.qnn_profiling = ProfilingQNN(N, layers)
+
+    def build_QNN(self, parameters):
+        self.set_non_gauss_parameters(parameters[:(self.layers-1)*(2*self.N**2)])
+        self.set_gauss_parameters(parameters[(self.layers-1)*(2*self.N**2):])
+
+    def set_non_gauss_parameters(self, parameters):
+        self.Q1_layers = np.zeros((self.layers-1, 2*self.N, 2*self.N))
+        self.Q2_layers = np.zeros((self.layers-1, 2*self.N, 2*self.N)) 
+        for i in range(self.layers-1):
+            Q1_params = parameters[i*(2*self.N**2) : i*(2*self.N**2) + self.N**2]
+            H = hermitian_matrix(Q1_params.reshape((self.N, self.N)))
+            U = unitary_from_hermitian(H)
+            self.Q1_layers[i] = self.u_bar.to_canonical_op(U)
+    
+            Q2_params = parameters[i*(2*self.N**2) + self.N**2 : (i+1)*(2*self.N**2)]
+            H = hermitian_matrix(Q2_params.reshape((self.N, self.N)))
+            U = unitary_from_hermitian(H)
+            self.Q2_layers[i] = self.u_bar.to_canonical_op(U)
+
+    def set_gauss_parameters(self, parameters):
+        # Build passive-optics Q1 and Q2 for the Gaussian transformation
+        H = hermitian_matrix(parameters[:self.N**2].reshape((self.N, self.N)))
+        U = unitary_from_hermitian(H)
+        self.Q1_gauss = self.u_bar.to_canonical_op(U)
+        
+        H = hermitian_matrix(parameters[self.N**2 : 2*self.N**2].reshape((self.N, self.N)))
+        U = unitary_from_hermitian(H)
+        self.Q2_gauss = self.u_bar.to_canonical_op(U)
+        
+        # Build squeezing diagonal matrix Z
+        sqz_parameters = parameters[2*self.N**2 : 2*self.N**2 + self.N]
+        sqz_inv = 1.0/sqz_parameters
+        self.Z_gauss = np.diag(np.concatenate((sqz_parameters, sqz_inv)))
+
+        # Build final Gaussian transformation
+        self.G = self.Q2_gauss @ self.Z_gauss @ self.Q1_gauss
+
+    def gaussian_transformation(self):
+        self.final_gauss_state = self.G @ self.initial_gauss_state @ self.G.T
+
+    def exp_val_non_gaussianity(self, trace_coefs, K_exp_vals):
+        # 1. Calculates the expectation value
+        unnorm_exp_val = np.zeros((len(self.ladder_modes)))
+        for i in range(len(self.ladder_modes)):
+            for j in range(len(self.ladder_modes[i])):
+                unnorm_exp_val[i] += trace_coefs[0,j] * ladder_exp_val(
+                    self.perf_matchings, self.ladder_modes[i][j], self.ladder_types[i][j], K_exp_vals
+                )
+
+        # 2. Calculates the normalization factor of the expectation value
+        if self.ladder_modes_norm == None:
+            exp_val_norm = np.ones((len(self.ladder_modes)))
+        else:
+            exp_val_norm = np.zeros((len(self.ladder_modes)))
+            for i in range(len(self.ladder_modes_norm)):
+                for j in range(len(self.ladder_modes_norm[i])):
+                    exp_val_norm[i] += trace_coefs[0,j] * ladder_exp_val(
+                        self.perf_matchings_norm, self.ladder_modes_norm[i][j], self.ladder_types_norm[i][j], K_exp_vals
+                    )
+            for i in range(len(self.ladder_modes)):
+                exp_val_norm[i] = exp_val_norm[0]
+                
+        return np.real_if_close(unnorm_exp_val/exp_val_norm)
+        
+
+    def eval_QNN(self, input):
+        # 1. Prepare initial state: Inputs encoded in modes' squeezing parameters
+        input_prep_start = time.time()
+        r = np.ones(self.N)
+        r[0:len(input)] = input
+        r_inv = 1.0/r
+        Z_input = np.diag(np.concatenate((r, r_inv)))
+        self.initial_gauss_state = Z_input
+        self.qnn_profiling.input_prep_times.append(time.time() - input_prep_start)
+
+        # 2. Apply the Gaussian (linear) transformation -> Weight matrix in ANN
+        gauss_start = time.time()
+        self.gaussian_transformation()
+        self.qnn_profiling.gauss_times.append(time.time() - gauss_start)
+        
+        # 3. Compute the expectation values of all possible ladder operators pairs over the final Gaussian state
+        K_exp_vals_start = time.time()
+        K_exp_vals = compute_K_exp_vals(self.final_gauss_state)
+        self.qnn_profiling.K_exp_vals_times.append(time.time() - K_exp_vals_start)
+
+        # 4. Build the symplectic coefficients for ladder operators' superposition with input reuploading
+        ladder_superpos_start = time.time()
+        S_commutator = np.zeros((self.layers-1, 2*self.N, 2*self.N))
+        for i in range(self.layers-1):
+            S_commutator[i] = self.Q2_layers[i] @ Z_input @ self.Q1_layers[i]
+        trace_coefs = get_symplectic_coefs(self.N, S_commutator, self.ladder_modes_norm, self.ladder_types_norm)
+        self.qnn_profiling.ladder_superpos_times.append(time.time() - ladder_superpos_start)
+
+        # 5. Compute the observables' normalized expectation value of the non-Gaussianity applied to the final Gaussian state
+        # (!) Potentially parallelizable
+        nongauss_start = time.time()
+        norm_exp_val = self.exp_val_non_gaussianity(trace_coefs, K_exp_vals)
+        self.qnn_profiling.nongauss_times.append(time.time() - nongauss_start)
+
+        return norm_exp_val
+
+    def train_QNN(self, parameters, inputs_dataset, outputs_dataset):
+        build_start = time.time()
+        self.build_QNN(parameters)
+        self.qnn_profiling.build_qnn_times.append(time.time() - build_start)
+        
+        mse = 0
+        for inputs, outputs in zip(inputs_dataset, outputs_dataset):
+            qnn_outputs = np.real_if_close(self.eval_QNN(inputs))
+            mse += (outputs - qnn_outputs.sum())**2
+        return mse/len(inputs_dataset)
+    
+
