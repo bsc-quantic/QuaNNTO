@@ -34,18 +34,16 @@ class QNN:
     '''
     Class for continuous variables quantum (optics) neural network building, training, profiling and evaluation.
     '''
-    def __init__(self, N, layers,
-                 observable_modes, observable_types, 
-                 ladder_modes_norm, ladder_types_norm):
+    def __init__(self, N, layers, observable_modes, observable_types):
         self.N = N
         self.layers = layers
         
-        self.ladder_modes_norm = [ladder_modes_norm]
-        self.ladder_types_norm = [ladder_types_norm]
+        # Normalization expression related to a single photon addition on first mode for each QNN layer
+        self.ladder_modes_norm, self.ladder_types_norm = multilayer_ladder_trace_expression(N, layers)
         self.perf_matchings_norm = perfect_matchings(len(self.ladder_modes_norm[0][0]))
         
         self.ladder_modes, self.ladder_types = include_observable(
-            ladder_modes_norm, ladder_types_norm, observable_modes, observable_types)
+            self.ladder_modes_norm[0], self.ladder_types_norm[0], observable_modes, observable_types)
         self.perf_matchings = perfect_matchings(len(self.ladder_modes[0][0]))
         
         self.u_bar = CanonicalLadderTransformations(N)

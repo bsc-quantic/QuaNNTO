@@ -5,7 +5,6 @@ from functools import partial
 
 from qnn import QNN
 from synth_datasets import f1_2var_generate_dataset, f1_2var_linear_dataset, bubblesort, print_dataset
-from expectation_value import perfect_matchings, include_observable, multilayer_ladder_trace_expression
 
 def callback(xk):
     '''
@@ -59,17 +58,12 @@ nn_idx = 0
 for N in list_N:
     for layers in list_layers:
         print(f'\n\n===== FOR N={N}, l={layers} =====')
-        
-        # Normalization expression related to a single photon addition on first mode for each QNN layer
-        ladder_modes_norm, ladder_types_norm = multilayer_ladder_trace_expression(N, layers)
 
-        cv_qnns.append(QNN(N, layers, 
-                           observable_modes[nn_idx], observable_types[nn_idx],
-                           ladder_modes_norm, ladder_types_norm))
+        cv_qnns.append(QNN(N, layers, observable_modes[nn_idx], observable_types[nn_idx]))
         
         total_error = []
         training_QNN = partial(cv_qnns[nn_idx].train_QNN, inputs_dataset=dataset_inputs[nn_idx], outputs_dataset=dataset_outputs[nn_idx])
-        result = opt.minimize(training_QNN, parameters[nn_idx], method='L-BFGS-B',callback=callback)#, tol=1e-5))#, options=options))
+        result = opt.minimize(training_QNN, parameters[nn_idx], method='L-BFGS-B', callback=callback)#, tol=1e-5))#, options=options))
         #minimizer_kwargs = {"method": "L-BFGS-B", "tol": 1e-5, "options": options}
         #result = opt.basinhopping(training_energy, m,minimizer_kwargs=minimizer_kwargs, niter=30)#, niter=1000)
         
