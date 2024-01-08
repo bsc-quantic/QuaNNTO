@@ -69,8 +69,8 @@ for N in list_N:
         perf_matchings_norm = perfect_matchings(N_ladders_norm)
 
         cv_qnns.append(QNN(N, layers, 
-                           perf_matchings, ladder_modes, ladder_types,
-                           perf_matchings_norm, [ladder_modes_norm], [ladder_types_norm]))        
+                           ladder_modes, ladder_types,
+                           [ladder_modes_norm], [ladder_types_norm]))        
         
         total_error = []
         training_QNN = partial(cv_qnns[nn_idx].train_QNN, inputs_dataset=dataset_inputs[nn_idx], outputs_dataset=dataset_outputs[nn_idx])
