@@ -60,12 +60,12 @@ class QNN:
             Q1_params = parameters[i*(2*self.N**2) : i*(2*self.N**2) + self.N**2]
             H = hermitian_matrix(Q1_params.reshape((self.N, self.N)))
             U = unitary_from_hermitian(H)
-            self.Q1_layers[i] = self.u_bar.to_canonical_op(U)
+            self.Q1_layers[i] = np.real_if_close(self.u_bar.to_canonical_op(U))
     
             Q2_params = parameters[i*(2*self.N**2) + self.N**2 : (i+1)*(2*self.N**2)]
             H = hermitian_matrix(Q2_params.reshape((self.N, self.N)))
             U = unitary_from_hermitian(H)
-            self.Q2_layers[i] = self.u_bar.to_canonical_op(U)
+            self.Q2_layers[i] = np.real_if_close(self.u_bar.to_canonical_op(U))
 
     def set_gauss_parameters(self, parameters):
         # Build passive-optics Q1 and Q2 for the Gaussian transformation
@@ -90,23 +90,23 @@ class QNN:
 
     def exp_val_non_gaussianity(self, trace_coefs, K_exp_vals):
         # 1. Calculates the expectation value
-        unnorm_exp_val = np.zeros((len(self.ladder_modes)))
+        unnorm_exp_val = np.zeros((len(self.ladder_modes)), dtype='complex')
         for i in range(len(self.ladder_modes)):
             for j in range(len(self.ladder_modes[i])):
-                unnorm_exp_val[i] += trace_coefs[0,j] * ladder_exp_val(
+                unnorm_exp_val[i] += np.real_if_close(trace_coefs[0,j] * ladder_exp_val(
                     self.perf_matchings, self.ladder_modes[i][j], self.ladder_types[i][j], K_exp_vals
-                )
+                ))
 
         # 2. Calculates the normalization factor of the expectation value
         if self.ladder_modes_norm == None:
-            exp_val_norm = np.ones((len(self.ladder_modes)))
+            exp_val_norm = np.ones((len(self.ladder_modes)), dtype='complex')
         else:
-            exp_val_norm = np.zeros((len(self.ladder_modes)))
+            exp_val_norm = np.zeros((len(self.ladder_modes)), dtype='complex')
             for i in range(len(self.ladder_modes_norm)):
                 for j in range(len(self.ladder_modes_norm[i])):
-                    exp_val_norm[i] += trace_coefs[0,j] * ladder_exp_val(
+                    exp_val_norm[i] += np.real_if_close(trace_coefs[0,j] * ladder_exp_val(
                         self.perf_matchings_norm, self.ladder_modes_norm[i][j], self.ladder_types_norm[i][j], K_exp_vals
-                    )
+                    ))
             for i in range(len(self.ladder_modes)):
                 exp_val_norm[i] = exp_val_norm[0]
                 
@@ -146,7 +146,7 @@ class QNN:
         nongauss_start = time.time()
         norm_exp_val = self.exp_val_non_gaussianity(trace_coefs, K_exp_vals)
         self.qnn_profiling.nongauss_times.append(time.time() - nongauss_start)
-
+        
         return norm_exp_val
 
     def train_QNN(self, parameters, inputs_dataset, outputs_dataset):
@@ -156,7 +156,7 @@ class QNN:
         
         mse = 0
         for inputs, outputs in zip(inputs_dataset, outputs_dataset):
-            qnn_outputs = np.real_if_close(self.eval_QNN(inputs))
+            qnn_outputs = self.eval_QNN(inputs)
             mse += (outputs - qnn_outputs.sum())**2
         return mse/len(inputs_dataset)
     
