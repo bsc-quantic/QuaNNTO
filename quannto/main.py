@@ -59,18 +59,13 @@ nn_idx = 0
 for N in list_N:
     for layers in list_layers:
         print(f'\n\n===== FOR N={N}, l={layers} =====')
-
+        
+        # Normalization expression related to a single photon addition on first mode for each QNN layer
         ladder_modes_norm, ladder_types_norm = multilayer_ladder_trace_expression(N, layers)
-        ladder_modes, ladder_types = include_observable(ladder_modes_norm, ladder_types_norm, observable_modes[nn_idx], observable_types[nn_idx])
-
-        N_ladders = len(ladder_modes[0][0])
-        perf_matchings = perfect_matchings(N_ladders)
-        N_ladders_norm = len(ladder_modes_norm[0])
-        perf_matchings_norm = perfect_matchings(N_ladders_norm)
 
         cv_qnns.append(QNN(N, layers, 
-                           ladder_modes, ladder_types,
-                           [ladder_modes_norm], [ladder_types_norm]))        
+                           observable_modes[nn_idx], observable_types[nn_idx],
+                           ladder_modes_norm, ladder_types_norm))
         
         total_error = []
         training_QNN = partial(cv_qnns[nn_idx].train_QNN, inputs_dataset=dataset_inputs[nn_idx], outputs_dataset=dataset_outputs[nn_idx])
@@ -149,9 +144,9 @@ for i in range(len(list_N)):
         plt.show()
 
         print(f'\nTotal number of training iterations: {len(qnn.qnn_profiling.gauss_times)}')
-        print(f'\tNumber of trace expressions: {len(qnn.ladder_modes)*len(ladder_modes[1])}')
-        print(f'\tNumber of perfect matchings per expression: {len(perf_matchings)}')
-        print(f'\t{len(qnn.perf_matchings)*len(qnn.ladder_modes)*len(ladder_modes[1])} total summations with {layers + 1} products per summation.')
+        print(f'\tNumber of trace expressions: {len(qnn.ladder_modes)*len(qnn.ladder_modes[0])}')
+        print(f'\tNumber of perfect matchings per expression: {len(qnn.perf_matchings)}')
+        print(f'\t{len(qnn.perf_matchings)*len(qnn.ladder_modes)*len(qnn.ladder_modes[0])} total summations with {qnn.layers + 1} products per summation.')
         #plt.plot(qnn.qnn_profiling.gauss_times, 'o')
         #plt.show()
         
