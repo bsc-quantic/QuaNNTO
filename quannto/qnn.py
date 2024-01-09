@@ -42,6 +42,7 @@ class QNN:
         self.ladder_modes_norm, self.ladder_types_norm = multilayer_ladder_trace_expression(N, layers)
         self.perf_matchings_norm = perfect_matchings(len(self.ladder_modes_norm[0][0]))
         
+        # Full trace expression including the photon additions and the observable to be measured
         self.ladder_modes, self.ladder_types = include_observable(
             self.ladder_modes_norm[0], self.ladder_types_norm[0], observable_modes, observable_types)
         self.perf_matchings = perfect_matchings(len(self.ladder_modes[0][0]))
@@ -71,11 +72,11 @@ class QNN:
         # Build passive-optics Q1 and Q2 for the Gaussian transformation
         H = hermitian_matrix(parameters[:self.N**2].reshape((self.N, self.N)))
         U = unitary_from_hermitian(H)
-        self.Q1_gauss = self.u_bar.to_canonical_op(U)
+        self.Q1_gauss = np.real_if_close(self.u_bar.to_canonical_op(U))
         
         H = hermitian_matrix(parameters[self.N**2 : 2*self.N**2].reshape((self.N, self.N)))
         U = unitary_from_hermitian(H)
-        self.Q2_gauss = self.u_bar.to_canonical_op(U)
+        self.Q2_gauss = np.real_if_close(self.u_bar.to_canonical_op(U))
         
         # Build squeezing diagonal matrix Z
         sqz_parameters = parameters[2*self.N**2 : 2*self.N**2 + self.N]
@@ -84,9 +85,21 @@ class QNN:
 
         # Build final Gaussian transformation
         self.G = self.Q2_gauss @ self.Z_gauss @ self.Q1_gauss
+        
+    def squeezing_operator(self, input):
+        r = np.ones(self.N)
+        r[0:len(input)] = input
+        r_inv = 1.0/r
+        return np.diag(np.concatenate((r, r_inv)))
 
     def gaussian_transformation(self):
         self.final_gauss_state = self.G @ self.initial_gauss_state @ self.G.T
+        
+    def non_gauss_symplectic_coefs(self, Z_input):
+        S_commutator = np.zeros((self.layers-1, 2*self.N, 2*self.N))
+        for i in range(self.layers-1):
+            S_commutator[i] = self.Q2_layers[i] @ Z_input @ self.Q1_layers[i]
+        return get_symplectic_coefs(self.N, S_commutator, self.ladder_modes_norm, self.ladder_types_norm)
 
     def exp_val_non_gaussianity(self, trace_coefs, K_exp_vals):
         # 1. Calculates the expectation value
@@ -110,16 +123,15 @@ class QNN:
             for i in range(len(self.ladder_modes)):
                 exp_val_norm[i] = exp_val_norm[0]
                 
-        return np.real_if_close(unnorm_exp_val/exp_val_norm)
+        return np.real_if_close(unnorm_exp_val/exp_val_norm, tol=1e6)
         
 
     def eval_QNN(self, input):
-        # 1. Prepare initial state: Inputs encoded in modes' squeezing parameters
+        # 0. Build the squeezing operator used for the input reuploading
         input_prep_start = time.time()
-        r = np.ones(self.N)
-        r[0:len(input)] = input
-        r_inv = 1.0/r
-        Z_input = np.diag(np.concatenate((r, r_inv)))
+        Z_input = self.squeezing_operator(input)
+        
+        # 1. Prepare initial state: Inputs encoded in modes' squeezing parameters
         self.initial_gauss_state = Z_input
         self.qnn_profiling.input_prep_times.append(time.time() - input_prep_start)
 
@@ -135,10 +147,7 @@ class QNN:
 
         # 4. Build the symplectic coefficients for ladder operators' superposition with input reuploading
         ladder_superpos_start = time.time()
-        S_commutator = np.zeros((self.layers-1, 2*self.N, 2*self.N))
-        for i in range(self.layers-1):
-            S_commutator[i] = self.Q2_layers[i] @ Z_input @ self.Q1_layers[i]
-        trace_coefs = get_symplectic_coefs(self.N, S_commutator, self.ladder_modes_norm, self.ladder_types_norm)
+        trace_coefs = self.non_gauss_symplectic_coefs(Z_input)
         self.qnn_profiling.ladder_superpos_times.append(time.time() - ladder_superpos_start)
 
         # 5. Compute the observables' normalized expectation value of the non-Gaussianity applied to the final Gaussian state
@@ -159,5 +168,11 @@ class QNN:
             qnn_outputs = self.eval_QNN(inputs)
             mse += (outputs - qnn_outputs.sum())**2
         return mse/len(inputs_dataset)
+    
+    def print_qnn(self):
+        print(f"Gaussian operator:\n{self.G}\nQ2={self.Q2_gauss} \nZg={self.Z_gauss} \nQ1={self.Q1_gauss}")
+        for i in range(len(self.Q1_layers)):
+            print(f"Ladder operators superposition {i} symp-orth matrices:\n{self.Q1_layers[i]} and {self.Q2_layers[i]}")
+        
     
 
