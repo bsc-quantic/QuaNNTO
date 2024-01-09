@@ -32,7 +32,7 @@ class ProfilingQNN:
 
 class QNN:
     '''
-    Class for continuous variables quantum (optics) neural network building, training, profiling and evaluation.
+    Class for continuous variables quantum (optics) neural network building, training, evaluation and profiling.
     '''
     def __init__(self, N, layers, observable_modes, observable_types):
         self.N = N
@@ -51,6 +51,7 @@ class QNN:
         self.qnn_profiling = ProfilingQNN(N, layers)
 
     def build_QNN(self, parameters):
+        self.tunable_parameters = np.copy(parameters)
         self.set_non_gauss_parameters(parameters[:(self.layers-1)*(2*self.N**2)])
         self.set_gauss_parameters(parameters[(self.layers-1)*(2*self.N**2):])
 
