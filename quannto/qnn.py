@@ -21,14 +21,22 @@ class ProfilingQNN:
         self.nongauss_times = []
 
     def avg_times(self):
-        avg_times = {}
-        avg_times["Build QNN"] = sum(self.build_qnn_times)/len(self.build_qnn_times)
-        avg_times["Input preparation"] = sum(self.input_prep_times)/len(self.input_prep_times)
-        avg_times["Gaussian transformation"] = sum(self.gauss_times)/len(self.gauss_times)
-        avg_times["Ladder pairs exp.vals"] = sum(self.K_exp_vals_times)/len(self.K_exp_vals_times)
-        avg_times["Ladder superposition coefs"] = sum(self.ladder_superpos_times)/len(self.ladder_superpos_times)
-        avg_times["Non-gaussianity"] = sum(self.nongauss_times)/len(self.nongauss_times)
-        return avg_times
+        self.avg_times = {}
+        self.avg_times["Build QNN"] = sum(self.build_qnn_times)/len(self.build_qnn_times)
+        self.avg_times["Input prep"] = sum(self.input_prep_times)/len(self.input_prep_times)
+        self.avg_times["Gaussian op"] = sum(self.gauss_times)/len(self.gauss_times)
+        self.avg_times["Pairs exp-vals"] = sum(self.K_exp_vals_times)/len(self.K_exp_vals_times)
+        self.avg_times["Non-gauss coefs"] = sum(self.ladder_superpos_times)/len(self.ladder_superpos_times)
+        self.avg_times["Non-gaussianity"] = sum(self.nongauss_times)/len(self.nongauss_times)
+        return self.avg_times
+    
+    def clear_times(self):
+        self.build_qnn_times = []
+        self.input_prep_times = []
+        self.gauss_times = []
+        self.K_exp_vals_times = []
+        self.ladder_superpos_times = []
+        self.nongauss_times = []
     
 
 class QNN:

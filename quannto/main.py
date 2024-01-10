@@ -126,6 +126,7 @@ for i in range(len(list_N)):
         print(error[i*len(list_layers)+j].sum()/len(test_inputs))
 
         qnn_times = qnn.qnn_profiling.avg_times()
+        qnn.qnn_profiling.clear_times()
         print('\nTime usage per stage:')
         total_time = sum(list(qnn_times.values()))
         for part_time in qnn_times:
