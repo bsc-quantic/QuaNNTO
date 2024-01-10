@@ -1,6 +1,7 @@
 import numpy as np
 from sympy import symbols, expand
 from utils import *
+from numba import njit, prange
 
 def exp_val_ladder_jk(j, k, V):
     '''
@@ -210,6 +211,7 @@ def find_perf_match(index_list, current_combination, perf_matchings):
     else:
         perf_matchings.append(current_combination)
         
+@njit
 def ladder_exp_val(perf_matchings, ladder_modes, ladder_types, cov_mat_identities):
     '''
     Computes the expected value of the energy when ladder operators are applied

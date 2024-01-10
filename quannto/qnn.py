@@ -3,6 +3,7 @@ import time
 from utils import *
 from expectation_value import *
 import jsonpickle
+from numba import njit, prange
 
 class ProfilingQNN:
     '''
@@ -50,12 +51,15 @@ class QNN:
         
         # Normalization expression related to a single photon addition on first mode for each QNN layer
         self.ladder_modes_norm, self.ladder_types_norm = multilayer_ladder_trace_expression(N, layers)
-        self.perf_matchings_norm = perfect_matchings(len(self.ladder_modes_norm[0][0]))
+        self.perf_matchings_norm = np.array(perfect_matchings(len(self.ladder_modes_norm[0][0])), dtype='int')
         
         # Full trace expression including the photon additions and the observable to be measured
         self.ladder_modes, self.ladder_types = include_observable(
             self.ladder_modes_norm[0], self.ladder_types_norm[0], observable_modes, observable_types)
-        self.perf_matchings = perfect_matchings(len(self.ladder_modes[0][0]))
+        self.perf_matchings = np.array(perfect_matchings(len(self.ladder_modes[0][0])), dtype='int')
+        
+        self.ladder_modes_norm, self.ladder_types_norm = np.array(self.ladder_modes_norm, dtype='int'), np.array(self.ladder_types_norm, dtype='int')
+        self.ladder_modes, self.ladder_types = np.array(self.ladder_modes, dtype='int'), np.array(self.ladder_types, dtype='int')
         
         self.u_bar = CanonicalLadderTransformations(N)
         self.qnn_profiling = ProfilingQNN(N, layers)
@@ -112,30 +116,32 @@ class QNN:
             S_commutator[i] = self.Q2_layers[i] @ Z_input @ self.Q1_layers[i]
         return get_symplectic_coefs(self.N, S_commutator, self.ladder_modes_norm, self.ladder_types_norm)
 
-    def exp_val_non_gaussianity(self, trace_coefs, K_exp_vals):
+    @njit(parallel=True)
+    def exp_val_non_gaussianity(ladder_modes, ladder_types, perf_matchings,
+                                ladder_modes_norm, ladder_types_norm, perf_matchings_norm, 
+                                trace_coefs, K_exp_vals):
         # 1. Calculates the expectation value
-        unnorm_exp_val = np.zeros((len(self.ladder_modes)), dtype='complex')
-        for i in range(len(self.ladder_modes)):
-            for j in range(len(self.ladder_modes[i])):
-                unnorm_exp_val[i] += np.real_if_close(trace_coefs[0,j] * ladder_exp_val(
-                    self.perf_matchings, self.ladder_modes[i][j], self.ladder_types[i][j], K_exp_vals
-                ))
-
+        unnorm_exp_val = np.zeros((len(ladder_modes)), dtype='complex')
+        for i in prange(len(ladder_modes)):
+            for j in prange(len(ladder_modes[i])):
+                unnorm_exp_val[i] += trace_coefs[0,j] * ladder_exp_val(
+                    perf_matchings, ladder_modes[i][j], ladder_types[i][j], K_exp_vals
+                )
+                
         # 2. Calculates the normalization factor of the expectation value
-        if self.ladder_modes_norm == None:
-            exp_val_norm = np.ones((len(self.ladder_modes)), dtype='complex')
+        if ladder_modes_norm.size == 0:
+            exp_val_norm = np.ones((len(ladder_modes)), dtype='complex')
         else:
-            exp_val_norm = np.zeros((len(self.ladder_modes)), dtype='complex')
-            for i in range(len(self.ladder_modes_norm)):
-                for j in range(len(self.ladder_modes_norm[i])):
-                    exp_val_norm[i] += np.real_if_close(trace_coefs[0,j] * ladder_exp_val(
-                        self.perf_matchings_norm, self.ladder_modes_norm[i][j], self.ladder_types_norm[i][j], K_exp_vals
-                    ))
-            for i in range(len(self.ladder_modes)):
+            exp_val_norm = np.zeros((len(ladder_modes)), dtype='complex')
+            for i in prange(len(ladder_modes_norm)):
+                for j in prange(len(ladder_modes_norm[i])):
+                    exp_val_norm[i] += trace_coefs[0,j] * ladder_exp_val(
+                        perf_matchings_norm, ladder_modes_norm[i][j], ladder_types_norm[i][j], K_exp_vals
+                    )
+            for i in prange(len(ladder_modes)):
                 exp_val_norm[i] = exp_val_norm[0]
                 
-        return np.real_if_close(unnorm_exp_val/exp_val_norm, tol=1e6)
-        
+        return unnorm_exp_val/exp_val_norm        
 
     def eval_QNN(self, input):
         # 0. Build the squeezing operator used for the input reuploading
@@ -162,12 +168,13 @@ class QNN:
         self.qnn_profiling.ladder_superpos_times.append(time.time() - ladder_superpos_start)
 
         # 5. Compute the observables' normalized expectation value of the non-Gaussianity applied to the final Gaussian state
-        # (!) Potentially parallelizable
         nongauss_start = time.time()
-        norm_exp_val = self.exp_val_non_gaussianity(trace_coefs, K_exp_vals)
+        norm_exp_val = QNN.exp_val_non_gaussianity(self.ladder_modes, self.ladder_types, self.perf_matchings, 
+                                                   self.ladder_modes_norm, self.ladder_types_norm, self.perf_matchings_norm,
+                                                   trace_coefs, K_exp_vals)
         self.qnn_profiling.nongauss_times.append(time.time() - nongauss_start)
         
-        return norm_exp_val
+        return np.real_if_close(norm_exp_val, tol=1e6)
 
     def train_QNN(self, parameters, inputs_dataset, outputs_dataset):
         build_start = time.time()
