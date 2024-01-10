@@ -19,7 +19,7 @@ def callback(xk):
 
 # === HYPERPARAMETERS DEFINITION ===
 list_N = [2]
-list_layers = [2]
+list_layers = [1]
 
 cv_qnns = []
 final_pars = []
@@ -59,7 +59,8 @@ for N in list_N:
     for layers in list_layers:
         print(f'\n\n===== FOR N={N}, l={layers} =====')
 
-        cv_qnns.append(QNN(N, layers, observable_modes[nn_idx], observable_types[nn_idx]))
+        cv_qnns.append(QNN("model_N" + str(N) + "_L" + str(layers),
+                           N, layers, observable_modes[nn_idx], observable_types[nn_idx]))
         
         total_error = []
         training_QNN = partial(cv_qnns[nn_idx].train_QNN, inputs_dataset=dataset_inputs[nn_idx], outputs_dataset=dataset_outputs[nn_idx])
@@ -126,7 +127,6 @@ for i in range(len(list_N)):
         print(error[i*len(list_layers)+j].sum()/len(test_inputs))
 
         qnn_times = qnn.qnn_profiling.avg_times()
-        qnn.qnn_profiling.clear_times()
         print('\nTime usage per stage:')
         total_time = sum(list(qnn_times.values()))
         for part_time in qnn_times:
@@ -142,6 +142,7 @@ for i in range(len(list_N)):
         print(f'\tNumber of trace expressions: {len(qnn.ladder_modes)*len(qnn.ladder_modes[0])}')
         print(f'\tNumber of perfect matchings per expression: {len(qnn.perf_matchings)}')
         print(f'\t{len(qnn.perf_matchings)*len(qnn.ladder_modes)*len(qnn.ladder_modes[0])} total summations with {qnn.layers + 1} products per summation.')
-        #plt.plot(qnn.qnn_profiling.gauss_times, 'o')
-        #plt.show()
+        
+        qnn.qnn_profiling.clear_times()
+        qnn.save_model(qnn.model_name + ".txt")
         

@@ -43,7 +43,8 @@ class QNN:
     '''
     Class for continuous variables quantum (optics) neural network building, training, evaluation and profiling.
     '''
-    def __init__(self, N, layers, observable_modes, observable_types):
+    def __init__(self, model_name, N, layers, observable_modes, observable_types):
+        self.model_name = model_name
         self.N = N
         self.layers = layers
         
