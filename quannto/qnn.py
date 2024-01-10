@@ -181,9 +181,9 @@ class QNN:
         return mse/len(inputs_dataset)
     
     def print_qnn(self):
-        print(f"Gaussian operator:\n{self.G}\nQ2={self.Q2_gauss} \nZg={self.Z_gauss} \nQ1={self.Q1_gauss}")
+        print(f"\nGaussian operator:\nG={self.G}\nQ2={self.Q2_gauss}\nZg={self.Z_gauss}\nQ1={self.Q1_gauss}\n")
         for i in range(len(self.Q1_layers)):
-            print(f"Ladder operators superposition {i} symp-orth matrices:\n{self.Q1_layers[i]} and {self.Q2_layers[i]}")
+            print(f"Layer {i+1} ladder operators superposition symp-orth matrices:\nQ2={self.Q2_layers[i]}\nQ1={self.Q1_layers[i]}\n")
         
     def save_model(self, filename):
         f = open(filename, 'w')

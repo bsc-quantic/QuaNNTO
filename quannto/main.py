@@ -123,7 +123,7 @@ for i in range(len(list_N)):
         plt.legend()
         plt.show()
         
-        print('\n--- OPTIMIZATION ERROR ---')
+        print('\n--- TESTING SET ERROR ---')
         print(error[i*len(list_layers)+j].sum()/len(test_inputs))
 
         qnn_times = qnn.qnn_profiling.avg_times()
@@ -143,6 +143,7 @@ for i in range(len(list_N)):
         print(f'\tNumber of perfect matchings per expression: {len(qnn.perf_matchings)}')
         print(f'\t{len(qnn.perf_matchings)*len(qnn.ladder_modes)*len(qnn.ladder_modes[0])} total summations with {qnn.layers + 1} products per summation.')
         
+        qnn.print_qnn()
         qnn.qnn_profiling.clear_times()
         qnn.save_model(qnn.model_name + ".txt")
         
