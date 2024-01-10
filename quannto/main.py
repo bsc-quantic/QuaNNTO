@@ -19,7 +19,7 @@ def callback(xk):
 
 # === HYPERPARAMETERS DEFINITION ===
 list_N = [2]
-list_layers = [1]
+list_layers = [2]
 
 cv_qnns = []
 final_pars = []
@@ -127,10 +127,11 @@ for i in range(len(list_N)):
         print(error[i*len(list_layers)+j].sum()/len(test_inputs))
 
         qnn_times = qnn.qnn_profiling.avg_times()
-        print('\nTime usage per stage:')
+        print('\nAverage time usage per stage:')
         total_time = sum(list(qnn_times.values()))
         for part_time in qnn_times:
             print(f'\t {part_time}: {np.round(100 * qnn_times[part_time] / total_time, 3)} %')
+        print(f'\nTotal average time: {total_time}')
         plt.figure(figsize=(14,5))
         plt.bar(list(qnn_times.keys()), list(qnn_times.values()), color ='maroon')
         plt.xlabel("Time category")
