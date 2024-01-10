@@ -184,12 +184,12 @@ class QNN:
         for i in range(len(self.Q1_layers)):
             print(f"Ladder operators superposition {i} symp-orth matrices:\n{self.Q1_layers[i]} and {self.Q2_layers[i]}")
         
-    def serialize_model(self, filename):
+    def save_model(self, filename):
         f = open(filename, 'w')
         f.write(jsonpickle.encode(self))
         f.close()
     
-    def deserialize_model(filename):
+    def load_model(filename):
         with open(filename, 'r') as f:
             qnn_str = jsonpickle.decode(f.read())
         return qnn_str
