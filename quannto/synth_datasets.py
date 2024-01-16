@@ -1,46 +1,34 @@
 import numpy as np
 
-def f1_2var(inputs):
-    #return 0.7*inputs[0]**3 + 1.7*inputs[0]**2 + 2.4*inputs[0] + 5
-    #return 0.2*inputs[0]**5 + 0.3*inputs[0]**4 + 0.7*inputs[0]**3 + 1.7*inputs[0]**2 + 2.4*inputs[0] + 5
-    #return 0.3 * (inputs[0]**np.log(inputs[0] + 1))
-    return 0.08*inputs[0]**7 + 0.12*inputs[0]**6 + 0.2*inputs[0]**5 + 1.1*inputs[0]**4 + 0.7*inputs[0]**3 + 1.7*inputs[0]**2 + 2.4*inputs[0] + 5
-    #return 2.5*inputs[0]**2 + 1.2*inputs[1]**2 + 0.5*inputs[0]*inputs[1] + 3 #TESTED!
-    #return 0.5*inputs[0]**3 + 0.2*inputs[1]**3 + 1.1*inputs[1]**2 + 0.6*inputs[0]**2 + 0.5*inputs[0]*inputs[1] + 3
+def test_function_1in_1out(inputs):
+    return 0.7*inputs[0]**3 + 1.7*inputs[0]**2 + 2.4*inputs[0] + 5
     
-def f1_2var_generate_dataset(N, num_samples, start, end):
-    n_in = 1
-    inputs = np.zeros((num_samples, n_in))
+def test_function_2in_1out(inputs):
+    return 2.5*inputs[0]**2 + 1.2*inputs[1]**2 + 0.5*inputs[0]*inputs[1] + 3
+    
+def generate_dataset_of(target_function, num_inputs, num_samples, input_range, output_range, in_norm_range, out_norm_range):
+    inputs = np.zeros((num_samples, num_inputs))
     outputs = np.zeros((num_samples))
-
-    norm_range = (5, 10)
-    for i in range(num_samples):
-        rand_inputs = np.random.uniform(low=start, high=end, size=(n_in))
-        inputs[i] = norm_range[0] + norm_range[1] * (rand_inputs - start) / (end - start) #NORMALIZED INPUTS
-        #inputs[i] = rand_inputs
-        #outputs[i] = f1_2var(inputs[i])
-        outputs[i] = f1_2var(rand_inputs)
-    min_outputs = f1_2var(np.ones((n_in))*start) # f MUST BE MONOTONIC INCREASING
-    max_outputs = f1_2var(np.ones((n_in))*end)
-    outputs = norm_range[0] + norm_range[1] * (outputs - min_outputs) / (max_outputs - min_outputs)
     
-    return inputs, outputs
+    for i in range(num_samples):
+        rand_inputs = np.random.uniform(low=input_range[0], high=input_range[1], size=(num_inputs))
+        inputs[i] = in_norm_range[0] + (in_norm_range[1] - in_norm_range[0]) * (rand_inputs - input_range[0]) / (input_range[1] - input_range[0])
+        outputs[i] = target_function(rand_inputs)
+    outputs = out_norm_range[0] + (out_norm_range[1] - out_norm_range[0]) * (outputs - output_range[0]) / (output_range[1] - output_range[0])
+    
+    return [inputs, outputs]
 
-def f1_2var_linear_dataset(N, num_samples, start, end):
-    n_in = 1
-    inputs = np.zeros((num_samples, n_in))
+def generate_linear_dataset_of(target_function, num_inputs, num_samples, input_range, output_range, in_norm_range, out_norm_range):
+    inputs = np.zeros((num_samples, num_inputs))
     outputs = np.zeros((num_samples))
-    lin_space = np.linspace(start,end,num_samples)
-    norm_range = (5, 10)
-    for i in range(num_samples):
-        inputs[i] = norm_range[0] + norm_range[1] * (lin_space[i] - lin_space[0]) / (lin_space[-1] - lin_space[0])
-        #inputs[i] = (np.random.uniform(low=start, high=end, size=(N)) - start) / (end - start) #NORMALIZED INPUTS
-        outputs[i] = f1_2var([lin_space[i]]*n_in)
-    min_outputs = f1_2var(np.ones((n_in))*start)
-    max_outputs = f1_2var(np.ones((n_in))*end)
-    outputs = norm_range[0] + norm_range[1] * (outputs - min_outputs) / (max_outputs - min_outputs)   
+    lin_space = np.linspace(input_range[0], input_range[1], num_samples)
     
-    return inputs, outputs
+    for i in range(num_samples):
+        inputs[i] = in_norm_range[0] + (in_norm_range[1] - in_norm_range[0]) * (lin_space[i] - input_range[0]) / (input_range[1] - input_range[0])
+        outputs[i] = target_function([lin_space[i]]*num_inputs)
+    outputs = out_norm_range[0] + (out_norm_range[1] - out_norm_range[0]) * (outputs - output_range[0]) / (output_range[1] - output_range[0])
+    
+    return [inputs, outputs]
 
 def bubblesort(inputs, outputs):
     array = np.copy(outputs)
