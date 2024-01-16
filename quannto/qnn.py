@@ -116,7 +116,7 @@ class QNN:
             S_commutator[i] = self.Q2_layers[i] @ Z_input @ self.Q1_layers[i]
         return get_symplectic_coefs(self.N, S_commutator, self.ladder_modes_norm, self.ladder_types_norm)
 
-    @njit(parallel=True)
+    @njit
     def exp_val_non_gaussianity(ladder_modes, ladder_types, perf_matchings,
                                 ladder_modes_norm, ladder_types_norm, perf_matchings_norm, 
                                 trace_coefs, K_exp_vals):
