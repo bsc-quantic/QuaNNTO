@@ -1,150 +1,139 @@
 import numpy as np
+import time
 import matplotlib.pyplot as plt
 import scipy.optimize as opt
 from functools import partial
 
 from qnn import QNN
-from synth_datasets import f1_2var_generate_dataset, f1_2var_linear_dataset, bubblesort, print_dataset
+from synth_datasets import *
 
-def callback(xk):
-    '''
-    Callback function that prints and stores the MSE error value for each QNN training epoch.
+def plot_qnn_testing(qnn, exp_outputs, qnn_outputs):
+    plt.plot(exp_outputs, 'go', label='Expected results')
+    plt.plot(qnn_outputs, 'r', label='QNN results')
+    plt.title(f'TESTING SET\nModel: {qnn.model_name}, Modes = {qnn.N}, Layers = {qnn.layers}')
+    plt.legend()
+    plt.show()
     
-    :param xk: QNN tunable parameters
-    '''
-    e = training_QNN(xk)
-    print(e)
-    total_error.append(e)
+def plot_qnn_train_results(qnn, exp_outputs, qnn_outputs, loss_values):
+    fig, (ax1, ax2) = plt.subplots(1, 2)
+    fig.suptitle(f'TRAINING SET\nModel: {qnn.model_name}, Modes = {qnn.N}, Layers = {qnn.layers}')
+    
+    # Plot expected vs obtained outputs of the training set
+    ax1.plot(exp_outputs,'go',label='Expected results')
+    ax1.plot(qnn_outputs,'r',label='QNN results')
+    ax1.legend()
+    
+    # Plot training loss values
+    ax2.plot(np.log(np.array(loss_values)+1), 'r', label='Loss (logarithmic) function')
+    ax2.set_ylim(bottom=0)
+    ax2.legend()
+    plt.show()
+    
+def show_times(qnn):
+    qnn_times = qnn.qnn_profiling.avg_times()
+    print('\nAverage time usage per stage:')
+    total_time = sum(list(qnn_times.values()))
+    for part_time in qnn_times:
+        print(f'\t {part_time}: {np.round(100 * qnn_times[part_time] / total_time, 3)} %')
+    print(f'\nTotal average time per iteration: {total_time}')
+    plt.figure(figsize=(14,5))
+    plt.bar(list(qnn_times.keys()), list(qnn_times.values()), color ='maroon')
+    plt.xlabel("Time category")
+    plt.ylabel("Time (s)")
+    plt.title("QNN training times")
+    plt.show()
+
+    print(f'\nTotal number of training iterations: {len(qnn.qnn_profiling.gauss_times)}')
+    print(f'\tNumber of trace expressions: {len(qnn.ladder_modes)*len(qnn.ladder_modes[0])}')
+    print(f'\tNumber of perfect matchings per expression: {len(qnn.perf_matchings)}')
+    print(f'\t{len(qnn.perf_matchings)*len(qnn.ladder_modes)*len(qnn.ladder_modes[0])} total summations with {qnn.layers + 1} products per summation.')
+    
+def test_model(qnn, testing_dataset):
+    error = np.zeros((len(testing_dataset[0])))
+    qnn_outputs = np.zeros((len(testing_dataset[0])))
+    
+    # Ascending order of the outputs 
+    test_inputs, test_outputs = bubblesort(testing_dataset[0], testing_dataset[1])
+    
+    # Evaluate all testing set
+    for k in range(len(test_inputs)):
+        qnn_outputs[k] = np.real_if_close(qnn.eval_QNN(test_inputs[k]).sum())
+        error[k] = (test_outputs[k] - qnn_outputs[k])**2
+    mean_error = error.sum()/len(error)
+    print(f"MSE: {mean_error}")
+    
+    return qnn_outputs
+    
+def build_and_train_model(name, N, layers, observable_modes, observable_types, dataset, init_pars=None):
+    if init_pars == None:
+        init_pars = np.random.rand((layers-1)*(2*N**2) + 2*(N**2) + N)
+    else:
+        assert len(init_pars) == (layers-1)*(2*N**2) + 2*(N**2) + N
+    
+    def callback(xk):
+        '''
+        Callback function that prints and stores the MSE error value for each QNN training epoch.
+        
+        :param xk: QNN tunable parameters
+        '''
+        e = training_QNN(xk)
+        print(e)
+        loss_values.append(e)
+    
+    qnn = QNN("model_N" + str(N) + "_L" + str(layers) + "_" + name,
+              N, layers, observable_modes, observable_types)
+    
+    train_inputs, train_outputs = dataset[0], dataset[1]
+    
+    loss_values = []
+    training_QNN = partial(qnn.train_QNN, inputs_dataset=train_inputs, outputs_dataset=train_outputs)
+    training_start = time.time()
+    result = opt.minimize(training_QNN, init_pars, method='L-BFGS-B', callback=callback)
+    print(f'Total training time: {time.time() - training_start} seconds')
+    
+    print(f'\nOPTIMIZATION ERROR FOR N={N}, L={layers}')
+    print(result.fun)
+    
+    qnn.build_QNN(result.x)
+    
+    qnn_outputs = test_model(qnn, dataset)
+    plot_qnn_train_results(qnn, dataset[1], qnn_outputs, loss_values)
+    show_times(qnn)
+    
+    qnn.print_qnn()
+    qnn.qnn_profiling.clear_times()
+    qnn.save_model(qnn.model_name + ".txt")
+    
+    return qnn
     
 
 # === HYPERPARAMETERS DEFINITION ===
-list_N = [2]
-list_layers = [2]
+N = 2
+layers = 3
+observable_modes = [[0,0], [1,1]]#, [2,2], [3,3]]
+observable_types = [[1,0], [1,0]]#, [1,0], [1,0]]
 
-cv_qnns = []
-final_pars = []
-dataset_inputs = []
-dataset_outputs = []
-list_loss = []
-parameters = []
-observable_modes = []
-observable_types = []
+# === SYNTHETIC DATASET PARAMETERS ===
+dataset_size = 50
+target_function = test_function_1in_1out
+num_inputs = 1
+# Minimum and maximum values the inputs/outputs can take
+input_range = (1, 50)
+output_range = (target_function([input_range[0]]), target_function([input_range[1]]))
+# Minimum and maximum values the inputs/outputs are normalized between
+in_norm_range = (2, 10)
+out_norm_range = (5, 15)
 
-dataset_size = 40
-min_sample = 10
-max_sample = 5000
+# 1. Generate, sort ascending-wise and print a dataset of the target function to be trained
+dataset = generate_dataset_of(target_function, num_inputs, dataset_size, input_range, output_range, in_norm_range, out_norm_range)
+sorted_inputs, sorted_outputs = bubblesort(dataset[0], dataset[1])
+print_dataset(sorted_inputs, sorted_outputs)
 
-for N in list_N:
-    for layers in list_layers:
-        parameters.append(np.random.rand((layers-1)*(2*N**2) + 2*(N**2) + N))
-        print(f'\n\n===== PARAMETERS FOR N={N}, l={layers} =====')
-        print(parameters)
-        
-        train_inputs, train_outputs = f1_2var_generate_dataset(N, dataset_size, min_sample, max_sample)
-        sorted_inputs, sorted_outputs = bubblesort(train_inputs, train_outputs)
-        print_dataset(sorted_inputs, sorted_outputs)
-        
-        dataset_inputs.append(sorted_inputs)
-        dataset_outputs.append(sorted_outputs)
-        
-        # One photon addition on mode 0 and two-mode observable = 6 ladder operators
-        # OBSERVABLE: Number operator of first and second mode -> (a1*a1) + (a2*a2)
-        observable_modes.append([[0,0], [1,1]])#, [2,2], [3,3]])
-        observable_types.append([[1,0], [1,0]])#, [1,0], [1,0]])
-        
-        
-# === QNN TRAINING ===
-nn_idx = 0
-for N in list_N:
-    for layers in list_layers:
-        print(f'\n\n===== FOR N={N}, l={layers} =====')
+# 2. Build the QNN and train it with the generated dataset
+qnn = build_and_train_model("1in_1out_3degree", N, layers, observable_modes, observable_types, [sorted_inputs, sorted_outputs])
 
-        cv_qnns.append(QNN("model_N" + str(N) + "_L" + str(layers),
-                           N, layers, observable_modes[nn_idx], observable_types[nn_idx]))
-        
-        total_error = []
-        training_QNN = partial(cv_qnns[nn_idx].train_QNN, inputs_dataset=dataset_inputs[nn_idx], outputs_dataset=dataset_outputs[nn_idx])
-        result = opt.minimize(training_QNN, parameters[nn_idx], method='L-BFGS-B', callback=callback)#, tol=1e-5))#, options=options))
-        #minimizer_kwargs = {"method": "L-BFGS-B", "tol": 1e-5, "options": options}
-        #result = opt.basinhopping(training_energy, m,minimizer_kwargs=minimizer_kwargs, niter=30)#, niter=1000)
-        
-        print(f'\nOPTIMIZATION ERROR FOR N={N}, L={layers}')
-        print(result.fun)
-        
-        final_pars.append(result.x)
-        list_loss.append(total_error)
-        
-        nn_idx += 1
-        
-        
-# === QNN TESTING ===
-qnns_outputs = np.zeros((len(list_N)*len(list_layers), dataset_size))
-error = np.zeros((len(list_N)*len(list_layers), dataset_size))
+# 3. Generate a testing linearly-separed dataset of the target function to test the trained QNN
+testing_set = generate_linear_dataset_of(target_function, num_inputs, dataset_size, input_range, output_range, in_norm_range, out_norm_range)
+qnn_test_outputs = test_model(qnn, [testing_set[0], testing_set[1]])
+plot_qnn_testing(qnn, testing_set[1], qnn_test_outputs)
 
-for i in range(len(list_N)):
-    N = list_N[i]
-    modes = N
-    for j in range(len(list_layers)):
-        layers = list_layers[j]
-
-        # Training set
-        #test_inputs = dataset_inputs[i*len(list_layers)+j]
-        #test_outputs = dataset_outputs[i*len(list_layers)+j]
-
-        # Testing set
-        #test_inputs, test_outputs = f1_2var_generate_dataset(N, dataset_size, min_sample, max_sample)
-        test_inputs, test_outputs = f1_2var_linear_dataset(N, dataset_size, min_sample, max_sample)
-
-        # Ascending order of the outputs 
-        test_inputs, test_outputs = bubblesort(test_inputs, test_outputs)
-
-        # Build the QNN with the trained parameters
-        qnn = cv_qnns[i*len(list_layers)+j]
-        
-        params = final_pars[i*len(list_layers)+j]
-        qnn.build_QNN(params)
-
-        # Test the trained QNN
-        for k in range(len(test_inputs)):
-            qnn_output = np.real_if_close(qnn.eval_QNN(test_inputs[k]).sum())
-            qnns_outputs[i*len(list_layers)+j, k] = qnn_output
-            error[i*len(list_layers)+j, k] = (test_outputs[k] - qnn_output)**2
-        
-        # Plot results    
-        plt.plot(test_outputs,'go',label='Expected results')
-        plt.plot(qnns_outputs[i*len(list_layers)+j],'r',label='QNN results')
-        plt.title(f'Modes = {list_N[i]}, Layers = {list_layers[j]}')
-        plt.legend()
-        plt.show()
-        
-        plt.plot(np.log(np.array(list_loss[i*len(list_layers)+j])+1), 'r', label='Loss (logarithmic) function')
-        plt.title(f'Modes = {list_N[i]}, Layers = {list_layers[j]}')
-        plt.gca().set_ylim(bottom=0)
-        plt.legend()
-        plt.show()
-        
-        print('\n--- TESTING SET ERROR ---')
-        print(error[i*len(list_layers)+j].sum()/len(test_inputs))
-
-        qnn_times = qnn.qnn_profiling.avg_times()
-        print('\nAverage time usage per stage:')
-        total_time = sum(list(qnn_times.values()))
-        for part_time in qnn_times:
-            print(f'\t {part_time}: {np.round(100 * qnn_times[part_time] / total_time, 3)} %')
-        print(f'\nTotal average time: {total_time}')
-        plt.figure(figsize=(14,5))
-        plt.bar(list(qnn_times.keys()), list(qnn_times.values()), color ='maroon')
-        plt.xlabel("Time category")
-        plt.ylabel("Time (s)")
-        plt.title("QNN training times")
-        plt.show()
-
-        print(f'\nTotal number of training iterations: {len(qnn.qnn_profiling.gauss_times)}')
-        print(f'\tNumber of trace expressions: {len(qnn.ladder_modes)*len(qnn.ladder_modes[0])}')
-        print(f'\tNumber of perfect matchings per expression: {len(qnn.perf_matchings)}')
-        print(f'\t{len(qnn.perf_matchings)*len(qnn.ladder_modes)*len(qnn.ladder_modes[0])} total summations with {qnn.layers + 1} products per summation.')
-        
-        qnn.print_qnn()
-        qnn.qnn_profiling.clear_times()
-        qnn.save_model(qnn.model_name + ".txt")
-        
