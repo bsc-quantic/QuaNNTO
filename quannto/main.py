@@ -124,13 +124,16 @@ output_range = (target_function([input_range[0]]), target_function([input_range[
 in_norm_range = (2, 10)
 out_norm_range = (5, 15)
 
+# Name for the model
+model_name = target_function.__name__
+
 # 1. Generate, sort ascending-wise and print a dataset of the target function to be trained
 dataset = generate_dataset_of(target_function, num_inputs, dataset_size, input_range, output_range, in_norm_range, out_norm_range)
 sorted_inputs, sorted_outputs = bubblesort(dataset[0], dataset[1])
 print_dataset(sorted_inputs, sorted_outputs)
 
 # 2. Build the QNN and train it with the generated dataset
-qnn = build_and_train_model("1in_1out_3degree", N, layers, observable_modes, observable_types, [sorted_inputs, sorted_outputs])
+qnn = build_and_train_model(model_name, N, layers, observable_modes, observable_types, [sorted_inputs, sorted_outputs])
 
 # 3. Generate a testing linearly-separed dataset of the target function to test the trained QNN
 testing_set = generate_linear_dataset_of(target_function, num_inputs, dataset_size, input_range, output_range, in_norm_range, out_norm_range)
