@@ -127,8 +127,9 @@ output_range = get_outputs_range(generate_linear_dataset_of(target_function, num
 in_norm_range = (2, 10)
 out_norm_range = (5, 15)
 
-# Name for the model
 model_name = target_function.__name__
+testing_set_size = 500
+# ===================================
 
 # 1. Generate, sort ascending-wise and print a dataset of the target function to be trained
 dataset = generate_dataset_of(target_function, num_inputs, dataset_size, input_range)
@@ -141,7 +142,7 @@ print_dataset(sorted_inputs, sorted_outputs)
 qnn = build_and_train_model(model_name, N, layers, observable_modes, observable_types, [sorted_inputs, sorted_outputs])
 
 # 3. Generate a testing linearly-separed dataset of the target function to test the trained QNN
-testing_set = generate_linear_dataset_of(target_function, num_inputs, dataset_size, input_range)
+testing_set = generate_linear_dataset_of(target_function, num_inputs, testing_set_size, input_range)
 norm_test_set = normalize_dataset(testing_set, input_range, output_range, in_norm_range, out_norm_range)
 qnn_test_outputs = test_model(qnn, [norm_test_set[0], norm_test_set[1]])
 plot_qnn_testing(qnn, testing_set[1], denormalize_outputs(qnn_test_outputs, output_range, out_norm_range))
