@@ -122,8 +122,7 @@ target_function = test_function_1in_1out
 num_inputs = 1
 # Minimum and maximum values the inputs/outputs can take
 input_range = (1, 50)
-# NOTE: Only valid for monotonic-increasing functions
-output_range = (target_function([input_range[0]]*num_inputs), target_function([input_range[1]]*num_inputs))
+output_range = get_outputs_range(generate_linear_dataset_of(target_function, num_inputs, dataset_size*20, input_range)[1])
 # Minimum and maximum values the inputs/outputs are normalized between
 in_norm_range = (2, 10)
 out_norm_range = (5, 15)
@@ -140,12 +139,10 @@ print_dataset(sorted_inputs, sorted_outputs)
 
 # 2. Build the QNN and train it with the generated dataset
 qnn = build_and_train_model(model_name, N, layers, observable_modes, observable_types, [sorted_inputs, sorted_outputs])
-#qnn = QNN.load_model("model_N2_L2_1in_1out_3degree.txt")
 
 # 3. Generate a testing linearly-separed dataset of the target function to test the trained QNN
 testing_set = generate_linear_dataset_of(target_function, num_inputs, dataset_size, input_range)
 norm_test_set = normalize_dataset(testing_set, input_range, output_range, in_norm_range, out_norm_range)
 qnn_test_outputs = test_model(qnn, [norm_test_set[0], norm_test_set[1]])
-plot_qnn_testing(qnn, norm_test_set[1], qnn_test_outputs)
 plot_qnn_testing(qnn, testing_set[1], denormalize_outputs(qnn_test_outputs, output_range, out_norm_range))
 

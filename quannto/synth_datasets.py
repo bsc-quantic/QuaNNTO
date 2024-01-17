@@ -52,6 +52,9 @@ def normalize_dataset(dataset, input_range, output_range, in_norm_range, out_nor
 def denormalize_outputs(norm_outputs, output_range, out_norm_range):
     return output_range[0] + (output_range[1] - output_range[0]) * (norm_outputs - out_norm_range[0]) / (out_norm_range[1] - out_norm_range[0])
 
+def get_outputs_range(dataset_outputs):
+    return (np.min(dataset_outputs), np.max(dataset_outputs))
+
 def bubblesort(inputs, outputs):
     array = np.copy(outputs)
     inp = np.copy(inputs)
