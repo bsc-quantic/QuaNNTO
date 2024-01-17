@@ -147,4 +147,5 @@ testing_set = generate_linear_dataset_of(target_function, num_inputs, dataset_si
 norm_test_set = normalize_dataset(testing_set, input_range, output_range, in_norm_range, out_norm_range)
 qnn_test_outputs = test_model(qnn, [norm_test_set[0], norm_test_set[1]])
 plot_qnn_testing(qnn, norm_test_set[1], qnn_test_outputs)
+plot_qnn_testing(qnn, testing_set[1], denormalize_outputs(qnn_test_outputs, output_range, out_norm_range))
 

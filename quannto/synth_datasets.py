@@ -49,6 +49,9 @@ def normalize_dataset(dataset, input_range, output_range, in_norm_range, out_nor
         
     return [norm_inputs, norm_outputs]
 
+def denormalize_outputs(norm_outputs, output_range, out_norm_range):
+    return output_range[0] + (output_range[1] - output_range[0]) * (norm_outputs - out_norm_range[0]) / (out_norm_range[1] - out_norm_range[0])
+
 def bubblesort(inputs, outputs):
     array = np.copy(outputs)
     inp = np.copy(inputs)
