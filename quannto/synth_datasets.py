@@ -5,7 +5,16 @@ def test_function_1in_1out(inputs):
     
 def test_function_2in_1out(inputs):
     return 2.5*inputs[0]**2 + 1.2*inputs[1]**2 + 0.5*inputs[0]*inputs[1] + 3
-    
+
+def log_function_1in_1out(inputs):
+    return 2 + 5*np.log(inputs[0])/inputs[0]
+
+def hyperbola_1in_1out(inputs):
+    return 1 + 2/inputs[0]
+
+def exp_1in_1out(inputs):
+    return np.e**inputs[0] + 1
+
 def generate_dataset_of(target_function, num_inputs, num_samples, input_range, output_range, in_norm_range, out_norm_range):
     inputs = np.zeros((num_samples, num_inputs))
     outputs = np.zeros((num_samples))
