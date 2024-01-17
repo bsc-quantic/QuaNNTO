@@ -15,29 +15,39 @@ def hyperbola_1in_1out(inputs):
 def exp_1in_1out(inputs):
     return np.e**inputs[0] + 1
 
-def generate_dataset_of(target_function, num_inputs, num_samples, input_range, output_range, in_norm_range, out_norm_range):
+def generate_dataset_of(target_function, num_inputs, num_samples, input_range):
     inputs = np.zeros((num_samples, num_inputs))
     outputs = np.zeros((num_samples))
     
     for i in range(num_samples):
-        rand_inputs = np.random.uniform(low=input_range[0], high=input_range[1], size=(num_inputs))
-        inputs[i] = in_norm_range[0] + (in_norm_range[1] - in_norm_range[0]) * (rand_inputs - input_range[0]) / (input_range[1] - input_range[0])
-        outputs[i] = target_function(rand_inputs)
-    outputs = out_norm_range[0] + (out_norm_range[1] - out_norm_range[0]) * (outputs - output_range[0]) / (output_range[1] - output_range[0])
+        inputs[i] =  np.random.uniform(low=input_range[0], high=input_range[1], size=(num_inputs))
+        outputs[i] = target_function(inputs[i])
     
     return [inputs, outputs]
 
-def generate_linear_dataset_of(target_function, num_inputs, num_samples, input_range, output_range, in_norm_range, out_norm_range):
+def generate_linear_dataset_of(target_function, num_inputs, num_samples, input_range):
     inputs = np.zeros((num_samples, num_inputs))
     outputs = np.zeros((num_samples))
-    lin_space = np.linspace(input_range[0], input_range[1], num_samples)
+    input_lin_sp = np.linspace(input_range[0], input_range[1], num_samples)
     
     for i in range(num_samples):
-        inputs[i] = in_norm_range[0] + (in_norm_range[1] - in_norm_range[0]) * (lin_space[i] - input_range[0]) / (input_range[1] - input_range[0])
-        outputs[i] = target_function([lin_space[i]]*num_inputs)
-    outputs = out_norm_range[0] + (out_norm_range[1] - out_norm_range[0]) * (outputs - output_range[0]) / (output_range[1] - output_range[0])
+        inputs[i] = np.array([input_lin_sp[i]]*num_inputs)
+        outputs[i] = target_function(inputs[i])
     
     return [inputs, outputs]
+
+def normalize_dataset(dataset, input_range, output_range, in_norm_range, out_norm_range):
+    inputs, outputs = dataset[0], dataset[1]
+    num_samples = len(inputs)
+    
+    norm_inputs = np.zeros((num_samples, len(inputs[0])))
+    norm_outputs = np.zeros((num_samples))
+    
+    for i in range(num_samples):
+        norm_inputs[i] = in_norm_range[0] + (in_norm_range[1] - in_norm_range[0]) * (inputs[i] - input_range[0]) / (input_range[1] - input_range[0])
+        norm_outputs[i] = out_norm_range[0] + (out_norm_range[1] - out_norm_range[0]) * (outputs[i] - output_range[0]) / (output_range[1] - output_range[0])
+        
+    return [norm_inputs, norm_outputs]
 
 def bubblesort(inputs, outputs):
     array = np.copy(outputs)

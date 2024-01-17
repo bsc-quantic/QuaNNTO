@@ -48,12 +48,15 @@ def show_times(qnn):
     print(f'\tNumber of perfect matchings per expression: {len(qnn.perf_matchings)}')
     print(f'\t{len(qnn.perf_matchings)*len(qnn.ladder_modes)*len(qnn.ladder_modes[0])} total summations with {qnn.layers + 1} products per summation.')
     
-def test_model(qnn, testing_dataset):
+def test_model(qnn, testing_dataset, sort=False):
     error = np.zeros((len(testing_dataset[0])))
     qnn_outputs = np.zeros((len(testing_dataset[0])))
     
-    # Ascending order of the outputs 
-    test_inputs, test_outputs = bubblesort(testing_dataset[0], testing_dataset[1])
+    if sort:
+        # Ascending order of the outputs 
+        test_inputs, test_outputs = bubblesort(testing_dataset[0], testing_dataset[1])
+    else:
+        test_inputs, test_outputs = testing_dataset[0], testing_dataset[1]
     
     # Evaluate all testing set
     for k in range(len(test_inputs)):
@@ -96,7 +99,7 @@ def build_and_train_model(name, N, layers, observable_modes, observable_types, d
     
     qnn.build_QNN(result.x)
     
-    qnn_outputs = test_model(qnn, dataset)
+    qnn_outputs = test_model(qnn, dataset, sort=True)
     plot_qnn_train_results(qnn, dataset[1], qnn_outputs, loss_values)
     show_times(qnn)
     
@@ -109,7 +112,7 @@ def build_and_train_model(name, N, layers, observable_modes, observable_types, d
 
 # === HYPERPARAMETERS DEFINITION ===
 N = 2
-layers = 3
+layers = 2
 observable_modes = [[0,0], [1,1]]#, [2,2], [3,3]]
 observable_types = [[1,0], [1,0]]#, [1,0], [1,0]]
 
@@ -119,7 +122,8 @@ target_function = test_function_1in_1out
 num_inputs = 1
 # Minimum and maximum values the inputs/outputs can take
 input_range = (1, 50)
-output_range = (target_function([input_range[0]]), target_function([input_range[1]]))
+# NOTE: Only valid for monotonic-increasing functions
+output_range = (target_function([input_range[0]]*num_inputs), target_function([input_range[1]]*num_inputs))
 # Minimum and maximum values the inputs/outputs are normalized between
 in_norm_range = (2, 10)
 out_norm_range = (5, 15)
@@ -128,15 +132,19 @@ out_norm_range = (5, 15)
 model_name = target_function.__name__
 
 # 1. Generate, sort ascending-wise and print a dataset of the target function to be trained
-dataset = generate_dataset_of(target_function, num_inputs, dataset_size, input_range, output_range, in_norm_range, out_norm_range)
-sorted_inputs, sorted_outputs = bubblesort(dataset[0], dataset[1])
+dataset = generate_dataset_of(target_function, num_inputs, dataset_size, input_range)
+norm_dataset = normalize_dataset(dataset, input_range, output_range, in_norm_range, out_norm_range)
+sorted_inputs, sorted_outputs = bubblesort(norm_dataset[0], norm_dataset[1])
+#sorted_inputs, sorted_outputs = dataset[0], dataset[1]
 print_dataset(sorted_inputs, sorted_outputs)
 
 # 2. Build the QNN and train it with the generated dataset
 qnn = build_and_train_model(model_name, N, layers, observable_modes, observable_types, [sorted_inputs, sorted_outputs])
+#qnn = QNN.load_model("model_N2_L2_1in_1out_3degree.txt")
 
 # 3. Generate a testing linearly-separed dataset of the target function to test the trained QNN
-testing_set = generate_linear_dataset_of(target_function, num_inputs, dataset_size, input_range, output_range, in_norm_range, out_norm_range)
-qnn_test_outputs = test_model(qnn, [testing_set[0], testing_set[1]])
-plot_qnn_testing(qnn, testing_set[1], qnn_test_outputs)
+testing_set = generate_linear_dataset_of(target_function, num_inputs, dataset_size, input_range)
+norm_test_set = normalize_dataset(testing_set, input_range, output_range, in_norm_range, out_norm_range)
+qnn_test_outputs = test_model(qnn, [norm_test_set[0], norm_test_set[1]])
+plot_qnn_testing(qnn, norm_test_set[1], qnn_test_outputs)
 
