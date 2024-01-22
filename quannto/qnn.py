@@ -231,7 +231,8 @@ def test_model(qnn, testing_dataset):
     
 def build_and_train_model(name, N, layers, observable_modes, observable_types, dataset, init_pars=None, save=True):
     '''
-    Creates and trains a QNN model with the given hyperparameters and the input dataset.
+    Creates and trains a QNN model with the given hyperparameters and dataset by optimizing the 
+    tunable parameters of the QNN.
     
     :param name: Name of the model
     :param N: Number of neurons per layer (modes of the quantum system)
