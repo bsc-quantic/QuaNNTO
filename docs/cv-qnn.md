@@ -42,7 +42,7 @@ The equivalent component for the weight matrix will be a Gaussian transformation
 
 $\hat{G} = \hat{\mathcal{U}_2} \hat{\mathcal{S}} \hat{\mathcal{U}_1}$,
 
-where the passive-optics operators $\hat{\mathcal{U}}$ map the covariance matrix of the system by acting congruently on it with symplectic-orthogonal representation $Q$:
+where the passive-optics operators $\hat{\mathcal{U}}$ map the covariance matrix of the system by acting congruently on it with its symplectic-orthogonal representation $Q$:
 
 $\hat{\mathcal{U}}: \sigma \rightarrow Q \sigma Q^T$  where $Q = \begin{pmatrix}
 X & Y \\
@@ -56,7 +56,7 @@ $\mathcal{\hat{S}}: \sigma \rightarrow Z \sigma Z^T$ with $Z=diag(z_1,...,z_N, z
 
 As any symplectic matrix $S$ can be decomposed as $S = Q_2 Z Q_1$, this results into the fact that the Gaussian operator $\hat G$ transforms the covariance matrix of the quantum system it acts onto with it symplectic representation:
 
-$\hat{G}: \sigma \rightarrow S\sigma S^T \equiv \sigma \rightarrow Q_2ZQ_1 \ \sigma \ Q_2^T Z Q_1^T$.
+$\hat{G}: \sigma \rightarrow S\sigma S^T \equiv \sigma \rightarrow Q_2ZQ_1 \ \sigma \ Q_1^T Z Q_2^T$.
 
 In conclusion, this last transformation of the covariance matrix of the quantum system would represent the weight matrix of an ANN acting over the inputs.
 
@@ -141,7 +141,7 @@ and recalling the trace expression
 
 $Tr[\hat{a}_i^\dag...\hat{a}_j^\dag \hat{a}_j...\hat{a}_i\rho_G] = \frac{1}{K}\sum\limits_{\mathcal{P}}\prod\limits_{\{p_1,p_2\}\in \mathcal{P}} Tr[\hat{a}^\#_{p_1}\hat{a}^\#_{p_2}\rho_G]$, 
 
-the number of different trace expressions is given by
+the number of different trace expressions of this form is given by
 
 $M\cdot (2N)^{2(L-1)A}$
 
