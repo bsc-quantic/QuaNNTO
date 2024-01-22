@@ -1,9 +1,14 @@
 import numpy as np
 import time
-from utils import *
-from expectation_value import *
 import jsonpickle
 from numba import njit, prange
+import time
+import scipy.optimize as opt
+from functools import partial
+
+from utils import *
+from expectation_value import *
+from results_utils import *
 
 class ProfilingQNN:
     '''
@@ -202,4 +207,81 @@ class QNN:
             qnn_str = jsonpickle.decode(f.read())
         return qnn_str
     
+def test_model(qnn, testing_dataset):
+    '''
+    Makes predictions of the given QNN using the input testing dataset.
+    
+    :param qnn: QNN to be tested
+    :param testing_dataset: List of inputs and outputs to be tested
+    :return: QNN predictions of the testing set
+    '''
+    error = np.zeros((len(testing_dataset[0])))
+    qnn_outputs = np.zeros((len(testing_dataset[0])))
+    
+    test_inputs, test_outputs = testing_dataset[0], testing_dataset[1]
+    
+    # Evaluate all testing set
+    for k in range(len(test_inputs)):
+        qnn_outputs[k] = np.real_if_close(qnn.eval_QNN(test_inputs[k]).sum())
+        error[k] = (test_outputs[k] - qnn_outputs[k])**2
+    mean_error = error.sum()/len(error)
+    print(f"MSE: {mean_error}")
+    
+    return qnn_outputs
+    
+def build_and_train_model(name, N, layers, observable_modes, observable_types, dataset, init_pars=None, save=True):
+    '''
+    Creates and trains a QNN model with the given hyperparameters and the input dataset.
+    
+    :param name: Name of the model
+    :param N: Number of neurons per layer (modes of the quantum system)
+    :param layers: Number of layers
+    :param observable_modes: Observable operator modes
+    :param observable_types: Observable operator ladder types
+    :param dataset: List of inputs and outputs to be learned
+    :param init_pars: Initialization parameters for the QNN
+    :param save: Boolean determining whether to save the model (default=True)
+    :return: Trained QNN model
+    '''
+    if init_pars == None:
+        init_pars = np.random.rand((layers-1)*(2*N**2) + 2*(N**2) + N)
+    else:
+        assert len(init_pars) == (layers-1)*(2*N**2) + 2*(N**2) + N
+    
+    def callback(xk):
+        '''
+        Callback function that prints and stores the MSE error value for each QNN training epoch.
+        
+        :param xk: QNN tunable parameters
+        '''
+        e = training_QNN(xk)
+        print(e)
+        loss_values.append(e)
+    
+    qnn = QNN("model_N" + str(N) + "_L" + str(layers) + "_" + name,
+              N, layers, observable_modes, observable_types)
+    
+    train_inputs, train_outputs = dataset[0], dataset[1]
+    
+    loss_values = []
+    training_QNN = partial(qnn.train_QNN, inputs_dataset=train_inputs, outputs_dataset=train_outputs)
+    training_start = time.time()
+    result = opt.minimize(training_QNN, init_pars, method='L-BFGS-B', callback=callback)
+    print(f'Total training time: {time.time() - training_start} seconds')
+    
+    print(f'\nOPTIMIZATION ERROR FOR N={N}, L={layers}')
+    print(result.fun)
+    
+    qnn.build_QNN(result.x)
+    
+    qnn_outputs = test_model(qnn, dataset)
+    plot_qnn_train_results(qnn, dataset[1], qnn_outputs, loss_values)
+    show_times(qnn)
+    qnn.print_qnn()
+    
+    if save:
+        qnn.qnn_profiling.clear_times()
+        qnn.save_model(qnn.model_name + ".txt")
+    
+    return qnn
 
