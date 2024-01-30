@@ -6,6 +6,9 @@ def test_function_1in_1out(inputs):
 def test_function_2in_1out(inputs):
     return 2.5*inputs[0]**2 + 1.2*inputs[1]**2 + 0.5*inputs[0]*inputs[1] + 3
 
+def test_function_3in_1out(inputs):
+    return 0.45*inputs[2] + 2.5*inputs[0]**2 + 1.2*inputs[2]*inputs[1]**2 + 0.5*inputs[0]*inputs[1] + 3
+
 def log_function_1in_1out(inputs):
     return 2 + 5*np.log(inputs[0])/inputs[0]
 
