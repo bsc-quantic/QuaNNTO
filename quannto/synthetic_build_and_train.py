@@ -9,9 +9,9 @@ observable_modes = [[0,0], [1,1]]
 observable_types = [[1,0], [1,0]]
 
 # === SYNTHETIC DATASET PARAMETERS ===
-dataset_size = 50
 target_function = test_function_1in_1out
 num_inputs = 1
+dataset_size = 50
 # Minimum and maximum values the inputs/outputs can take
 input_range = (1, 50)
 output_range = get_outputs_range(generate_linear_dataset_of(target_function, num_inputs, dataset_size*20, input_range)[1])
@@ -23,7 +23,7 @@ model_name = target_function.__name__
 testing_set_size = 500
 # ===================================
 
-# 1. Generate, sort ascending-wise and print a dataset of the target function to be trained
+# 1. Generate, sort ascending-wise and print a dataset of the target function to be learned
 dataset = generate_dataset_of(target_function, num_inputs, dataset_size, input_range)
 norm_dataset = normalize_dataset(dataset, input_range, output_range, in_norm_range, out_norm_range)
 sorted_inputs, sorted_outputs = bubblesort(norm_dataset[0], norm_dataset[1])
