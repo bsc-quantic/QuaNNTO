@@ -123,7 +123,7 @@ def multilayer_ladder_trace_expression(N, layers):
     #    2.1. Ladder operators superposition
     S = []
     S_dag = []
-    for i in range(layers-1):
+    for i in range(layers):
         tr1 = 0
         tr1_dag = 0
         for j in range(2*N):
@@ -133,9 +133,9 @@ def multilayer_ladder_trace_expression(N, layers):
         S_dag.append(tr1_dag)
 
     #    2.2. Last ladder operator corresponding to the last layer
-    complete_trace = lad[N]*lad[0]
-    for i in range(layers - 1):
-        complete_trace = S_dag[layers - 2 - i]*complete_trace*S[layers - 2 - i]
+    complete_trace = 1
+    for i in range(layers):
+        complete_trace = S_dag[layers - 1 - i]*complete_trace*S[layers - 1 - i]
 
     #    2.3. Arrange the format of the complete expectation value (trace) expression
     complete_trace = expand(complete_trace)
@@ -261,6 +261,7 @@ def symplectic_from_svd(N, Z_params, Q_params_1, Q_params_2):
     return Q2@Z@Q1
 
 
+@njit
 def get_symplectic_coefs(N, S, ladder_modes, ladder_types):
     '''
     Computes the coefficient of each term contained in the non-Gaussian state expression given 
@@ -275,10 +276,10 @@ def get_symplectic_coefs(N, S, ladder_modes, ladder_types):
     symp_coefs = np.ones((len(ladder_modes), len(ladder_modes[0])))
     if len(S)==0:
         return symp_coefs
-    for i in range(len(ladder_modes)):
-        for j in range(len(ladder_modes[i])):
+    for i in prange(len(ladder_modes)):
+        for j in prange(len(ladder_modes[i])):
             middle = int(len(ladder_modes[i][j])/2) - 1
-            for k in range(middle):
+            for k in prange(middle):
                 symp_coefs[i,j] *= S[k, 0, ladder_modes[i][j][k]+N*ladder_types[i][j][k]]
                 symp_coefs[i,j] *= S[k, 0, ladder_modes[i][j][len(ladder_modes[i][j])-k-1] + N*(1 - ladder_types[i][j][len(ladder_modes[i][j])-k-1])]
             

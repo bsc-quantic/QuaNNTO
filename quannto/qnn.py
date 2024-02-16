@@ -59,8 +59,7 @@ class QNN:
         self.perf_matchings_norm = np.array(perfect_matchings(len(self.ladder_modes_norm[0][0])), dtype='int')
         
         # Full trace expression including the photon additions and the observable to be measured
-        self.ladder_modes, self.ladder_types = include_observable(
-            self.ladder_modes_norm[0], self.ladder_types_norm[0], observable_modes, observable_types)
+        self.ladder_modes, self.ladder_types = include_observable(self.ladder_modes_norm[0], self.ladder_types_norm[0], observable_modes, observable_types)
         self.perf_matchings = np.array(perfect_matchings(len(self.ladder_modes[0][0])), dtype='int')
         
         self.ladder_modes_norm, self.ladder_types_norm = np.array(self.ladder_modes_norm, dtype='int'), np.array(self.ladder_types_norm, dtype='int')
@@ -71,40 +70,35 @@ class QNN:
 
     def build_QNN(self, parameters):
         self.tunable_parameters = np.copy(parameters)
-        self.set_non_gauss_parameters(parameters[:(self.layers-1)*(2*self.N**2)])
-        self.set_gauss_parameters(parameters[(self.layers-1)*(2*self.N**2):])
+        self.set_parameters(parameters)
+        self.trace_coefs = self.non_gauss_symplectic_coefs()
 
-    def set_non_gauss_parameters(self, parameters):
-        self.Q1_layers = np.zeros((self.layers-1, 2*self.N, 2*self.N))
-        self.Q2_layers = np.zeros((self.layers-1, 2*self.N, 2*self.N)) 
-        for i in range(self.layers-1):
-            Q1_params = parameters[i*(2*self.N**2) : i*(2*self.N**2) + self.N**2]
-            H = hermitian_matrix(Q1_params.reshape((self.N, self.N)))
-            U = unitary_from_hermitian(H)
-            self.Q1_layers[i] = np.real_if_close(self.u_bar.to_canonical_op(U))
-    
-            Q2_params = parameters[i*(2*self.N**2) + self.N**2 : (i+1)*(2*self.N**2)]
-            H = hermitian_matrix(Q2_params.reshape((self.N, self.N)))
-            U = unitary_from_hermitian(H)
-            self.Q2_layers[i] = np.real_if_close(self.u_bar.to_canonical_op(U))
-
-    def set_gauss_parameters(self, parameters):
-        # Build passive-optics Q1 and Q2 for the Gaussian transformation
-        H = hermitian_matrix(parameters[:self.N**2].reshape((self.N, self.N)))
-        U = unitary_from_hermitian(H)
-        self.Q1_gauss = np.real_if_close(self.u_bar.to_canonical_op(U))
+    def set_parameters(self, parameters):
+        self.Q1_gauss = np.zeros((self.layers, 2*self.N, 2*self.N))
+        self.Q2_gauss = np.zeros((self.layers, 2*self.N, 2*self.N))
+        self.Z_gauss = np.zeros((self.layers, 2*self.N, 2*self.N))
+        self.G_l = np.zeros((self.layers, 2*self.N, 2*self.N))
+        self.G = np.eye(2*self.N)
         
-        H = hermitian_matrix(parameters[self.N**2 : 2*self.N**2].reshape((self.N, self.N)))
-        U = unitary_from_hermitian(H)
-        self.Q2_gauss = np.real_if_close(self.u_bar.to_canonical_op(U))
-        
-        # Build squeezing diagonal matrix Z
-        sqz_parameters = parameters[2*self.N**2 : 2*self.N**2 + self.N]
-        sqz_inv = 1.0/sqz_parameters
-        self.Z_gauss = np.diag(np.concatenate((sqz_parameters, sqz_inv)))
+        for l in range(self.layers):
+            layer_pars_rng = l*(2*self.N**2 + self.N)
+            # Build passive-optics Q1 and Q2 for the Gaussian transformation
+            H = hermitian_matrix(parameters[layer_pars_rng : layer_pars_rng + self.N**2].reshape((self.N, self.N)))
+            U = unitary_from_hermitian(H)
+            self.Q1_gauss[l] = np.real_if_close(self.u_bar.to_canonical_op(U))
+            
+            H = hermitian_matrix(parameters[layer_pars_rng + self.N**2 : layer_pars_rng + 2*self.N**2].reshape((self.N, self.N)))
+            U = unitary_from_hermitian(H)
+            self.Q2_gauss[l] = np.real_if_close(self.u_bar.to_canonical_op(U))
+            
+            # Build squeezing diagonal matrix Z
+            sqz_parameters = parameters[layer_pars_rng + 2*self.N**2 : layer_pars_rng + (2*self.N**2 + self.N)]
+            sqz_inv = 1.0/sqz_parameters
+            self.Z_gauss[l] = np.diag(np.concatenate((sqz_parameters, sqz_inv)))
 
-        # Build final Gaussian transformation
-        self.G = self.Q2_gauss @ self.Z_gauss @ self.Q1_gauss
+            # Build final Gaussian transformation
+            self.G_l[l] = self.Q2_gauss[l] @ self.Z_gauss[l] @ self.Q1_gauss[l]
+            self.G = self.G_l[l] @ self.G
         
     def squeezing_operator(self, input):
         r = np.ones(self.N)
@@ -114,12 +108,17 @@ class QNN:
 
     def gaussian_transformation(self):
         self.final_gauss_state = self.G @ self.initial_gauss_state @ self.G.T
+        # Input reuploading:
+        #self.final_gauss_state = self.Q2_gauss @ Z_input @ self.Q1_gauss @ self.initial_gauss_state @ self.Q1_gauss.T @ Z_input @ self.Q2_gauss.T
         
-    def non_gauss_symplectic_coefs(self, Z_input):
-        S_commutator = np.zeros((self.layers-1, 2*self.N, 2*self.N))
-        for i in range(self.layers-1):
-            S_commutator[i] = self.Q2_layers[i] @ Z_input @ self.Q1_layers[i]
-        return get_symplectic_coefs(self.N, S_commutator, self.ladder_modes_norm, self.ladder_types_norm)
+    def non_gauss_symplectic_coefs(self):
+        self.S_commutator = np.zeros((self.layers, 2*self.N, 2*self.N))
+        
+        self.S_commutator[self.layers - 1] = np.copy(self.G_l[self.layers - 1])
+        for l in range(self.layers-2, -1, -1):
+            self.S_commutator[l] = self.S_commutator[l + 1] @ self.G_l[l]
+            
+        return get_symplectic_coefs(self.N, self.S_commutator, self.ladder_modes_norm, self.ladder_types_norm)
 
     @njit
     def exp_val_non_gaussianity(ladder_modes, ladder_types, perf_matchings,
@@ -129,6 +128,7 @@ class QNN:
         unnorm_exp_val = np.zeros((len(ladder_modes)), dtype='complex')
         for i in prange(len(ladder_modes)):
             for j in prange(len(ladder_modes[i])):
+                # Always row 0 because the photon addition is on the first mode
                 unnorm_exp_val[i] += trace_coefs[0,j] * ladder_exp_val(
                     perf_matchings, ladder_modes[i][j], ladder_types[i][j], K_exp_vals
                 )
@@ -169,14 +169,13 @@ class QNN:
 
         # 4. Build the symplectic coefficients for ladder operators' superposition with input reuploading
         ladder_superpos_start = time.time()
-        trace_coefs = self.non_gauss_symplectic_coefs(Z_input)
         self.qnn_profiling.ladder_superpos_times.append(time.time() - ladder_superpos_start)
 
         # 5. Compute the observables' normalized expectation value of the non-Gaussianity applied to the final Gaussian state
         nongauss_start = time.time()
         norm_exp_val = QNN.exp_val_non_gaussianity(self.ladder_modes, self.ladder_types, self.perf_matchings, 
                                                    self.ladder_modes_norm, self.ladder_types_norm, self.perf_matchings_norm,
-                                                   trace_coefs, K_exp_vals)
+                                                   self.trace_coefs, K_exp_vals)
         self.qnn_profiling.nongauss_times.append(time.time() - nongauss_start)
         
         return np.real_if_close(norm_exp_val, tol=1e6)
@@ -194,8 +193,8 @@ class QNN:
     
     def print_qnn(self):
         print(f"\nGaussian operator:\nG={self.G}\nQ2={self.Q2_gauss}\nZg={self.Z_gauss}\nQ1={self.Q1_gauss}\n")
-        for i in range(len(self.Q1_layers)):
-            print(f"Layer {i+1} ladder operators superposition symp-orth matrices:\nQ2={self.Q2_layers[i]}\nQ1={self.Q1_layers[i]}\n")
+        for i in range(len(self.S_commutator)):
+            print(f"Layer {i+1} ladder operators superposition symplectic matrices:\nS({i+1})={self.S_commutator[i]}\n")
         
     def save_model(self, filename):
         f = open(filename, 'w')
@@ -245,9 +244,9 @@ def build_and_train_model(name, N, layers, observable_modes, observable_types, d
     :return: Trained QNN model
     '''
     if init_pars == None:
-        init_pars = np.random.rand((layers-1)*(2*N**2) + 2*(N**2) + N)
+        init_pars = np.random.rand(layers*(2*N**2 + N))
     else:
-        assert len(init_pars) == (layers-1)*(2*N**2) + 2*(N**2) + N
+        assert len(init_pars) == layers*(2*N**2 + N)
     
     def callback(xk):
         '''
