@@ -4,9 +4,10 @@ from results_utils import *
 
 # === HYPERPARAMETERS DEFINITION ===
 N = 2
-layers = 2
-observable_modes = [[0,0], [1,1]]
-observable_types = [[1,0], [1,0]]
+layers = 1
+observable_modes = [[0,0]]
+observable_types = [[1,0]]
+is_input_reupload = False
 
 # === SYNTHETIC DATASET PARAMETERS ===
 target_function = test_function_1in_1out
@@ -30,12 +31,12 @@ sorted_inputs, sorted_outputs = bubblesort(norm_dataset[0], norm_dataset[1])
 print_dataset(sorted_inputs, sorted_outputs)
 
 # 2. Build the QNN and train it with the generated dataset
-qnn = build_and_train_model(model_name, N, layers, observable_modes, observable_types, [sorted_inputs, sorted_outputs])
+qnn = build_and_train_model(model_name, N, layers, observable_modes, observable_types, is_input_reupload, [sorted_inputs, sorted_outputs])
 
 # 3. Generate a testing linearly-spaced dataset of the target function to test the trained QNN
 testing_set = generate_linear_dataset_of(target_function, num_inputs, testing_set_size, input_range)
 norm_test_set = normalize_dataset(testing_set, input_range, output_range, in_norm_range, out_norm_range)
-test_inputs, test_outputs = bubblesort(norm_test_set[0], norm_test_set[1])
+test_inputs, test_outputs = norm_test_set[0], norm_test_set[1]
 qnn_test_outputs = test_model(qnn, [test_inputs, test_outputs])
 plot_qnn_testing(qnn, testing_set[1], denormalize_outputs(qnn_test_outputs, output_range, out_norm_range))
 

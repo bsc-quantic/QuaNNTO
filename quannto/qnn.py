@@ -49,10 +49,11 @@ class QNN:
     '''
     Class for continuous variables quantum (optics) neural network building, training, evaluation and profiling.
     '''
-    def __init__(self, model_name, N, layers, observable_modes, observable_types):
+    def __init__(self, model_name, N, layers, observable_modes, observable_types, is_input_reupload):
         self.model_name = model_name
         self.N = N
         self.layers = layers
+        self.is_input_reupload = is_input_reupload
         
         # Normalization expression related to a single photon addition on first mode for each QNN layer
         self.ladder_modes_norm, self.ladder_types_norm = multilayer_ladder_trace_expression(N, layers)
@@ -71,7 +72,8 @@ class QNN:
     def build_QNN(self, parameters):
         self.tunable_parameters = np.copy(parameters)
         self.set_parameters(parameters)
-        self.trace_coefs = self.non_gauss_symplectic_coefs()
+        if not(self.is_input_reupload):
+            self.trace_coefs = self.non_gauss_symplectic_coefs()
 
     def set_parameters(self, parameters):
         self.Q1_gauss = np.zeros((self.layers, 2*self.N, 2*self.N))
@@ -80,25 +82,29 @@ class QNN:
         self.G_l = np.zeros((self.layers, 2*self.N, 2*self.N))
         self.G = np.eye(2*self.N)
         
+        current_par_idx = 0
         for l in range(self.layers):
-            layer_pars_rng = l*(2*self.N**2 + self.N)
             # Build passive-optics Q1 and Q2 for the Gaussian transformation
-            H = hermitian_matrix(parameters[layer_pars_rng : layer_pars_rng + self.N**2].reshape((self.N, self.N)))
+            H = hermitian_matrix(parameters[current_par_idx : current_par_idx + self.N**2].reshape((self.N, self.N)))
             U = unitary_from_hermitian(H)
             self.Q1_gauss[l] = np.real_if_close(self.u_bar.to_canonical_op(U))
+            current_par_idx += self.N**2
             
-            H = hermitian_matrix(parameters[layer_pars_rng + self.N**2 : layer_pars_rng + 2*self.N**2].reshape((self.N, self.N)))
+            H = hermitian_matrix(parameters[current_par_idx : current_par_idx + self.N**2].reshape((self.N, self.N)))
             U = unitary_from_hermitian(H)
             self.Q2_gauss[l] = np.real_if_close(self.u_bar.to_canonical_op(U))
+            current_par_idx += self.N**2
             
-            # Build squeezing diagonal matrix Z
-            sqz_parameters = parameters[layer_pars_rng + 2*self.N**2 : layer_pars_rng + (2*self.N**2 + self.N)]
-            sqz_inv = 1.0/sqz_parameters
-            self.Z_gauss[l] = np.diag(np.concatenate((sqz_parameters, sqz_inv)))
+            if not(self.is_input_reupload):
+                # Build squeezing diagonal matrix Z
+                sqz_parameters = parameters[current_par_idx : current_par_idx + self.N]
+                sqz_inv = 1.0/sqz_parameters
+                self.Z_gauss[l] = np.diag(np.concatenate((sqz_parameters, sqz_inv)))
+                current_par_idx += self.N
 
-            # Build final Gaussian transformation
-            self.G_l[l] = self.Q2_gauss[l] @ self.Z_gauss[l] @ self.Q1_gauss[l]
-            self.G = self.G_l[l] @ self.G
+                # Build final Gaussian transformation
+                self.G_l[l] = self.Q2_gauss[l] @ self.Z_gauss[l] @ self.Q1_gauss[l]
+                self.G = self.G_l[l] @ self.G
         
     def squeezing_operator(self, input):
         r = np.ones(self.N)
@@ -108,8 +114,12 @@ class QNN:
 
     def gaussian_transformation(self):
         self.final_gauss_state = self.G @ self.initial_gauss_state @ self.G.T
-        # Input reuploading:
-        #self.final_gauss_state = self.Q2_gauss @ Z_input @ self.Q1_gauss @ self.initial_gauss_state @ self.Q1_gauss.T @ Z_input @ self.Q2_gauss.T
+        
+    def gaussian_transf_is_input_reupload(self, Z_input):
+        self.final_gauss_state = self.initial_gauss_state
+        for l in range(self.layers):
+            self.G_l[l] = self.Q2_gauss[l] @ Z_input @ self.Q1_gauss[l]
+            self.final_gauss_state = self.G_l[l] @ self.final_gauss_state @ self.G_l[l].T
         
     def non_gauss_symplectic_coefs(self):
         self.S_commutator = np.zeros((self.layers, 2*self.N, 2*self.N))
@@ -149,17 +159,15 @@ class QNN:
         return unnorm_exp_val/exp_val_norm        
 
     def eval_QNN(self, input):
-        # 0. Build the squeezing operator used for the input reuploading
+        # 1. Prepare initial state: build the squeezing operator used for input encoding
         input_prep_start = time.time()
         Z_input = self.squeezing_operator(input)
-        
-        # 1. Prepare initial state: Inputs encoded in modes' squeezing parameters
         self.initial_gauss_state = Z_input
         self.qnn_profiling.input_prep_times.append(time.time() - input_prep_start)
 
-        # 2. Apply the Gaussian (linear) transformation -> Weight matrix in ANN
+        # 2. Apply the Gaussian transformation -> Weight matrix in ANN
         gauss_start = time.time()
-        self.gaussian_transformation()
+        self.gaussian_transf_is_input_reupload(Z_input) if self.is_input_reupload else self.gaussian_transformation()
         self.qnn_profiling.gauss_times.append(time.time() - gauss_start)
         
         # 3. Compute the expectation values of all possible ladder operators pairs over the final Gaussian state
@@ -167,8 +175,10 @@ class QNN:
         K_exp_vals = compute_K_exp_vals(self.final_gauss_state)
         self.qnn_profiling.K_exp_vals_times.append(time.time() - K_exp_vals_start)
 
-        # 4. Build the symplectic coefficients for ladder operators' superposition with input reuploading
+        # 4. When using input reuploading: build the symplectic coefficients for ladder operators' superposition
         ladder_superpos_start = time.time()
+        if self.is_input_reupload:
+            self.trace_coefs = self.non_gauss_symplectic_coefs()
         self.qnn_profiling.ladder_superpos_times.append(time.time() - ladder_superpos_start)
 
         # 5. Compute the observables' normalized expectation value of the non-Gaussianity applied to the final Gaussian state
@@ -192,9 +202,9 @@ class QNN:
         return mse/len(inputs_dataset)
     
     def print_qnn(self):
-        print(f"\nGaussian operator:\nG={self.G}\nQ2={self.Q2_gauss}\nZg={self.Z_gauss}\nQ1={self.Q1_gauss}\n")
-        for i in range(len(self.S_commutator)):
-            print(f"Layer {i+1} ladder operators superposition symplectic matrices:\nS({i+1})={self.S_commutator[i]}\n")
+        for layer in range(self.layers):
+            print(f"Layer {layer}:\nQ1 = {self.Q1_gauss[layer]}\nZ = {self.Z_gauss[layer] if not(self.is_input_reupload) else None}\nQ2 = {self.Q2_gauss[layer]}")
+            print(f"\nGaussian operator:\nQ2={self.Q2_gauss[layer]}\nZg={self.Z_gauss if not(self.is_input_reupload) else None}\nQ1={self.Q1_gauss}\n")
         
     def save_model(self, filename):
         f = open(filename, 'w')
@@ -228,7 +238,7 @@ def test_model(qnn, testing_dataset):
     
     return qnn_outputs
     
-def build_and_train_model(name, N, layers, observable_modes, observable_types, dataset, init_pars=None, save=True):
+def build_and_train_model(name, N, layers, observable_modes, observable_types, is_input_reupload, dataset, init_pars=None, save=True):
     '''
     Creates and trains a QNN model with the given hyperparameters and dataset by optimizing the 
     tunable parameters of the QNN.
@@ -238,15 +248,19 @@ def build_and_train_model(name, N, layers, observable_modes, observable_types, d
     :param layers: Number of layers
     :param observable_modes: Observable operator modes
     :param observable_types: Observable operator ladder types
+    :param is_input_reupload: Boolean determining whether the model has input reuploading
     :param dataset: List of inputs and outputs to be learned
     :param init_pars: Initialization parameters for the QNN
     :param save: Boolean determining whether to save the model (default=True)
     :return: Trained QNN model
     '''
     if init_pars == None:
-        init_pars = np.random.rand(layers*(2*N**2 + N))
+        init_pars = np.random.rand(layers*(2*N**2)) if is_input_reupload else np.random.rand(layers*(2*N**2 + N))
     else:
-        assert len(init_pars) == layers*(2*N**2 + N)
+        if is_input_reupload:
+            assert len(init_pars) == layers*(2*N**2)
+        else:
+            assert len(init_pars) == layers*(2*N**2 + N)
     
     def callback(xk):
         '''
@@ -259,7 +273,7 @@ def build_and_train_model(name, N, layers, observable_modes, observable_types, d
         loss_values.append(e)
     
     qnn = QNN("model_N" + str(N) + "_L" + str(layers) + "_" + name,
-              N, layers, observable_modes, observable_types)
+              N, layers, observable_modes, observable_types, is_input_reupload)
     
     train_inputs, train_outputs = dataset[0], dataset[1]
     
