@@ -18,6 +18,12 @@ def hyperbola_1in_1out(inputs):
 def exp_1in_1out(inputs):
     return np.e**inputs[0] + 1
 
+def sin_1in_1out(inputs):
+    return 1.5 + np.sin(inputs[0])
+
+def sin_cos_function(x):
+    return -np.sin(10*x) + 3*np.cos(18*x) - 8*((x-1/2)**2) + 5/4
+
 def generate_dataset_of(target_function, num_inputs, num_samples, input_range):
     inputs = np.zeros((num_samples, num_inputs))
     outputs = np.zeros((num_samples))
@@ -39,25 +45,6 @@ def generate_linear_dataset_of(target_function, num_inputs, num_samples, input_r
     
     return [inputs, outputs]
 
-def normalize_dataset(dataset, input_range, output_range, in_norm_range, out_norm_range):
-    inputs, outputs = dataset[0], dataset[1]
-    num_samples = len(inputs)
-    
-    norm_inputs = np.zeros((num_samples, len(inputs[0])))
-    norm_outputs = np.zeros((num_samples))
-    
-    for i in range(num_samples):
-        norm_inputs[i] = in_norm_range[0] + (in_norm_range[1] - in_norm_range[0]) * (inputs[i] - input_range[0]) / (input_range[1] - input_range[0])
-        norm_outputs[i] = out_norm_range[0] + (out_norm_range[1] - out_norm_range[0]) * (outputs[i] - output_range[0]) / (output_range[1] - output_range[0])
-        
-    return [norm_inputs, norm_outputs]
-
-def denormalize_outputs(norm_outputs, output_range, out_norm_range):
-    return output_range[0] + (output_range[1] - output_range[0]) * (norm_outputs - out_norm_range[0]) / (out_norm_range[1] - out_norm_range[0])
-
-def get_outputs_range(dataset_outputs):
-    return (np.min(dataset_outputs), np.max(dataset_outputs))
-
 def bubblesort(inputs, outputs):
     array = np.copy(outputs)
     inp = np.copy(inputs)
@@ -72,7 +59,14 @@ def bubblesort(inputs, outputs):
                 inp[idx+1] = temp_inp
     return inp, array
 
+def replicate_inputs(inputs_set, n_inputs):
+    rep_inps = np.zeros((len(inputs_set), n_inputs))
+    for sample in range(len(inputs_set)):
+        rep_inps[sample] = np.array(list(inputs_set[sample])*n_inputs)
+    return rep_inps
+ 
+        
 def print_dataset(inputs, outputs):
     print('\n')
     for i in range(len(outputs)):
-        print(f'Sample {i+1}\n INPUT: {inputs[i]} OUTPUT {outputs[i]}')
+        print(f'Sample {i+1}\n INPUTS: {inputs[i]} OUTPUTS: {outputs[i]}')
