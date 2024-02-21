@@ -49,10 +49,12 @@ class QNN:
     '''
     Class for continuous variables quantum (optics) neural network building, training, evaluation and profiling.
     '''
-    def __init__(self, model_name, N, layers, observable_modes, observable_types, is_input_reupload):
+    def __init__(self, model_name, N, layers, n_in, n_out, observable_modes, observable_types, is_input_reupload):
         self.model_name = model_name
         self.N = N
         self.layers = layers
+        self.n_in = n_in
+        self.n_out = n_out
         self.is_input_reupload = is_input_reupload
         
         # Normalization expression related to a single photon addition on first mode for each QNN layer
@@ -156,7 +158,7 @@ class QNN:
             for i in prange(len(ladder_modes)):
                 exp_val_norm[i] = exp_val_norm[0]
                 
-        return unnorm_exp_val/exp_val_norm        
+        return unnorm_exp_val/exp_val_norm
 
     def eval_QNN(self, input):
         # 1. Prepare initial state: build the squeezing operator used for input encoding
@@ -198,7 +200,7 @@ class QNN:
         mse = 0
         for inputs, outputs in zip(inputs_dataset, outputs_dataset):
             qnn_outputs = self.eval_QNN(inputs)
-            mse += (outputs - qnn_outputs.sum())**2
+            mse += ((outputs - qnn_outputs)**2).sum()
         return mse/len(inputs_dataset)
     
     def print_qnn(self):
@@ -224,21 +226,21 @@ def test_model(qnn, testing_dataset):
     :param testing_dataset: List of inputs and outputs to be tested
     :return: QNN predictions of the testing set
     '''
-    error = np.zeros((len(testing_dataset[0])))
-    qnn_outputs = np.zeros((len(testing_dataset[0])))
+    error = np.zeros((len(testing_dataset[1]), len(testing_dataset[1][0])))
+    qnn_outputs = np.zeros((len(testing_dataset[1]), len(testing_dataset[1][0])))
     
     test_inputs, test_outputs = testing_dataset[0], testing_dataset[1]
     
     # Evaluate all testing set
     for k in range(len(test_inputs)):
-        qnn_outputs[k] = np.real_if_close(qnn.eval_QNN(test_inputs[k]).sum())
-        error[k] = (test_outputs[k] - qnn_outputs[k])**2
+        qnn_outputs[k] = np.real_if_close(qnn.eval_QNN(test_inputs[k]))
+        error[k] = ((test_outputs[k] - qnn_outputs[k])**2).sum()
     mean_error = error.sum()/len(error)
     print(f"MSE: {mean_error}")
     
     return qnn_outputs
     
-def build_and_train_model(name, N, layers, observable_modes, observable_types, is_input_reupload, dataset, init_pars=None, save=True):
+def build_and_train_model(name, N, layers, n_inputs, n_outputs, observable_modes, observable_types, is_input_reupload, dataset, init_pars=None, save=True):
     '''
     Creates and trains a QNN model with the given hyperparameters and dataset by optimizing the 
     tunable parameters of the QNN.
@@ -272,8 +274,8 @@ def build_and_train_model(name, N, layers, observable_modes, observable_types, i
         print(e)
         loss_values.append(e)
     
-    qnn = QNN("model_N" + str(N) + "_L" + str(layers) + "_" + name,
-              N, layers, observable_modes, observable_types, is_input_reupload)
+    qnn = QNN("model_N" + str(N) + "_L" + str(layers) + "_" + name, N, layers, 
+              n_inputs, n_outputs, observable_modes, observable_types, is_input_reupload)
     
     train_inputs, train_outputs = dataset[0], dataset[1]
     

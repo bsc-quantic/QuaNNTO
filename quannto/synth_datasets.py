@@ -9,6 +9,10 @@ def test_function_2in_1out(inputs):
 def test_function_3in_1out(inputs):
     return 0.45*inputs[2] + 2.5*inputs[0]**2 + 1.2*inputs[2]*inputs[1]**2 + 0.5*inputs[0]*inputs[1] + 3
 
+def test_function_2in_2out(inputs):
+    return (0.7*inputs[0]**3 + 1.7*inputs[0]**2 + 2.4*inputs[0] + 5, 
+            0.2*inputs[1]**5 + 0.8*inputs[1]**3 + 1.1*inputs[1]**2 + 2)
+
 def log_function_1in_1out(inputs):
     return 2 + 5*np.log(inputs[0])/inputs[0]
 
@@ -21,27 +25,27 @@ def exp_1in_1out(inputs):
 def sin_1in_1out(inputs):
     return 1.5 + np.sin(inputs[0])
 
-def sin_cos_function(x):
-    return -np.sin(10*x) + 3*np.cos(18*x) - 8*((x-1/2)**2) + 5/4
+def sin_cos_function(inputs):
+    return -np.sin(10*inputs[0]) + 3*np.cos(18*inputs[0]) - 8*((inputs[0]-1/2)**2) + 5/4
 
-def generate_dataset_of(target_function, num_inputs, num_samples, input_range):
+def generate_dataset_of(target_function, num_inputs, num_outputs, num_samples, input_range):
     inputs = np.zeros((num_samples, num_inputs))
-    outputs = np.zeros((num_samples))
+    outputs = np.zeros((num_samples, num_outputs))
     
     for i in range(num_samples):
         inputs[i] =  np.random.uniform(low=input_range[0], high=input_range[1], size=(num_inputs))
-        outputs[i] = target_function(inputs[i])
+        outputs[i] = np.array(target_function(inputs[i]), ndmin=1)
     
     return [inputs, outputs]
 
-def generate_linear_dataset_of(target_function, num_inputs, num_samples, input_range):
+def generate_linear_dataset_of(target_function, num_inputs, num_outputs, num_samples, input_range):
     inputs = np.zeros((num_samples, num_inputs))
-    outputs = np.zeros((num_samples))
+    outputs = np.zeros((num_samples, num_outputs))
     input_lin_sp = np.linspace(input_range[0], input_range[1], num_samples)
     
     for i in range(num_samples):
         inputs[i] = np.array([input_lin_sp[i]]*num_inputs)
-        outputs[i] = target_function(inputs[i])
+        outputs[i] = np.array(target_function(inputs[i]), ndmin=1)
     
     return [inputs, outputs]
 
