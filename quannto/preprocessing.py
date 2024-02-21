@@ -4,9 +4,14 @@ def trigonometric_feature_expressivity(features, num_final_features):
     transf_feats = np.zeros((len(features), num_final_features))
     for i in range(len(features)):
         for j in range(num_final_features):
-            # TODO: CHECK THE VALIDNESS OF THIS INPUT (SQUEEZING FACTORS RESTRICTED TO > 0)
-            #transf_feats[i,j] = 2*(j+1)*np.arcsin(features[i])
             transf_feats[i,j] = (j+1)*np.sin((j+1)*features[i])
+    return transf_feats
+
+def polynomial_feature_expressivity(features, num_final_features):
+    transf_feats = np.zeros((len(features), num_final_features))
+    for i in range(len(features)):
+        for j in range(num_final_features):
+            transf_feats[i,j] = (j+1)*features[i]**(j+1)
     return transf_feats
 
 def get_range(data):
