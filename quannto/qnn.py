@@ -50,6 +50,11 @@ class QNN:
     Class for continuous variables quantum (optics) neural network building, training, evaluation and profiling.
     '''
     def __init__(self, model_name, N, layers, n_in, n_out, observable_modes, observable_types, is_input_reupload):
+        # The number of modes N must be greater or equal to the number of inputs
+        assert N >= n_in
+        # The number of observables must be the same as the number of outputs
+        assert len(observable_modes) == len(observable_types) == n_out
+        
         self.model_name = model_name
         self.N = N
         self.layers = layers
