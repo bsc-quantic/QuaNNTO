@@ -17,12 +17,7 @@ def polynomial_feature_expressivity(features, num_final_features):
 def get_range(data):
     return (np.min(data), np.max(data))
 
-def normalize_data(data, data_range, norm_data_range):
+def rescale_data(data, data_range, scale_data_range):
     data_range_dist = data_range[1] - data_range[0]
-    norm_data_range_dist = norm_data_range[1] - norm_data_range[0]
-    return norm_data_range[0] + norm_data_range_dist * (data - data_range[0]) / data_range_dist
-
-def denormalize_data(norm_data, data_range, norm_data_range):
-    data_range_dist = data_range[1] - data_range[0]
-    norm_data_range_dist = norm_data_range[1] - norm_data_range[0]
-    return data_range[0] + data_range_dist * (norm_data - norm_data_range[0]) / norm_data_range_dist
+    norm_data_range_dist = scale_data_range[1] - scale_data_range[0]
+    return scale_data_range[0] + norm_data_range_dist * (data - data_range[0]) / data_range_dist
