@@ -4,7 +4,7 @@ import jsonpickle
 from numba import njit, prange
 import time
 import scipy.optimize as opt
-from functools import partial
+from functools import partial, reduce
 
 from utils import *
 from expectation_value import *
@@ -49,7 +49,8 @@ class QNN:
     '''
     Class for continuous variables quantum (optics) neural network building, training, evaluation and profiling.
     '''
-    def __init__(self, model_name, N, layers, n_in, n_out, observable_modes, observable_types, is_input_reupload):
+    def __init__(self, model_name, N, layers, n_in, n_out, observable_modes, observable_types,
+                 is_input_reupload=False, in_preprocessors=[], out_preprocessors=[], postprocessors=[]):
         # The number of modes N must be greater or equal to the number of inputs
         assert N >= n_in
         # The number of observables must be the same as the number of outputs
@@ -60,6 +61,9 @@ class QNN:
         self.layers = layers
         self.n_in = n_in
         self.n_out = n_out
+        self.in_preprocessors = in_preprocessors
+        self.out_preprocessors = out_preprocessors
+        self.postprocessors = postprocessors
         self.is_input_reupload = is_input_reupload
         
         # Normalization expression related to a single photon addition on first mode for each QNN layer
@@ -210,7 +214,7 @@ class QNN:
     
     def print_qnn(self):
         for layer in range(self.layers):
-            print(f"Layer {layer}:\nQ1 = {self.Q1_gauss[layer]}\nZ = {self.Z_gauss[layer] if not(self.is_input_reupload) else None}\nQ2 = {self.Q2_gauss[layer]}")
+            print(f"Layer {layer+1}:\nQ1 = {self.Q1_gauss[layer]}\nZ = {self.Z_gauss[layer] if not(self.is_input_reupload) else None}\nQ2 = {self.Q2_gauss[layer]}")
             print(f"\nGaussian operator:\nQ2={self.Q2_gauss[layer]}\nZg={self.Z_gauss if not(self.is_input_reupload) else None}\nQ1={self.Q1_gauss}\n")
         
     def save_model(self, filename):
@@ -231,10 +235,11 @@ def test_model(qnn, testing_dataset):
     :param testing_dataset: List of inputs and outputs to be tested
     :return: QNN predictions of the testing set
     '''
+    test_inputs = reduce(lambda x, func: func(x), qnn.in_preprocessors, testing_dataset[0])
+    test_outputs = reduce(lambda x, func: func(x), qnn.out_preprocessors, testing_dataset[1])
+    
     error = np.zeros((len(testing_dataset[1]), len(testing_dataset[1][0])))
     qnn_outputs = np.zeros((len(testing_dataset[1]), len(testing_dataset[1][0])))
-    
-    test_inputs, test_outputs = testing_dataset[0], testing_dataset[1]
     
     # Evaluate all testing set
     for k in range(len(test_inputs)):
@@ -243,9 +248,10 @@ def test_model(qnn, testing_dataset):
     mean_error = error.sum()/len(error)
     print(f"MSE: {mean_error}")
     
-    return qnn_outputs
+    return reduce(lambda x, func: func(x), qnn.postprocessors, qnn_outputs)
     
-def build_and_train_model(name, N, layers, n_inputs, n_outputs, observable_modes, observable_types, is_input_reupload, dataset, init_pars=None, save=True):
+def build_and_train_model(name, N, layers, n_inputs, n_outputs, observable_modes, observable_types,
+                          is_input_reupload, dataset, in_preprocs=[], out_prepocs=[], postprocs=[], init_pars=None, save=True):
     '''
     Creates and trains a QNN model with the given hyperparameters and dataset by optimizing the 
     tunable parameters of the QNN.
@@ -280,9 +286,10 @@ def build_and_train_model(name, N, layers, n_inputs, n_outputs, observable_modes
         loss_values.append(e)
     
     qnn = QNN("model_N" + str(N) + "_L" + str(layers) + "_" + name, N, layers, 
-              n_inputs, n_outputs, observable_modes, observable_types, is_input_reupload)
+              n_inputs, n_outputs, observable_modes, observable_types, is_input_reupload, in_preprocs, out_prepocs, postprocs)
     
-    train_inputs, train_outputs = dataset[0], dataset[1]
+    train_inputs = reduce(lambda x, func: func(x), qnn.in_preprocessors, dataset[0])
+    train_outputs = reduce(lambda x, func: func(x), qnn.out_preprocessors, dataset[1])
     
     loss_values = []
     training_QNN = partial(qnn.train_QNN, inputs_dataset=train_inputs, outputs_dataset=train_outputs)
