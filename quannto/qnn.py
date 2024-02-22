@@ -222,10 +222,10 @@ class QNN:
         f.write(jsonpickle.encode(self))
         f.close()
     
-    def load_model(filename):
-        with open(filename, 'r') as f:
-            qnn_str = jsonpickle.decode(f.read())
-        return qnn_str
+def load_model(filename):
+    with open(filename, 'r') as f:
+        qnn_str = jsonpickle.decode(f.read())
+    return qnn_str
     
 def test_model(qnn, testing_dataset):
     '''
@@ -245,7 +245,7 @@ def test_model(qnn, testing_dataset):
     for k in range(len(test_inputs)):
         qnn_outputs[k] = np.real_if_close(qnn.eval_QNN(test_inputs[k]))
         error[k] = ((test_outputs[k] - qnn_outputs[k])**2).sum()
-    mean_error = error.sum()/len(error)
+    mean_error = error.sum()/(len(error)*len(test_outputs[0]))
     print(f"MSE: {mean_error}")
     
     return reduce(lambda x, func: func(x), qnn.postprocessors, qnn_outputs)
