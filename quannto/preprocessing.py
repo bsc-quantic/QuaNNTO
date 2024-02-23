@@ -21,3 +21,10 @@ def rescale_data(data, data_range, scale_data_range):
     data_range_dist = data_range[1] - data_range[0]
     norm_data_range_dist = scale_data_range[1] - scale_data_range[0]
     return scale_data_range[0] + norm_data_range_dist * (data - data_range[0]) / data_range_dist
+
+def rescale_set(set, rescale_range):
+    rescaled_set = np.zeros_like(set)
+    for col in range(len(set[0])):
+        rescaled_set[:,col] = rescale_data(set[:,col], get_range(set[:,col]), rescale_range)
+    return rescaled_set
+    
