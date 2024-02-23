@@ -52,7 +52,7 @@ def generate_linear_dataset_of(target_function, num_inputs, num_outputs, num_sam
 
 def save_dataset_to_df(inputs_set, outputs_set, filename):
     dataset = np.concatenate((inputs_set, outputs_set), axis=1)
-    cols = ["INPUT "+str(i+1) for i in range(len(inputs_set[0]))] + ["OUTPUT "+str(i+1) for i in range(len(inputs_set[0]))]
+    cols = ["INPUT "+str(i+1) for i in range(len(inputs_set[0]))] + ["OUTPUT "+str(i+1) for i in range(len(outputs_set[0]))]
     df = pd.DataFrame(dataset, columns=cols)
     df.to_csv(filename+".csv", index=False)
     return df
