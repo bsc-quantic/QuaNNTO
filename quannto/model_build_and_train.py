@@ -1,7 +1,7 @@
 from qnn import test_model, build_and_train_model
 from results_utils import plot_qnn_testing
 from preprocessing import *
-from synth_datasets import bubblesort
+from synth_datasets import bubblesort, print_dataset
 import argparse
 import pandas as pd
 import numpy as np
@@ -29,11 +29,13 @@ model_name = (args.dataset)[:(args.dataset).index(".")]
 dataset_df = pd.read_csv(args.dataset)[:150]
 inputs_set = dataset_df.iloc[:, 0:n_in].to_numpy()
 outputs_set = dataset_df.iloc[:, n_in:].to_numpy()
+print_dataset(inputs_set, outputs_set)
 
 in_rescaling = (0.5, 3.5)
-out_rescaling = (1, 10)
+out_rescaling = (1, 5)
 rescaled_inputs = rescale_set(inputs_set, in_rescaling)
 rescaled_outputs = rescale_set(outputs_set, out_rescaling)
+print_dataset(rescaled_inputs, rescaled_outputs)
 
 qnn = build_and_train_model(model_name, N, layers, n_in, n_out, observable_modes, observable_types, 
                             is_input_reupload, [rescaled_inputs, rescaled_outputs])
