@@ -218,7 +218,7 @@ class QNN:
             print(f"\nGaussian operator:\nQ2={self.Q2_gauss[layer]}\nZg={self.Z_gauss if not(self.is_input_reupload) else None}\nQ1={self.Q1_gauss}\n")
         
     def save_model(self, filename):
-        f = open(filename, 'w')
+        f = open("../models/"+filename, 'w')
         f.write(jsonpickle.encode(self))
         f.close()
     
