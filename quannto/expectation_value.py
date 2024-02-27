@@ -278,7 +278,7 @@ def get_symplectic_coefs(N, S, ladder_modes, ladder_types):
         return symp_coefs
     for i in prange(len(ladder_modes)):
         for j in prange(len(ladder_modes[i])):
-            middle = int(len(ladder_modes[i][j])/2) - 1
+            middle = int(len(ladder_modes[i][j])/2)
             for k in prange(middle):
                 symp_coefs[i,j] *= S[k, 0, ladder_modes[i][j][k]+N*ladder_types[i][j][k]]
                 symp_coefs[i,j] *= S[k, 0, ladder_modes[i][j][len(ladder_modes[i][j])-k-1] + N*(1 - ladder_types[i][j][len(ladder_modes[i][j])-k-1])]
