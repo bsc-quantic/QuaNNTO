@@ -1,7 +1,8 @@
 import numpy as np
 from sympy import symbols, expand
-from utils import *
 from numba import njit, prange
+
+from .utils import *
 
 def exp_val_ladder_jk(j, k, V):
     '''

@@ -6,9 +6,9 @@ import time
 import scipy.optimize as opt
 from functools import partial, reduce
 
-from utils import *
-from expectation_value import *
-from results_utils import *
+from .utils import *
+from .expectation_value import *
+from .results_utils import *
 
 class ProfilingQNN:
     '''
@@ -217,7 +217,7 @@ class QNN:
             print(f"Layer {layer+1}:\nQ1 = {self.Q1_gauss[layer]}\nZ = {self.Z_gauss[layer] if not(self.is_input_reupload) else None}\nQ2 = {self.Q2_gauss[layer]}")
         
     def save_model(self, filename):
-        f = open("../models/"+filename, 'w')
+        f = open("models/"+filename, 'w')
         f.write(jsonpickle.encode(self))
         f.close()
     

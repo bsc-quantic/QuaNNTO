@@ -1,9 +1,9 @@
 import argparse
 import pandas as pd
-import numpy as np
-from qnn import test_model, load_model
-from results_utils import plot_qnn_testing
-from synth_datasets import print_dataset
+
+from .qnn import test_model, load_model
+from .results_utils import plot_qnn_testing
+from .synth_datasets import print_dataset
 
 parser = argparse.ArgumentParser(description="Load and evaluate a QNN model", formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 parser.add_argument("file", help="QNN model file")

@@ -58,6 +58,6 @@ Now, let's define the (**synthetic**) dataset parameters to be specified:
 After defining all these parameters, one would execute the next command inside the project directory and the training will start showing the loss value per epoch and the final results at the end of the training.
 
 ```
-python3 -u quannto/synthetic_build_and_train.py
+python3 -m quannto.synthetic_build_and_train
 ```
 

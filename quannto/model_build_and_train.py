@@ -1,11 +1,9 @@
-from qnn import test_model, build_and_train_model
-from results_utils import plot_qnn_testing
-from preprocessing import *
-from synth_datasets import bubblesort, print_dataset
 import argparse
 import pandas as pd
-import numpy as np
-from functools import partial
+
+from .qnn import build_and_train_model
+from .preprocessing import *
+from .synth_datasets import print_dataset
 
 parser = argparse.ArgumentParser(description="Build and train a QNN model", formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 parser.add_argument("modes", help="Modes (neurons per layer) of the QNN")
