@@ -103,7 +103,7 @@ def to_ladder_expression(sym_exp):
             
     return ladder_modes, ladder_types
 
-def multilayer_ladder_trace_expression(N, layers):
+def ladder_ops_trace_expression(N, layers):
     '''
     Builds the non-Gaussian state expression of a multilayer QNN based on superposition of ladder operators 
     applied to the Gaussian state.

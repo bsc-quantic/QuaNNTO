@@ -67,7 +67,7 @@ class QNN:
         self.is_input_reupload = is_input_reupload
         
         # Normalization expression related to a single photon addition on first mode for each QNN layer
-        self.ladder_modes_norm, self.ladder_types_norm = multilayer_ladder_trace_expression(N, layers)
+        self.ladder_modes_norm, self.ladder_types_norm = ladder_ops_trace_expression(N, layers)
         self.perf_matchings_norm = np.array(perfect_matchings(len(self.ladder_modes_norm[0][0])), dtype='int')
         
         # Full trace expression including the photon additions and the observable to be measured
@@ -215,7 +215,6 @@ class QNN:
     def print_qnn(self):
         for layer in range(self.layers):
             print(f"Layer {layer+1}:\nQ1 = {self.Q1_gauss[layer]}\nZ = {self.Z_gauss[layer] if not(self.is_input_reupload) else None}\nQ2 = {self.Q2_gauss[layer]}")
-            print(f"\nGaussian operator:\nQ2={self.Q2_gauss[layer]}\nZg={self.Z_gauss if not(self.is_input_reupload) else None}\nQ1={self.Q1_gauss}\n")
         
     def save_model(self, filename):
         f = open("../models/"+filename, 'w')
