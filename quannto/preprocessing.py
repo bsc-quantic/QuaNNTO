@@ -28,3 +28,11 @@ def rescale_set(set, rescale_range):
         rescaled_set[:,col] = rescale_data(set[:,col], get_range(set[:,col]), rescale_range)
     return rescaled_set
     
+def binning(data, range, num_categories):
+    cat_step = (range[1] - range[0]) / num_categories
+    threshold = range[0] + cat_step
+    cat = 0
+    while data > threshold:
+        cat += 1
+        threshold += cat_step
+    return cat
