@@ -2,4 +2,7 @@ numpy==1.26.0
 scipy==1.11.2
 sympy==1.12
 matplotlib==3.8.0
-functools
+tensorflow==2.15.0
+jsonpickle==3.0.2
+numba==0.58.1
+pandas==2.1.4
