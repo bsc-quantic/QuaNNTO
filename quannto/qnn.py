@@ -10,6 +10,9 @@ from .utils import *
 from .expectation_value import *
 from .results_utils import *
 
+loss_values = []
+best_loss_values = [10]
+
 class ProfilingQNN:
     '''
     Data structure containing the times for each part of the training process 
@@ -96,19 +99,23 @@ class QNN:
         current_par_idx = 0
         for l in range(self.layers):
             # Build passive-optics Q1 and Q2 for the Gaussian transformation
-            H = hermitian_matrix(parameters[current_par_idx : current_par_idx + self.N**2].reshape((self.N, self.N)))
+            #H = hermitian_matrix(parameters[current_par_idx : current_par_idx + self.N**2].reshape((self.N, self.N)))
+            H = hermitian_matrix(parameters[current_par_idx : current_par_idx + ((self.N**2 + self.N) // 2)], self.N)
             U = unitary_from_hermitian(H)
             self.Q1_gauss[l] = np.real_if_close(self.u_bar.to_canonical_op(U))
-            current_par_idx += self.N**2
+            #current_par_idx += self.N**2
+            current_par_idx += ((self.N**2 + self.N) // 2)
             
-            H = hermitian_matrix(parameters[current_par_idx : current_par_idx + self.N**2].reshape((self.N, self.N)))
+            #H = hermitian_matrix(parameters[current_par_idx : current_par_idx + self.N**2].reshape((self.N, self.N)))
+            H = hermitian_matrix(parameters[current_par_idx : current_par_idx + ((self.N**2 + self.N) // 2)], self.N)
             U = unitary_from_hermitian(H)
             self.Q2_gauss[l] = np.real_if_close(self.u_bar.to_canonical_op(U))
-            current_par_idx += self.N**2
+            #current_par_idx += self.N**2
+            current_par_idx += ((self.N**2 + self.N) // 2)
             
             if not(self.is_input_reupload):
                 # Build squeezing diagonal matrix Z
-                sqz_parameters = parameters[current_par_idx : current_par_idx + self.N]
+                sqz_parameters = np.abs(parameters[current_par_idx : current_par_idx + self.N])
                 sqz_inv = 1.0/sqz_parameters
                 self.Z_gauss[l] = np.diag(np.concatenate((sqz_parameters, sqz_inv)))
                 current_par_idx += self.N
@@ -173,7 +180,7 @@ class QNN:
         # 1. Prepare initial state: build the squeezing operator used for input encoding
         input_prep_start = time.time()
         Z_input = self.squeezing_operator(input)
-        self.initial_gauss_state = Z_input
+        self.initial_gauss_state = Z_input**2
         self.qnn_profiling.input_prep_times.append(time.time() - input_prep_start)
 
         # 2. Apply the Gaussian transformation -> Weight matrix in ANN
@@ -206,10 +213,15 @@ class QNN:
         self.build_QNN(parameters)
         self.qnn_profiling.build_qnn_times.append(time.time() - build_start)
         
+        shuffle_indices = np.random.permutation(len(inputs_dataset))
         mse = 0
-        for inputs, outputs in zip(inputs_dataset, outputs_dataset):
+        for dataset_idx in shuffle_indices:
+            qnn_outputs = self.eval_QNN(inputs_dataset[dataset_idx])
+            #qnn_outputs = reduce(lambda x, func: func(x), self.postprocessors, qnn_outputs)
+            mse += ((outputs_dataset[dataset_idx] - qnn_outputs)**2).sum()
+        """ for inputs, outputs in zip(inputs_dataset, outputs_dataset):
             qnn_outputs = self.eval_QNN(inputs)
-            mse += ((outputs - qnn_outputs)**2).sum()
+            mse += ((outputs - qnn_outputs)**2).sum() """
         return mse/len(inputs_dataset)
     
     def print_qnn(self):
@@ -246,6 +258,8 @@ def test_model(qnn, testing_dataset):
         error[k] = ((test_outputs[k] - qnn_outputs[k])**2).sum()
     mean_error = error.sum()/(len(error)*len(test_outputs[0]))
     print(f"MSE: {mean_error}")
+    """for (i,j) in zip(test_outputs, qnn_outputs):
+        print(f"Expected: {i} Obtained: {j}")"""
     
     return reduce(lambda x, func: func(x), qnn.postprocessors, qnn_outputs)
     
@@ -267,12 +281,15 @@ def build_and_train_model(name, N, layers, n_inputs, n_outputs, observable_modes
     :return: Trained QNN model
     '''
     if init_pars == None:
-        init_pars = np.random.rand(layers*(2*N**2)) if is_input_reupload else np.random.rand(layers*(2*N**2 + N))
+        #init_pars = np.random.rand(layers*(2*N**2)) if is_input_reupload else np.random.rand(layers*(2*N**2 + N))
+        init_pars = np.random.rand(layers*2*((N**2 + N) // 2)) if is_input_reupload else np.random.rand(layers*(2*((N**2 + N) // 2) + N))
     else:
         if is_input_reupload:
-            assert len(init_pars) == layers*(2*N**2)
+            #assert len(init_pars) == layers*(2*N**2)
+            assert len(init_pars) == layers*2*((N**2 + N) // 2)
         else:
-            assert len(init_pars) == layers*(2*N**2 + N)
+            #assert len(init_pars) == layers*(2*N**2 + N)
+            assert len(init_pars) == layers*(2*((N**2 + N) // 2) + N)
     
     def callback(xk):
         '''
@@ -283,17 +300,31 @@ def build_and_train_model(name, N, layers, n_inputs, n_outputs, observable_modes
         e = training_QNN(xk)
         print(e)
         loss_values.append(e)
+        
+    def callback_hopping(x,f,accept):
+        global best_loss_values
+        global loss_values
+        print(f"Error of basinhopping iteration: {f}")
+        print(f"Previous iteration error: {best_loss_values[-1]}\n")
+        if best_loss_values[-1] > f:
+            best_loss_values = loss_values.copy()
+        loss_values = []
     
     qnn = QNN("model_N" + str(N) + "_L" + str(layers) + "_" + name, N, layers, 
               n_inputs, n_outputs, observable_modes, observable_types, is_input_reupload, in_preprocs, out_prepocs, postprocs)
-    
     train_inputs = reduce(lambda x, func: func(x), qnn.in_preprocessors, dataset[0])
     train_outputs = reduce(lambda x, func: func(x), qnn.out_preprocessors, dataset[1])
     
+    global best_loss_values
+    best_loss_values = [10]
+    global loss_values
     loss_values = []
+    
     training_QNN = partial(qnn.train_QNN, inputs_dataset=train_inputs, outputs_dataset=train_outputs)
     training_start = time.time()
-    result = opt.minimize(training_QNN, init_pars, method='L-BFGS-B', callback=callback)
+    #result = opt.minimize(training_QNN, init_pars, method='L-BFGS-B', callback=callback)
+    minimizer_kwargs = {"method": "L-BFGS-B", "callback": callback}
+    result = opt.basinhopping(training_QNN, init_pars, niter=0, minimizer_kwargs=minimizer_kwargs, callback=callback_hopping)
     print(f'Total training time: {time.time() - training_start} seconds')
     
     print(f'\nOPTIMIZATION ERROR FOR N={N}, L={layers}')
@@ -302,7 +333,7 @@ def build_and_train_model(name, N, layers, n_inputs, n_outputs, observable_modes
     qnn.build_QNN(result.x)
     
     qnn_outputs = test_model(qnn, dataset)
-    plot_qnn_train_results(qnn, dataset[1], qnn_outputs, loss_values)
+    #plot_qnn_train_results(qnn, dataset[1], qnn_outputs, loss_values)
     show_times(qnn)
     qnn.print_qnn()
     
@@ -310,5 +341,5 @@ def build_and_train_model(name, N, layers, n_inputs, n_outputs, observable_modes
         qnn.qnn_profiling.clear_times()
         qnn.save_model(qnn.model_name + ".txt")
     
-    return qnn
+    return qnn, best_loss_values
 
