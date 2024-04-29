@@ -3,7 +3,7 @@ import pandas as pd
 from functools import partial
 
 from .qnn import build_and_train_model, test_model
-from .preprocessing import *
+from .data_processors import *
 from .results_utils import plot_qnn_testing
 from .synth_datasets import print_dataset
 
