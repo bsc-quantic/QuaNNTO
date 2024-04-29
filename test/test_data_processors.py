@@ -1,8 +1,8 @@
 import unittest
 import numpy as np
-from quannto.preprocessing import *
+from quannto.data_processors import *
 
-class TestPreprocessing(unittest.TestCase):
+class TestDataProcessors(unittest.TestCase):
     def test_get_range(self):
         data = np.array([0, 1, 1.5, -2, 5, -3])
         expected_range = (-3, 5)

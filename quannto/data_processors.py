@@ -34,7 +34,7 @@ def rescale_set_with_ranges(set, data_ranges, rescale_range):
     for col in range(len(set[0])):
         rescaled_set[:,col] = rescale_data(set[:,col], data_ranges[col], rescale_range)
     return rescaled_set
-    
+
 def binning(data, data_range, num_categories):
     # TODO: center the binning in the numerical value used for training
     cat_step = (data_range[1] - data_range[0]) / num_categories
@@ -47,7 +47,7 @@ def binning(data, data_range, num_categories):
                 threshold += cat_step
     return cat
 
-def autoencode_mnist_four_latent_dim():
+def autoencoder_mnist(latent_dim):
     # Load MNIST dataset
     (x_train, y_train), (x_test, y_test) = tf.keras.datasets.mnist.load_data()
 
@@ -59,9 +59,7 @@ def autoencode_mnist_four_latent_dim():
     x_train = np.expand_dims(x_train, axis=-1)
     x_test = np.expand_dims(x_test, axis=-1)
 
-    # Define the autoencoder architecture with a 4-dimensional latent space
-    latent_dim = 5
-
+    # Define the autoencoder architecture with a N-dimensional latent space
     # Encoder
     encoder_input = tf.keras.layers.Input(shape=(28, 28, 1))
     x = tf.keras.layers.Conv2D(16, (3, 3), activation='relu', padding='same')(encoder_input)

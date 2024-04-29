@@ -3,7 +3,7 @@ from functools import partial
 from .qnn import test_model, build_and_train_model
 from .synth_datasets import *
 from .results_utils import *
-from .preprocessing import *
+from .data_processors import *
 
 # === HYPERPARAMETERS DEFINITION ===
 N = 6
