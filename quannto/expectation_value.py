@@ -236,7 +236,7 @@ def ladder_exp_val(perf_matchings, ladder_modes, ladder_types, cov_mat_identitie
 
 def symplectic_from_svd(N, Z_params, Q_params_1, Q_params_2):
     '''
-    Creates a 2Nx2N symplectic matrix from SVD form using the parameters for two symplectic-orthogonal 
+    DEPRECATED: Creates a 2Nx2N symplectic matrix from SVD form using the parameters for two symplectic-orthogonal 
     matrices and one diagonal matrix.
 
     :param N: Half dimension (number of modes) of the symplectic matrix
@@ -281,8 +281,12 @@ def get_symplectic_coefs(N, S, ladder_modes, ladder_types):
         for j in prange(len(ladder_modes[i])):
             middle = int(len(ladder_modes[i][j])/2)
             for k in prange(middle):
+                # FOR PHOTON ADDITION ON MODE 1
                 symp_coefs[i,j] *= S[k, 0, ladder_modes[i][j][k]+N*ladder_types[i][j][k]]
                 symp_coefs[i,j] *= S[k, 0, ladder_modes[i][j][len(ladder_modes[i][j])-k-1] + N*(1 - ladder_types[i][j][len(ladder_modes[i][j])-k-1])]
+                # FOR PHOTON SUBTRACTION ON MODE 1
+                #symp_coefs[i,j] *= S[k, 0, ladder_modes[i][j][k]+N*(1-ladder_types[i][j][k])]
+                #symp_coefs[i,j] *= S[k, 0, ladder_modes[i][j][len(ladder_modes[i][j])-k-1] + N*(ladder_types[i][j][len(ladder_modes[i][j])-k-1])]
             
     return symp_coefs
 
