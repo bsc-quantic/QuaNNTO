@@ -1,7 +1,7 @@
 import numpy as np
 import scipy.linalg as LA
 
-def hermitian_matrix(m):
+def hermitian_matrix(m, N):
     '''
     Transforms the input matrix into a hermitian matrix.
     If the input matrix is real, the resultant matrix is real and symmetric.
@@ -9,7 +9,16 @@ def hermitian_matrix(m):
     :param m: Matrix to be made hermitian
     :return: Hermitian matrix
     '''
-    return 0.5*(m + m.T)
+    #return 0.5*(m + m.T)
+    c = 0
+    mat = np.zeros((N,N))
+    for i in range(0, N):
+        for j in range(i+1):
+            mat[j,i] = mat[i,j] = m[c]
+            c+=1
+    return mat
+            
+    
 
 def unitary_from_hermitian(H):
     '''
