@@ -1,6 +1,9 @@
 import numpy as np
 import pandas as pd
 
+def test_linear_1in_1out(inputs):
+    return 5*inputs[0] + 2
+
 def test_function_1in_1out(inputs):
     return 0.7*inputs[0]**3 + 1.7*inputs[0]**2 + 2.4*inputs[0] + 5
     
@@ -15,7 +18,7 @@ def test_function_2in_2out(inputs):
             0.2*inputs[0]**5 + 0.8*inputs[1]**3 + 1.1*inputs[0]**2 + 2)
 
 def log_function_1in_1out(inputs):
-    return 2 + 5*np.log(inputs[0])/inputs[0]
+    return 3 + np.log(inputs[0])
 
 def hyperbola_1in_1out(inputs):
     return 1 + 2/inputs[0]
