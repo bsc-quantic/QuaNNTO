@@ -131,13 +131,12 @@ class QNN:
         return np.diag(np.concatenate((r, r_inv)))
 
     def gaussian_transformation(self):
-        self.final_gauss_state = self.G @ self.initial_gauss_state @ self.G.T
+        self.V = self.G @ self.V @ self.G.T
         
     def gaussian_transf_is_input_reupload(self, Z_input):
-        self.final_gauss_state = self.initial_gauss_state
         for l in range(self.layers):
             self.G_l[l] = self.Q2_gauss[l] @ Z_input @ self.Q1_gauss[l]
-            self.final_gauss_state = self.G_l[l] @ self.final_gauss_state @ self.G_l[l].T
+            self.V = self.G_l[l] @ self.V @ self.G_l[l].T
         
     def non_gauss_symplectic_coefs(self):
         self.S_commutator = np.zeros((self.layers, 2*self.N, 2*self.N))
@@ -180,7 +179,7 @@ class QNN:
         # 1. Prepare initial state: build the squeezing operator used for input encoding
         input_prep_start = time.time()
         Z_input = self.squeezing_operator(input)
-        self.initial_gauss_state = Z_input**2
+        self.V = Z_input**2
         self.qnn_profiling.input_prep_times.append(time.time() - input_prep_start)
 
         # 2. Apply the Gaussian transformation -> Weight matrix in ANN
@@ -190,7 +189,7 @@ class QNN:
         
         # 3. Compute the expectation values of all possible ladder operators pairs over the final Gaussian state
         K_exp_vals_start = time.time()
-        K_exp_vals = compute_K_exp_vals(self.final_gauss_state)
+        K_exp_vals = compute_K_exp_vals(self.V)
         self.qnn_profiling.K_exp_vals_times.append(time.time() - K_exp_vals_start)
 
         # 4. When using input reuploading: build the symplectic coefficients for ladder operators' superposition
