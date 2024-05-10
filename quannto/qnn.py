@@ -86,8 +86,7 @@ class QNN:
     def build_QNN(self, parameters):
         self.tunable_parameters = np.copy(parameters)
         self.set_parameters(parameters)
-        if not(self.is_input_reupload):
-            self.trace_coefs = self.non_gauss_symplectic_coefs()
+        self.trace_coefs = self.non_gauss_symplectic_coefs()
 
     def set_parameters(self, parameters):
         self.Q1_gauss = np.zeros((self.layers, 2*self.N, 2*self.N))
@@ -113,30 +112,22 @@ class QNN:
             #current_par_idx += self.N**2
             current_par_idx += ((self.N**2 + self.N) // 2)
             
-            if not(self.is_input_reupload):
-                # Build squeezing diagonal matrix Z
-                sqz_parameters = np.abs(parameters[current_par_idx : current_par_idx + self.N])
-                sqz_inv = 1.0/sqz_parameters
-                self.Z_gauss[l] = np.diag(np.concatenate((sqz_parameters, sqz_inv)))
-                current_par_idx += self.N
+            # Build squeezing diagonal matrix Z
+            sqz_parameters = np.abs(parameters[current_par_idx : current_par_idx + self.N])
+            sqz_inv = 1.0/sqz_parameters
+            self.Z_gauss[l] = np.diag(np.concatenate((sqz_parameters, sqz_inv)))
+            current_par_idx += self.N
 
-                # Build final Gaussian transformation
-                self.G_l[l] = self.Q2_gauss[l] @ self.Z_gauss[l] @ self.Q1_gauss[l]
-                self.G = self.G_l[l] @ self.G
-        
-    def squeezing_operator(self, input):
-        r = np.ones(self.N)
-        r[0:len(input)] = input
-        r_inv = 1.0/r
-        return np.diag(np.concatenate((r, r_inv)))
+            # Build final Gaussian transformation
+            self.G_l[l] = self.Q2_gauss[l] @ self.Z_gauss[l] @ self.Q1_gauss[l]
+            self.G = self.G_l[l] @ self.G
+    
+    def displacement_operator(self, inputs):
+        self.mean_vector[0:len(inputs)] += inputs
 
     def gaussian_transformation(self):
         self.V = self.G @ self.V @ self.G.T
-        
-    def gaussian_transf_is_input_reupload(self, Z_input):
-        for l in range(self.layers):
-            self.G_l[l] = self.Q2_gauss[l] @ Z_input @ self.Q1_gauss[l]
-            self.V = self.G_l[l] @ self.V @ self.G_l[l].T
+        self.mean_vector = self.G @ self.mean_vector
         
     def non_gauss_symplectic_coefs(self):
         self.S_commutator = np.zeros((self.layers, 2*self.N, 2*self.N))
@@ -176,20 +167,21 @@ class QNN:
         return unnorm_exp_val/exp_val_norm
 
     def eval_QNN(self, input):
-        # 1. Prepare initial state: build the squeezing operator used for input encoding
+        # 1. Prepare initial state: initial vacuum state displaced according to the inputs
         input_prep_start = time.time()
-        Z_input = self.squeezing_operator(input)
-        self.V = Z_input**2
+        self.V = np.eye(2*self.N)
+        self.mean_vector = np.zeros(2*self.N)
+        self.displacement_operator(input)
         self.qnn_profiling.input_prep_times.append(time.time() - input_prep_start)
 
         # 2. Apply the Gaussian transformation -> Weight matrix in ANN
         gauss_start = time.time()
-        self.gaussian_transf_is_input_reupload(Z_input) if self.is_input_reupload else self.gaussian_transformation()
+        self.gaussian_transformation()
         self.qnn_profiling.gauss_times.append(time.time() - gauss_start)
         
         # 3. Compute the expectation values of all possible ladder operators pairs over the final Gaussian state
         K_exp_vals_start = time.time()
-        K_exp_vals = compute_K_exp_vals(self.V)
+        K_exp_vals = compute_K_exp_vals(self.V, self.mean_vector)
         self.qnn_profiling.K_exp_vals_times.append(time.time() - K_exp_vals_start)
 
         # 4. When using input reuploading: build the symplectic coefficients for ladder operators' superposition
@@ -225,7 +217,7 @@ class QNN:
     
     def print_qnn(self):
         for layer in range(self.layers):
-            print(f"Layer {layer+1}:\nQ1 = {self.Q1_gauss[layer]}\nZ = {self.Z_gauss[layer] if not(self.is_input_reupload) else None}\nQ2 = {self.Q2_gauss[layer]}")
+            print(f"Layer {layer+1}:\nQ1 = {self.Q1_gauss[layer]}\nZ = {self.Z_gauss[layer]}\nQ2 = {self.Q2_gauss[layer]}")
         
     def save_model(self, filename):
         f = open("models/"+filename, 'w')
