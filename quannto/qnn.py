@@ -93,6 +93,7 @@ class QNN:
         self.Q2_gauss = np.zeros((self.layers, 2*self.N, 2*self.N))
         self.Z_gauss = np.zeros((self.layers, 2*self.N, 2*self.N))
         self.G_l = np.zeros((self.layers, 2*self.N, 2*self.N))
+        self.D_l = np.zeros((self.layers, 2*self.N))
         self.G = np.eye(2*self.N)
         
         current_par_idx = 0
@@ -120,14 +121,21 @@ class QNN:
 
             # Build final Gaussian transformation
             self.G_l[l] = self.Q2_gauss[l] @ self.Z_gauss[l] @ self.Q1_gauss[l]
-            self.G = self.G_l[l] @ self.G
+            #self.G = self.G_l[l] @ self.G
+            
+            # Build displacements
+            if not self.is_input_reupload:
+                self.D_l[l] = parameters[current_par_idx : current_par_idx + 2*self.N]
+                current_par_idx += 2*self.N
     
-    def displacement_operator(self, inputs):
-        self.mean_vector[0:len(inputs)] += inputs
+    def displacement_operator(self, factors):
+        self.mean_vector[0:len(factors)] += factors
 
     def gaussian_transformation(self):
-        self.V = self.G @ self.V @ self.G.T
-        self.mean_vector = self.G @ self.mean_vector
+        for l in range(self.layers):
+            self.V = self.G_l[l] @ self.V @ self.G_l[l].T
+            self.mean_vector = self.G_l[l] @ self.mean_vector
+            self.displacement_operator(self.D_l[l])
         
     def non_gauss_symplectic_coefs(self):
         self.S_commutator = np.zeros((self.layers, 2*self.N, 2*self.N))
@@ -158,6 +166,7 @@ class QNN:
             exp_val_norm = np.zeros((len(ladder_modes)), dtype='complex')
             for i in prange(len(ladder_modes_norm)):
                 for j in prange(len(ladder_modes_norm[i])):
+                    # Always row 0 because the photon addition is on the first mode
                     exp_val_norm[i] += trace_coefs[0,j] * ladder_exp_val(
                         perf_matchings_norm, ladder_modes_norm[i][j], ladder_types_norm[i][j], K_exp_vals
                     )
@@ -273,14 +282,14 @@ def build_and_train_model(name, N, layers, n_inputs, n_outputs, observable_modes
     '''
     if init_pars == None:
         #init_pars = np.random.rand(layers*(2*N**2)) if is_input_reupload else np.random.rand(layers*(2*N**2 + N))
-        init_pars = np.random.rand(layers*2*((N**2 + N) // 2)) if is_input_reupload else np.random.rand(layers*(2*((N**2 + N) // 2) + N))
+        init_pars = np.random.rand(layers*(2*((N**2 + N) // 2) + N)) if is_input_reupload else np.random.rand(layers*(2*((N**2 + N) // 2) + N + 2*N))
     else:
         if is_input_reupload:
             #assert len(init_pars) == layers*(2*N**2)
-            assert len(init_pars) == layers*2*((N**2 + N) // 2)
+            assert len(init_pars) == layers*(2*((N**2 + N) // 2) + N)
         else:
             #assert len(init_pars) == layers*(2*N**2 + N)
-            assert len(init_pars) == layers*(2*((N**2 + N) // 2) + N)
+            assert len(init_pars) == layers*(2*((N**2 + N) // 2) + N + 2*N)
     
     def callback(xk):
         '''
