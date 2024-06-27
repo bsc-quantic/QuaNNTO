@@ -7,21 +7,20 @@ from .results_utils import *
 from .data_processors import *
 
 # === HYPERPARAMETERS DEFINITION ===
-modes = [2,3,4,5]
+modes = [2]
 layers = 1
-observable_modes = [[0,0]]
-observable_types = [[1,0]]
-is_input_reupload = True
+
+is_input_reupload = False
 n_inputs = 1
 n_outputs = 1
 
 # === TARGET FUNCTION DEFINITION ===
-target_function = sin_cos_function
+target_function = test_function_1in_1out
 dataset_size = 70
-input_range = (0, 1)
+input_range = (0, 3)
 output_range = get_range(generate_linear_dataset_of(target_function, n_inputs, n_outputs, dataset_size*100, input_range)[1])
-in_norm_range = (1.1, 4)
-out_norm_range = (1, 7)
+in_norm_range = (0, 5)
+out_norm_range = (-3, 10)
 
 testing_set_size = 200
 
@@ -40,12 +39,12 @@ test_dataset = generate_linear_dataset_of(target_function, n_inputs, n_outputs, 
 #x_test = test_df.iloc[:, 0:n_inputs].to_numpy()
 #y_test = test_df.iloc[:, -n_outputs:].to_numpy()
 #test_dataset = [x_test, y_test]
-plt.plot(test_dataset[1], 'go', label='Expected results')
 
 # === BUILD, TRAIN AND TEST QNN MODELS WITH DIFFERENT MODES ===
 #colors = plt.cm.rainbow(np.linspace(0, 1, len(modes)))
 colors = ['red', 'fuchsia', 'blue', 'purple']
 losses = []
+qnn_outs = []
 for (N, color) in zip(modes, colors):
     model_name = target_function.__name__
     #in_norm_range = (1/N, N)
@@ -54,8 +53,8 @@ for (N, color) in zip(modes, colors):
 
     # Initialize the desired data processors for pre/post-processing
     in_preprocessors = []
-    in_preprocessors.append(partial(trigonometric_feature_expressivity, num_final_features=N))
-    input_range = (-N, N)
+    #in_preprocessors.append(partial(trigonometric_feature_expressivity, num_final_features=N))
+    #input_range = (-N, N)
     in_preprocessors.append(partial(rescale_data, data_range=input_range, scale_data_range=in_norm_range))
 
     out_preprocessors = []
@@ -65,13 +64,19 @@ for (N, color) in zip(modes, colors):
     postprocessors.append(partial(rescale_data, data_range=out_norm_range, scale_data_range=output_range))
 
     # Build the QNN and train it with the generated dataset
-    qnn, loss = build_and_train_model(model_name, N, layers, n_inputs, n_outputs, observable_modes, observable_types, 
-                                is_input_reupload, train_dataset, in_preprocessors, out_preprocessors, postprocessors)
+    qnn, loss = build_and_train_model(model_name, N, layers, n_inputs, n_outputs, is_input_reupload, train_dataset,
+                                      in_preprocessors, out_preprocessors, postprocessors)#, init_pars=np.array([1.09070584, 0.22993975, 1.63608856, -1.28639551, -0.4042303]))
     losses.append(loss.copy())
     qnn_test_outputs = test_model(qnn, test_dataset)
+    #print(qnn_test_outputs)
+    qnn_outs.append(qnn_test_outputs.copy())
+    
+plt.plot(test_dataset[1], 'go', label='Expected results')
+for (qnn_test_outputs, color, N) in zip(qnn_outs, colors, modes):
     plt.plot(qnn_test_outputs, c=color, linestyle='dashed', label=f'N={N}')
 plt.title(f'TESTING SET')
 plt.xlabel('Input samples')
+plt.xlim()
 plt.ylabel('Output')
 plt.legend()
 plt.show()

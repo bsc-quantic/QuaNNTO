@@ -38,6 +38,6 @@ def show_times(qnn):
     plt.show()"""
 
     print(f'\nTotal number of training iterations: {len(qnn.qnn_profiling.gauss_times)}')
-    print(f'\tNumber of trace expressions: {len(qnn.ladder_modes)*len(qnn.ladder_modes[0])}')
-    print(f'\tNumber of perfect matchings per expression: {len(qnn.perf_matchings)}')
-    print(f'\t{len(qnn.perf_matchings)*len(qnn.ladder_modes)*len(qnn.ladder_modes[0])} total summations with {qnn.layers + 1} products per summation.')
+    #print(f'\tNumber of trace expressions: {len(qnn.ladder_modes)*len(qnn.ladder_modes[0])}')
+    #print(f'\tNumber of perfect matchings per expression: {len(qnn.perf_matchings)}')
+    #print(f'\t{len(qnn.perf_matchings)*len(qnn.ladder_modes)*len(qnn.ladder_modes[0])} total summations with {qnn.layers + 1} products per summation.')

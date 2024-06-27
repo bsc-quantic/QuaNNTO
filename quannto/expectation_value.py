@@ -1,5 +1,6 @@
 import numpy as np
-from sympy import symbols, expand
+from sympy import symbols, expand, MatrixSymbol, Matrix
+from sympy.parsing.sympy_parser import parse_expr
 from numba import njit, prange
 
 from .utils import *
@@ -47,8 +48,8 @@ def exp_val_ladder_jdagger_kdagger(j, k, V, means, N):
     :return: Expectation value of a pair of creation operators of a Gaussian state
     '''
     return 0.5*(V[j,k] + means[j]*means[k] - 
-                V[N+j, N+k] + means[N+j]*means[N+k] - 
-                1j*(V[j, N+k] + means[j]*means[N+k] + V[N+j, k] + means[N+j]*means[k]))
+               (V[N+j, N+k] + means[N+j]*means[N+k]) - 
+               1j*(V[j, N+k] + means[j]*means[N+k] + V[N+j, k] + means[N+j]*means[k]))
 
 def compute_K_exp_vals(V, means):
     '''
@@ -58,169 +59,196 @@ def compute_K_exp_vals(V, means):
     :param V: Covariance matrix of the Gaussian state
     :return: All expectation values of the different configuration of a pair of ladder operators on all modes.
     '''
-    N = int(len(V)/2)
+    N = len(V)//2
     K_exp_vals = np.zeros((4,N,N), dtype='complex')
-
     # Expectation values of two creation operators for all modes
     for j in range(N):
         for k in range(N):
             K_exp_vals[0,j,k] = exp_val_ladder_jk(j,k,V,means,N)
-
     # Expectation values of first creation and then annihilation operators for all modes
     for j in range(N):
         for k in range(N):
             K_exp_vals[1,j,k] = exp_val_ladder_jdagger_k(j,k,V,means,N)
-
     # Expectation values of first annihilation and then creation operators for all modes
     K_exp_vals[2] = np.copy(K_exp_vals[1])
     for j in range(N):
         K_exp_vals[2,j,j] += 1
-
     # Expectation values of two annihilation operators for all modes
     for j in range(N):
         for k in range(N):
             K_exp_vals[3,j,k] = exp_val_ladder_jdagger_kdagger(j,k,V,means,N)
-            
     return K_exp_vals
 
-def to_ladder_expression(sym_exp):
+def extract_ladder_expressions(trace_expr):
     '''
     Transforms a symbolic expression representing ladder operators acting on a Gaussian quantum state to
     numerical lists of the ladder modes (from 0 to N-1) and the operators type (creation or annihilation).
 
-    :param sym_exp: Symbolic expresion of creation and annihilation operators
+    :param trace_expr: Symbolic expression of creation and annihilation operators
     :return: Pair of lists containing the modes the ladder operators act onto and their type
     '''
+    #trace_terms = str(trace_expr).replace(" ","").replace("*","").split('+')
+    #trace_terms = str(trace_expr).split('+')
     ladder_modes = []
     ladder_types = []
-    idx = 0
-    while idx < len(sym_exp):
-        if sym_exp[idx]=='a':
-            ladder_types.append(0)
-            ladder_modes.append(int(sym_exp[idx+1]))
-            idx += 2
-        elif sym_exp[idx]=='c':
-            ladder_types.append(1)
-            ladder_modes.append(int(sym_exp[idx+1]))
-            idx += 2
-        else:
-            for i in range(int(sym_exp[idx]) - 1):
-                ladder_types.append(ladder_types[-1])
-                ladder_modes.append(ladder_modes[-1])
-            idx += 1
-            
-    return ladder_modes, ladder_types
+    #print(trace_terms)
+    for sym_term in trace_expr.args:
+        term = str(sym_term).replace(" ","").replace("*","")
+        tr_modes = []
+        tr_types = []
+        idx = 0
+        # TODO: Optimize loop
+        while idx < len(term):
+            if term[idx]=='a':
+                tr_types.append(0)
+                tr_modes.append(int(term[idx+1]))
+                idx += 2
+                if idx < len(term) and term[idx].isdigit():
+                    for i in range(int(term[idx]) - 1):
+                        tr_types.append(tr_types[-1])
+                        tr_modes.append(tr_modes[-1])
+                    idx += 1
+            elif term[idx]=='c':
+                tr_types.append(1)
+                tr_modes.append(int(term[idx+1]))
+                idx += 2
+                if idx < len(term) and term[idx].isdigit():
+                    for i in range(int(term[idx]) - 1):
+                        tr_types.append(tr_types[-1])
+                        tr_modes.append(tr_modes[-1])
+                    idx += 1
+            else:
+                idx += 1
+        ladder_modes.append(tr_modes)
+        ladder_types.append(tr_types)
+    return [ladder_modes], [ladder_types]
 
-def ladder_ops_trace_expression(N, layers):
+def complete_trace_expression(N, photon_additions, n_outputs, include_obs = False):
     '''
-    Builds the non-Gaussian state expression of a multilayer QNN based on superposition of ladder operators 
-    applied to the Gaussian state.
+    Builds the non-Gaussian state expression of a multi-photon added
+    QNN based on superposition of ladder operators applied to the Gaussian state.
 
     :param N: Number of modes of the QNN
     :param layers: Number of layers of the QNN
     :return: Pair of lists containing the different expression terms of the modes the ladder operators act onto and their type
     '''
     dim = 2*N
-    
-    # 1. Create creation (c) and annihilation (a) operators for all modes
+    # Displacement vector (complex number 'r' and its conjugate 'i') for each mode
+    d_r = symbols(f'r0:{N}', commutative=True)
+    d_i = symbols(f'i0:{N}', commutative=True)
+    # Symplectic matrix 2Nx2N
+    S = MatrixSymbol('S', dim, dim)
+    # Creation (c) and annihilation (a) operators for each mode
     c = symbols(f'c0:{N}', commutative=False)
     a = symbols(f'a0:{N}', commutative=False)
-    lad = c + a
-
-    # 2. Build the trace expressions with the ladder operators
-    #    2.1. Ladder operators superposition
-    S = []
-    S_dag = []
-    for i in range(layers):
-        tr1 = 0
-        tr1_dag = 0
-        for j in range(2*N):
-            tr1 += lad[j]
-            tr1_dag += lad[(j+2)%dim]
-        S.append(tr1)
-        S_dag.append(tr1_dag)
-
-    #    2.2. Last ladder operator corresponding to the last layer
-    complete_trace = 1
-    for i in range(layers):
-        complete_trace = S_dag[layers - 1 - i]*complete_trace*S[layers - 1 - i]
-
-    #    2.3. Arrange the format of the complete expectation value (trace) expression
-    complete_trace = expand(complete_trace)
-    str_expr = str(complete_trace)
-    trace_expressions = str_expr.replace(" ","").replace("*","").split('+')
-
-    # 3. Transform the symbolic trace expression to numerical encoding of the ladder modes and types
-    ladder_modes = []
-    ladder_types = []
-    for tr_expr in trace_expressions:
-        tr_modes, tr_types = to_ladder_expression(tr_expr)
-        ladder_modes.append(tr_modes)
-        ladder_types.append(tr_types)
-
-    return [ladder_modes], [ladder_types]
-
-def include_observable(ladder_modes, ladder_types, observable_modes, observable_types):
-    '''
-    Adds the ladder operators corresponding to the observable to be measured at the end of the QNN
-    to the non-Gaussian state expression.
-
-    :param ladder_modes: List containing the modes of all non-Gaussian terms of the non-Gaussian state expression
-    :param ladder_types: List containing the ladder operator types of all non-Gaussian terms of the non-Gaussian state expression
-    :param observable_modes: List containing the target modes of the observable(s) to be added
-    :param observable_modes: List containing the ladder operator types of the observable(s) to be added
-    :return: Pair of lists containing the different terms of the final expression whose expectation value is to be computed
-    '''
-    obs_ladder_modes = []
-    obs_ladder_types = []
-    for i in range(len(observable_modes)):
-        obs_ladder_modes += [ladder_modes.copy()]
-        obs_ladder_types += [ladder_types.copy()]
-        
-    mid_expr = int(len(ladder_modes[0])/2)
-    for i in range(len(observable_modes)):
-        for j in range(len(obs_ladder_modes[i])):
-            obs_ladder_modes[i][j] = obs_ladder_modes[i][j][:mid_expr] + observable_modes[i] + obs_ladder_modes[i][j][mid_expr:]
-            obs_ladder_types[i][j] = obs_ladder_types[i][j][:mid_expr] + observable_types[i] + obs_ladder_types[i][j][mid_expr:]
-            
-    return obs_ladder_modes, obs_ladder_types
-
-def perfect_matchings(num_ladder_operators):
-    ''' 
-    Finds all existing perfect matchings in a list of an even number of nodes
-    referred to the even number of ladder operators indices applied to a Gaussian state.
     
-    :param num_ladder_operators: EVEN number of ladder operators
-    :return: List of lists containing all possible perfect matchings of the operators
-    '''
-    perf_matchings = []
-    find_perf_match([i for i in range(num_ladder_operators)], [], perf_matchings)
-    return perf_matchings
-
-def find_perf_match(index_list, current_combination, perf_matchings):
-    ''' 
-    Auxiliary recursive function of perfect_matchings(num_ladder_operators) that creates 
-    all existing perfect matchings given an index list and stores them in 
-    perf_matchings parameter.
+    sup = 1
+    sup_dag = 1
+    for i in range(len(photon_additions)):
+        # Displacement terms
+        expr = d_r[photon_additions[i]]
+        expr_dag = d_i[photon_additions[i]]
+        for j in range(N):
+            # Creation and annihilation terms with their symplectic coefficient
+            expr += S[photon_additions[i], j]*a[j]
+            expr += S[photon_additions[i], N+j]*c[j]
+            expr_dag += S[photon_additions[i], N+j]*a[j]
+            expr_dag += S[photon_additions[i], j]*c[j]
+        sup *= expr
+        sup_dag *= expr_dag
     
-    :param index_list: Number of existing indices (or nodes in a complete graph)
-    :param current_combination: The perfect matching combination being filled at the moment
-    :param perf_matchings: List of lists that will store all perfect matchings at the end of the recursive calls
-    '''
-    if len(index_list) > 0:
-        v1 = index_list.pop(0)
-        current_combination.append(v1)
-        for i in range(len(index_list)):
-            new_combination = current_combination.copy()
-            new_idx_list = index_list.copy()
-            v2 = new_idx_list.pop(i)
-            new_combination.append(v2)
-            find_perf_match(new_idx_list, new_combination, perf_matchings)
+    #print(sup)
+    #print(sup_dag)
+    # TODO: Generalize for number of outputs (different expanded expression of the expectation value)
+    if include_obs:
+        expanded_expr = []
+        for i in range(n_outputs):
+            # Position operator
+            #expr = (1/np.sqrt(2)) * (sup_dag*a[i]*sup + sup_dag*c[i]*sup)
+            expr = (1/np.sqrt(2))*(sup_dag*a[i]*sup + sup_dag*c[i]*sup)
+            # Number operator
+            #expr = (sup_dag*c[i]*a[i]*sup)
+            expanded_expr.append(expr)
     else:
-        perf_matchings.append(current_combination)
-        
-@njit
-def ladder_exp_val(perf_matchings, ladder_modes, ladder_types, cov_mat_identities):
+        expanded_expr = sup_dag*sup
+    #str_expr = str(expanded_expr)
+    #print(len(str_expr.split("+")))
+    print(expanded_expr)
+    return expanded_expr
+
+def subs_in_trace_terms(trace_expr, D, symp_mat):
+    trace_terms = list(trace_expr.args)
+    expr_terms = []
+    S = MatrixSymbol('S', len(symp_mat), len(symp_mat))
+    S_mat = Matrix(symp_mat)
+    N = len(D)//2
+    for term in trace_terms:
+        sym_term = term
+        #print(sym_term)
+        for disp_idx in range(N):
+            sym_term = sym_term.subs({f"i{disp_idx}": D[disp_idx]-1j*D[N+disp_idx], f"r{disp_idx}": D[disp_idx]+1j*D[N+disp_idx]})
+            sym_term = sym_term.subs(S, S_mat)
+            #print(sym_term)
+        expr_terms.append(sym_term)
+    return expr_terms
+
+def single_ladder_exp_val(term_mode, term_type, N, means_vector):
+    return (1/np.sqrt(2)) * (means_vector[term_mode] + 1j*(-2*term_type + 1)*means_vector[N+term_mode])
+
+
+def compute_exp_val_loop(unnorm_expr, norm_expr, modes, types, modes_norm, types_norm, lpms, D, G, K_exp_vals, means_vector):
+    unnorm_terms = subs_in_trace_terms(unnorm_expr, D, G)
+    norm_terms = subs_in_trace_terms(norm_expr, D, G)
+    N = len(G) // 2
+
+    # For unnormalized exp val
+    trace_values=[]
+    for i in prange(len(modes)):
+        for j in prange(len(modes[0])):
+            if unnorm_terms[j] != 0:
+                trace_values.append(get_expectation_value(modes[i][j], types[i][j], lpms[0], N, K_exp_vals, means_vector))
+            else:
+                trace_values.append(0)
+    exp_val = []
+    for (coef, term) in zip(trace_values, unnorm_terms):
+        exp_val.append(coef * term.subs(dict(zip(term.free_symbols, [1 for i in range(len(term.free_symbols))])))) 
+    unnorm = expand(sum(exp_val))
+    
+    # For normalization factor
+    if len(modes_norm[0]) == 0:
+        norm = 1
+    else:
+        trace_values=[]
+        for i in prange(len(modes_norm)):
+            for j in prange(len(modes_norm[0])):
+                if norm_terms[j] != 0:
+                    #TO-DO: Generalize lpms for any number of ladder operators (currently only 3)
+                    trace_values.append(get_expectation_value(modes_norm[i][j], types_norm[i][j], lpms[0], N, K_exp_vals, means_vector))
+                else:
+                    trace_values.append(0)
+        exp_val = []
+        for (coef, term) in zip(trace_values, norm_terms):
+            exp_val.append(coef * term.subs(dict(zip(term.free_symbols, [1 for i in range(len(term.free_symbols))])))) 
+        norm = expand(sum(exp_val))
+    
+    norm_val = np.real_if_close(np.complex128(expand(unnorm/norm)))
+    return norm_val
+
+def get_expectation_value(term_modes, term_types, perf_matchs, N, K_exp_vals, means_vector):
+    if len(term_modes) == 0: # CASE Tr[rho]
+        #print("NUM LADDERS: 0")
+        return 1
+    elif len(term_modes) == 1: # CASE Tr[a#rho]
+        #print("NUM LADDERS: 1")
+        return single_ladder_exp_val(term_modes[0], term_types[0], N, means_vector)
+    elif len(term_modes) == 2: # CASE Tr[a#a#rho]
+        #print("NUM LADDERS: 2")
+        return K_exp_vals[term_types[0] + 2*term_types[1], term_modes[0], term_modes[1]]
+    else:
+        #print(f"NUM LADDERS: {len(term_modes)}")
+        return ladder_exp_val(perf_matchs, term_modes, term_types, means_vector, K_exp_vals)
+    
+def ladder_exp_val(perf_matchings, ladder_modes, ladder_types, means_vector, cov_mat_identities):
     '''
     Computes the expected value of the energy when ladder operators are applied
     to a Gaussian state described by its covariance matrix. All perfect matchings
@@ -237,63 +265,33 @@ def ladder_exp_val(perf_matchings, ladder_modes, ladder_types, cov_mat_identitie
         trace_prod = np.complex128(1+0j)
         for i1,i2 in zip(perf_match[0::2], perf_match[1::2]):
             # Determine which identity to pick depending on the pair of ladder ops and the modes
-            trace_prod *= cov_mat_identities[ladder_types[i1] + 2*ladder_types[i2], ladder_modes[i1], ladder_modes[i2]]
+            if i1!=i2:
+                trace_prod *= cov_mat_identities[ladder_types[i1] + 2*ladder_types[i2], ladder_modes[i1], ladder_modes[i2]]
+            else:
+                trace_prod *= single_ladder_exp_val(ladder_modes[i1], ladder_types[i2], len(means_vector) // 2, means_vector)
         energy += trace_prod
     return energy
 
-def symplectic_from_svd(N, Z_params, Q_params_1, Q_params_2):
-    '''
-    DEPRECATED: Creates a 2Nx2N symplectic matrix from SVD form using the parameters for two symplectic-orthogonal 
-    matrices and one diagonal matrix.
-
-    :param N: Half dimension (number of modes) of the symplectic matrix
-    :param Z_params: Values of the diagonal matrix
-    :param Q_params_1: Values with which the first symplectic-orthogonal matrix is created
-    :param Q_params_2: Values with which the second symplectic-orthogonal matrix is created
-    :return: Symplectic matrix of the (SVD) form Q2*Z*Q1
-    '''
-    r = Z_params
-    r_inv = 1.0/r
-    Z = np.diag(np.concatenate((r, r_inv)))
-
-    u_bar = CanonicalLadderTransformations(N)
+def loop_perfect_matchings(N):
+    # This function generates all perfect matchings of a complete graph with loops
+    def backtrack(current_matching, remaining_nodes):
+        if not remaining_nodes:
+            matchings.append(current_matching)
+            return
+        node = remaining_nodes[0]
+        for i in range(len(remaining_nodes)):
+            pair = [node, remaining_nodes[i]]
+            backtrack(current_matching + pair, remaining_nodes[1:i] + remaining_nodes[i+1:])
+    nodes = list(range(N))
+    matchings = []
+    backtrack([], nodes)
+    return matchings
     
-    H = hermitian_matrix(Q_params_1.reshape((N, N)))
-    U = unitary_from_hermitian(H)
-    Q1 = u_bar.to_canonical_op(U)
-    
-    H = hermitian_matrix(Q_params_2.reshape((N, N)))
-    U = unitary_from_hermitian(H)
-    Q2 = u_bar.to_canonical_op(U)
-    
-    return Q2@Z@Q1
 
-
-@njit
-def get_symplectic_coefs(N, S, ladder_modes, ladder_types):
-    '''
-    Computes the coefficient of each term contained in the non-Gaussian state expression given 
-    the symplectic matrices of the ladder superposition operators.
-
-    :param N: Number of modes of the system
-    :param S: Symplectic matrices of the ladder superposition operators.
-    :param ladder_modes: List of terms of the non-Gaussian state expression containing the modes they act onto.
-    :param ladder_types: List of terms of the non-Gaussian state expression containing the ladder operator types.
-    :return: Symplectic coefficients of each term in the final non-Gaussian state expression.
-    '''
-    symp_coefs = np.ones((len(ladder_modes), len(ladder_modes[0])))
-    if len(S)==0:
-        return symp_coefs
-    for i in prange(len(ladder_modes)):
-        for j in prange(len(ladder_modes[i])):
-            middle = int(len(ladder_modes[i][j])/2)
-            for k in prange(middle):
-                # FOR PHOTON ADDITION ON MODE 1
-                symp_coefs[i,j] *= S[k, 0, ladder_modes[i][j][k]+N*ladder_types[i][j][k]]
-                symp_coefs[i,j] *= S[k, 0, ladder_modes[i][j][len(ladder_modes[i][j])-k-1] + N*(1 - ladder_types[i][j][len(ladder_modes[i][j])-k-1])]
-                # FOR PHOTON SUBTRACTION ON MODE 1
-                #symp_coefs[i,j] *= S[k, 0, ladder_modes[i][j][k]+N*(1-ladder_types[i][j][k])]
-                #symp_coefs[i,j] *= S[k, 0, ladder_modes[i][j][len(ladder_modes[i][j])-k-1] + N*(ladder_types[i][j][len(ladder_modes[i][j])-k-1])]
-            
-    return symp_coefs
+def complete_exp_val(modes, types, perf, N, K, means):
+    values = []
+    for i in range(len(modes)):
+        for j in range(len(modes[0])):
+            values.append(get_expectation_value(modes[i][j], types[i][j], perf, N, K, means))
+    return values
 
