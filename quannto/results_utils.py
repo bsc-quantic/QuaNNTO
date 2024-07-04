@@ -23,19 +23,23 @@ def plot_qnn_train_results(qnn, exp_outputs, qnn_outputs, loss_values):
     ax2.legend()
     plt.show()
     
-def show_times(qnn):
-    qnn_times = qnn.qnn_profiling.avg_times()
+def compute_times(qnn):
+    qnn_times = qnn.qnn_profiling.avg_benchmark()
     print('\nAverage time usage per stage:')
     total_time = sum(list(qnn_times.values()))
     for part_time in qnn_times:
         print(f'\t {part_time}: {np.round(100 * qnn_times[part_time] / total_time, 3)} %')
     print(f'\nTotal average time per iteration: {total_time}')
-    """plt.figure(figsize=(14,5))
+    return qnn_times
+    
+def show_times(qnn):
+    qnn_times = compute_times(qnn)
+    plt.figure(figsize=(14,5))
     plt.bar(list(qnn_times.keys()), list(qnn_times.values()), color ='maroon')
     plt.xlabel("Time category")
     plt.ylabel("Time (s)")
     plt.title("QNN training times")
-    plt.show()"""
+    plt.show()
 
     print(f'\nTotal number of training iterations: {len(qnn.qnn_profiling.gauss_times)}')
     #print(f'\tNumber of trace expressions: {len(qnn.ladder_modes)*len(qnn.ladder_modes[0])}')
