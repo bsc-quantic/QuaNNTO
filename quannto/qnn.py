@@ -1,9 +1,9 @@
 import numpy as np
 import time
 import jsonpickle
-from numba import njit, prange
 import time
 import scipy.optimize as opt
+from sympy import lambdify
 from functools import partial, reduce
 
 from .utils import *
@@ -26,16 +26,16 @@ class ProfilingQNN:
         self.input_prep_times = []
         self.gauss_times = []
         self.K_exp_vals_times = []
-        self.ladder_superpos_times = []
+        #self.ladder_superpos_times = []
         self.nongauss_times = []
 
-    def avg_times(self):
+    def avg_benchmark(self):
         self.avg_times = {}
         self.avg_times["Build QNN"] = sum(self.build_qnn_times)/len(self.build_qnn_times)
         self.avg_times["Input prep"] = sum(self.input_prep_times)/len(self.input_prep_times)
         self.avg_times["Gaussian op"] = sum(self.gauss_times)/len(self.gauss_times)
         self.avg_times["Pairs exp-vals"] = sum(self.K_exp_vals_times)/len(self.K_exp_vals_times)
-        self.avg_times["Non-gauss coefs"] = sum(self.ladder_superpos_times)/len(self.ladder_superpos_times)
+        #self.avg_times["Non-gauss coefs"] = sum(self.ladder_superpos_times)/len(self.ladder_superpos_times)
         self.avg_times["Non-gaussianity"] = sum(self.nongauss_times)/len(self.nongauss_times)
         return self.avg_times
     
@@ -44,7 +44,7 @@ class ProfilingQNN:
         self.input_prep_times = []
         self.gauss_times = []
         self.K_exp_vals_times = []
-        self.ladder_superpos_times = []
+        #self.ladder_superpos_times = []
         self.nongauss_times = []
     
 
@@ -76,11 +76,56 @@ class QNN:
         # Full trace expression including the photon additions and the observable to be measured
         # TODO: Generalize for any number of outputs
         self.trace_expr = expand(complete_trace_expression(self.N, [0], self.n_out, include_obs=True)[0])
-        # TODO: Generalize for any number of perfect matchings needed for the exp val expression
-        self.lpms = [loop_perfect_matchings(3)]
         
+        # TODO: Generalize for any number of perfect matchings needed for the exp val expression
         self.modes, self.types = extract_ladder_expressions(self.trace_expr)
+        self.np_modes, self.lens_modes = to_np_array(self.modes)
+        self.np_types, self.lens_types = to_np_array(self.types)
+        max_lpms = np.max(self.lens_modes) + 1
+        
         self.modes_norm, self.types_norm = extract_ladder_expressions(self.norm_trace_expr)
+        self.np_modes_norm, self.lens_modes_norm = to_np_array(self.modes_norm)
+        self.np_types_norm, self.lens_types_norm = to_np_array(self.types_norm)
+        
+        self.lpms = [to_np_array([loop_perfect_matchings(lens)]) for lens in range(3, max_lpms+1)]
+        self.np_lpms = nb.typed.List([lpms for (lpms, _) in self.lpms])
+        self.lens_lpms = nb.typed.List([lens for (_, lens) in self.lpms])
+        
+        a = symbols(f'a0:{N}', commutative=False)
+        c = symbols(f'c0:{N}', commutative=False)
+        ladder_subs = {c[i]: 1 for i in range(self.N)}
+        ladder_subs.update({a[i]: 1 for i in range(self.N)})
+        
+        unnorm_expr_terms = list(self.trace_expr.args)
+        self.unnorm_subs_expr_terms = []
+        for term in unnorm_expr_terms:
+            new_term = term.subs(ladder_subs)
+            self.unnorm_subs_expr_terms.append(new_term)
+            
+        norm_expr_terms = list(self.norm_trace_expr.args)
+        self.norm_subs_expr_terms = []
+        for norm_term in norm_expr_terms:
+            new_term = norm_term.subs(ladder_subs)
+            self.norm_subs_expr_terms.append(new_term)
+            
+        print(self.unnorm_subs_expr_terms)
+        print(len(self.unnorm_subs_expr_terms))
+        d_r = symbols(f'r0:{N}', commutative=True)
+        d_i = symbols(f'i0:{N}', commutative=True)
+        dim = 2*N
+        S = MatrixSymbol('S', dim, dim)        
+        num_unnorm = [lambdify((S, d_r, d_i), unnorm_trm, modules='numpy') for unnorm_trm in self.unnorm_subs_expr_terms]
+        num_norm = [lambdify((S, d_r, d_i), norm_trm, modules='numpy') for norm_trm in self.norm_subs_expr_terms]
+        self.nb_unnorm = nb.typed.List.empty_list(nb.types.float64(nb.types.Array(nb.types.float64, 2, 'C'), nb.types.Array(nb.types.complex64, 1, 'C'), nb.types.Array(nb.types.complex64, 1, 'C')).as_type())
+        self.nb_norm = nb.typed.List.empty_list(nb.types.float64(nb.types.Array(nb.types.float64, 2, 'C'), nb.types.Array(nb.types.complex64, 1, 'C'), nb.types.Array(nb.types.complex64, 1, 'C')).as_type())
+        nb_num_unnorm = [nb.njit(f) for f in num_unnorm]
+        nb_num_norm = [nb.njit(f) for f in num_norm]
+        for f in nb_num_unnorm:
+            self.nb_unnorm.append(f)
+        for f in nb_num_norm:
+            self.nb_norm.append(f)
+        print(self.nb_unnorm)
+        
         self.u_bar = CanonicalLadderTransformations(N)
         self.qnn_profiling = ProfilingQNN(N, layers)
 
@@ -156,17 +201,22 @@ class QNN:
         self.qnn_profiling.K_exp_vals_times.append(time.time() - K_exp_vals_start)
 
         # 4. When using input reuploading: build the symplectic coefficients for ladder operators' superposition
-        ladder_superpos_start = time.time()
-        """ if self.is_input_reupload:
-            self.trace_coefs = self.non_gauss_symplectic_coefs() """
+        """ ladder_superpos_start = time.time()
+        if self.is_input_reupload:
+            self.trace_coefs = self.non_gauss_symplectic_coefs()
         
-        self.qnn_profiling.ladder_superpos_times.append(time.time() - ladder_superpos_start)
+        self.qnn_profiling.ladder_superpos_times.append(time.time() - ladder_superpos_start) """
 
         # 5. Compute the observables' normalized expectation value of the non-Gaussianity applied to the final Gaussian state
         nongauss_start = time.time()
-        norm_exp_val = compute_exp_val_loop(self.trace_expr, self.norm_trace_expr, self.modes, self.types, self.modes_norm, self.types_norm, self.lpms, self.D_l[0], self.G_l[0], K_exp_vals, self.mean_vector)
+        norm_exp_val = compute_exp_val_loop(self.nb_unnorm, self.nb_norm,
+                                            self.np_modes, self.np_types, self.lens_modes,
+                                            self.np_modes_norm, self.np_types_norm, self.lens_modes_norm, 
+                                            self.np_lpms, self.D_l[0], self.G_l[0], K_exp_vals, self.mean_vector)
         self.qnn_profiling.nongauss_times.append(time.time() - nongauss_start)
         
+        #compute_times(self)
+        #print(f"OUTCOME: {np.real_if_close(norm_exp_val, tol=1e6)}")
         return np.real_if_close(norm_exp_val, tol=1e6)
 
     def train_QNN(self, parameters, inputs_dataset, outputs_dataset):
@@ -277,6 +327,8 @@ def build_and_train_model(name, N, layers, n_inputs, n_outputs, is_input_reuploa
               n_inputs, n_outputs, is_input_reupload, in_preprocs, out_prepocs, postprocs)
     train_inputs = reduce(lambda x, func: func(x), qnn.in_preprocessors, dataset[0])
     train_outputs = reduce(lambda x, func: func(x), qnn.out_preprocessors, dataset[1])
+    print(train_inputs)
+    print(train_outputs)
     
     global best_loss_values
     best_loss_values = [10]
@@ -297,12 +349,12 @@ def build_and_train_model(name, N, layers, n_inputs, n_outputs, is_input_reuploa
     
     qnn_outputs = test_model(qnn, dataset)
     plot_qnn_train_results(qnn, dataset[1], qnn_outputs, loss_values)
-    #show_times(qnn)
+    show_times(qnn)
     qnn.print_qnn()
     
     if save:
         qnn.qnn_profiling.clear_times()
         qnn.save_model(qnn.model_name + ".txt")
     
-    return qnn, best_loss_values
+    return qnn, loss_values
 

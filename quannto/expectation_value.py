@@ -1,7 +1,8 @@
 import numpy as np
-from sympy import symbols, expand, MatrixSymbol, Matrix
-from sympy.parsing.sympy_parser import parse_expr
+from sympy import symbols, expand, MatrixSymbol
 from numba import njit, prange
+import numba as nb
+import time
 
 from .utils import *
 
@@ -87,11 +88,8 @@ def extract_ladder_expressions(trace_expr):
     :param trace_expr: Symbolic expression of creation and annihilation operators
     :return: Pair of lists containing the modes the ladder operators act onto and their type
     '''
-    #trace_terms = str(trace_expr).replace(" ","").replace("*","").split('+')
-    #trace_terms = str(trace_expr).split('+')
     ladder_modes = []
     ladder_types = []
-    #print(trace_terms)
     for sym_term in trace_expr.args:
         term = str(sym_term).replace(" ","").replace("*","")
         tr_modes = []
@@ -123,6 +121,7 @@ def extract_ladder_expressions(trace_expr):
         ladder_types.append(tr_types)
     return [ladder_modes], [ladder_types]
 
+# TODO: Include layers
 def complete_trace_expression(N, photon_additions, n_outputs, include_obs = False):
     '''
     Builds the non-Gaussian state expression of a multi-photon added
@@ -157,8 +156,6 @@ def complete_trace_expression(N, photon_additions, n_outputs, include_obs = Fals
         sup *= expr
         sup_dag *= expr_dag
     
-    #print(sup)
-    #print(sup_dag)
     # TODO: Generalize for number of outputs (different expanded expression of the expectation value)
     if include_obs:
         expanded_expr = []
@@ -171,83 +168,84 @@ def complete_trace_expression(N, photon_additions, n_outputs, include_obs = Fals
             expanded_expr.append(expr)
     else:
         expanded_expr = sup_dag*sup
-    #str_expr = str(expanded_expr)
-    #print(len(str_expr.split("+")))
-    print(expanded_expr)
+    
     return expanded_expr
 
-def subs_in_trace_terms(trace_expr, D, symp_mat):
-    trace_terms = list(trace_expr.args)
+@njit
+def subs_in_trace_terms(trace_terms, D, symp_mat):
     expr_terms = []
-    S = MatrixSymbol('S', len(symp_mat), len(symp_mat))
-    S_mat = Matrix(symp_mat)
     N = len(D)//2
-    for term in trace_terms:
-        sym_term = term
-        #print(sym_term)
-        for disp_idx in range(N):
-            sym_term = sym_term.subs({f"i{disp_idx}": D[disp_idx]-1j*D[N+disp_idx], f"r{disp_idx}": D[disp_idx]+1j*D[N+disp_idx]})
-            sym_term = sym_term.subs(S, S_mat)
-            #print(sym_term)
-        expr_terms.append(sym_term)
+    d_r = np.zeros((N), dtype='complex64')
+    for i in range(N):
+        d_r[i] = D[i]+1j*D[N+i]
+    d_i = np.conjugate(d_r)
+    
+    for term_idx in prange(len(trace_terms)):
+        expr_terms.append(trace_terms[term_idx](symp_mat, d_r, d_i))
+        
     return expr_terms
 
+@njit
 def single_ladder_exp_val(term_mode, term_type, N, means_vector):
     return (1/np.sqrt(2)) * (means_vector[term_mode] + 1j*(-2*term_type + 1)*means_vector[N+term_mode])
 
-
-def compute_exp_val_loop(unnorm_expr, norm_expr, modes, types, modes_norm, types_norm, lpms, D, G, K_exp_vals, means_vector):
-    unnorm_terms = subs_in_trace_terms(unnorm_expr, D, G)
-    norm_terms = subs_in_trace_terms(norm_expr, D, G)
-    N = len(G) // 2
-
-    # For unnormalized exp val
+@njit
+def subs_terms_in_trace(terms, modes, types, terms_len, lpms, N, K_exp_vals, means_vector):
     trace_values=[]
     for i in prange(len(modes)):
         for j in prange(len(modes[0])):
-            if unnorm_terms[j] != 0:
-                trace_values.append(get_expectation_value(modes[i][j], types[i][j], lpms[0], N, K_exp_vals, means_vector))
-            else:
-                trace_values.append(0)
+            # if terms[j] != 0:
+            # TODO: Fix lpms shape
+            trace_values.append(get_expectation_value(modes[i][j], types[i][j], terms_len[i][j], lpms[0][0], N, K_exp_vals, means_vector))
+            # else:
+            #     trace_values.append(0)
     exp_val = []
-    for (coef, term) in zip(trace_values, unnorm_terms):
-        exp_val.append(coef * term.subs(dict(zip(term.free_symbols, [1 for i in range(len(term.free_symbols))])))) 
-    unnorm = expand(sum(exp_val))
+    for (coef, term) in zip(trace_values, terms):
+        # term.subs(dict(zip(term.free_symbols, [1 for i in range(len(term.free_symbols))])))
+        exp_val.append(coef * term)
+    return exp_val
+
+def compute_exp_val_loop(nb_unnorm, nb_norm, modes, types, unnorm_terms_len, modes_norm, types_norm, norm_terms_len, lpms, D, G, K_exp_vals, means_vector):
+    t1 = time.time()
+    N = len(G) // 2
+    
+    unnorm_terms = nb.typed.List(subs_in_trace_terms(nb_unnorm, D, G))
+    norm_terms = nb.typed.List(subs_in_trace_terms(nb_norm, D, G))
+    subs_time = time.time() - t1
+
+    # For unnormalized exp val
+    t2 = time.time()
+    unnorm = expand(sum(subs_terms_in_trace(unnorm_terms, modes, types, unnorm_terms_len, lpms, N, K_exp_vals, means_vector)))
+    unnorm_time = time.time() - t2
     
     # For normalization factor
+    t3 = time.time()
     if len(modes_norm[0]) == 0:
         norm = 1
     else:
-        trace_values=[]
-        for i in prange(len(modes_norm)):
-            for j in prange(len(modes_norm[0])):
-                if norm_terms[j] != 0:
-                    #TO-DO: Generalize lpms for any number of ladder operators (currently only 3)
-                    trace_values.append(get_expectation_value(modes_norm[i][j], types_norm[i][j], lpms[0], N, K_exp_vals, means_vector))
-                else:
-                    trace_values.append(0)
-        exp_val = []
-        for (coef, term) in zip(trace_values, norm_terms):
-            exp_val.append(coef * term.subs(dict(zip(term.free_symbols, [1 for i in range(len(term.free_symbols))])))) 
-        norm = expand(sum(exp_val))
-    
+        norm = expand(sum(subs_terms_in_trace(norm_terms, modes_norm, types_norm, norm_terms_len, lpms, N, K_exp_vals, means_vector)))
+    norm_time = time.time() - t3 
     norm_val = np.real_if_close(np.complex128(expand(unnorm/norm)))
+    
+    total_time = time.time() - t1
+    #print(f'Time expression subs: {np.round(subs_time, 3)} {np.round(100*subs_time/total_time, 3)}%')
+    #print(f'Time unnorm expression: {np.round(unnorm_time, 3)} {np.round(100*unnorm_time/total_time, 3)}%')
+    #print(f'Time norm expression: {np.round(norm_time, 3)} {np.round(100*norm_time/total_time, 3)}%')
+    #print()
     return norm_val
 
-def get_expectation_value(term_modes, term_types, perf_matchs, N, K_exp_vals, means_vector):
-    if len(term_modes) == 0: # CASE Tr[rho]
-        #print("NUM LADDERS: 0")
+@njit
+def get_expectation_value(term_modes, term_types, len_term, perf_matchs, N, K_exp_vals, means_vector):
+    if len_term == 0: # CASE Tr[rho]
         return 1
-    elif len(term_modes) == 1: # CASE Tr[a#rho]
-        #print("NUM LADDERS: 1")
+    elif len_term == 1: # CASE Tr[a#rho]
         return single_ladder_exp_val(term_modes[0], term_types[0], N, means_vector)
-    elif len(term_modes) == 2: # CASE Tr[a#a#rho]
-        #print("NUM LADDERS: 2")
+    elif len_term == 2: # CASE Tr[a#a#rho]
         return K_exp_vals[term_types[0] + 2*term_types[1], term_modes[0], term_modes[1]]
     else:
-        #print(f"NUM LADDERS: {len(term_modes)}")
         return ladder_exp_val(perf_matchs, term_modes, term_types, means_vector, K_exp_vals)
     
+@njit
 def ladder_exp_val(perf_matchings, ladder_modes, ladder_types, means_vector, cov_mat_identities):
     '''
     Computes the expected value of the energy when ladder operators are applied
@@ -265,7 +263,9 @@ def ladder_exp_val(perf_matchings, ladder_modes, ladder_types, means_vector, cov
         trace_prod = np.complex128(1+0j)
         for i1,i2 in zip(perf_match[0::2], perf_match[1::2]):
             # Determine which identity to pick depending on the pair of ladder ops and the modes
-            if i1!=i2:
+            if i1 == -1:
+                continue
+            elif i1!=i2:
                 trace_prod *= cov_mat_identities[ladder_types[i1] + 2*ladder_types[i2], ladder_modes[i1], ladder_modes[i2]]
             else:
                 trace_prod *= single_ladder_exp_val(ladder_modes[i1], ladder_types[i2], len(means_vector) // 2, means_vector)
@@ -295,3 +295,15 @@ def complete_exp_val(modes, types, perf, N, K, means):
             values.append(get_expectation_value(modes[i][j], types[i][j], perf, N, K, means))
     return values
 
+def to_np_array(lists):
+    lengths = np.full((len(lists), len(lists[0])), -1)
+    for out_idx in range(len(lists)):
+        for term_idx in range(len(lists[out_idx])):
+            lengths[out_idx, term_idx] = len(lists[out_idx][term_idx])
+    max_length = np.max(lengths)
+    arr = np.full((len(lists), len(lists[0]), max_length), -1)
+    for out_idx in range(len(lists)):
+        for term_idx in range(len(lists[out_idx])):
+            arr[out_idx, term_idx, :len(lists[out_idx][term_idx])] = np.array(lists[out_idx][term_idx])
+    return arr, lengths
+    
