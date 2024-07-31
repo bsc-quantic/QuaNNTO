@@ -13,6 +13,7 @@ parser.add_argument("layers", help="Number of layers of the QNN")
 parser.add_argument("inputs", help="Number of inputs of the dataset")
 parser.add_argument("outputs", help="Number of inputs of the dataset")
 parser.add_argument("input_reuploading", help="0 for no input reuploading, 1 otherwise")
+parser.add_argument("obs", help="Observable operator for the outputs: 'position', 'momentum' or 'number'.")
 parser.add_argument("dataset", help="Dataset to be evaluated")
 args = parser.parse_args()
 
@@ -22,8 +23,8 @@ layers = int(args.layers)
 n_in = int(args.inputs)
 n_out = int(args.outputs)
 is_input_reupload = True if int(args.input_reuploading)==1 else False
-observable_modes = [[mode, mode] for mode in range(n_out)]
-observable_types = [[1,0] for _ in range(n_out)]
+observable = str(args.obs)
+assert (observable == 'position' or observable == 'momentum' or observable == 'number')
 model_name = (args.dataset)[(args.dataset).index("/")+1 : (args.dataset).index(".")]
 
 # Dataset setup
@@ -54,8 +55,8 @@ postprocessors = []
 postprocessors.append(partial(rescale_data, data_range=out_rescaling, scale_data_range=out_data_ranges[0]))
 
 # Create and train a QNN model
-qnn = build_and_train_model(model_name, N, layers, n_in, n_out, observable_modes, observable_types, 
-                            is_input_reupload, training_set, in_preprocessors, out_preprocessors, postprocessors)
+qnn, loss = build_and_train_model(model_name, N, layers, n_in, n_out, observable, is_input_reupload, training_set,
+                                      in_preprocessors, out_preprocessors, postprocessors)
 
 # Test the model
 testing_set_size = 100

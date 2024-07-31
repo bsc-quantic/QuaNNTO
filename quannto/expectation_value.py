@@ -122,7 +122,7 @@ def extract_ladder_expressions(trace_expr):
     return [ladder_modes], [ladder_types]
 
 # TODO: Include layers
-def complete_trace_expression(N, photon_additions, n_outputs, include_obs = False):
+def complete_trace_expression(N, photon_additions, n_outputs, include_obs=False, obs='position'):
     '''
     Builds the non-Gaussian state expression of a multi-photon added
     QNN based on superposition of ladder operators applied to the Gaussian state.
@@ -160,11 +160,15 @@ def complete_trace_expression(N, photon_additions, n_outputs, include_obs = Fals
     if include_obs:
         expanded_expr = []
         for i in range(n_outputs):
-            # Position operator
-            #expr = (1/np.sqrt(2)) * (sup_dag*a[i]*sup + sup_dag*c[i]*sup)
-            expr = (1/np.sqrt(2))*(sup_dag*a[i]*sup + sup_dag*c[i]*sup)
-            # Number operator
-            #expr = (sup_dag*c[i]*a[i]*sup)
+            if obs == 'position':
+                # Position operator
+                expr = (1/np.sqrt(2))*(sup_dag*a[i]*sup + sup_dag*c[i]*sup)
+            elif obs == 'momentum':
+                # Momentum operator
+                expr = (1j/np.sqrt(2))*(sup_dag*c[i]*sup - sup_dag*a[i]*sup)
+            elif obs == 'number':
+                # Number operator
+                expr = sup_dag*c[i]*a[i]*sup
             expanded_expr.append(expr)
     else:
         expanded_expr = sup_dag*sup
@@ -195,8 +199,9 @@ def subs_terms_in_trace(terms, modes, types, terms_len, lpms, N, K_exp_vals, mea
     for i in prange(len(modes)):
         for j in prange(len(modes[0])):
             # if terms[j] != 0:
-            # TODO: Fix lpms shape
-            trace_values.append(get_expectation_value(modes[i][j], types[i][j], terms_len[i][j], lpms[0][0], N, K_exp_vals, means_vector))
+            # TODO: Better way to index the LPM according to length
+            lpms_idx = terms_len[i][j] - 3 if terms_len[i][j] > 3 else 0
+            trace_values.append(get_expectation_value(modes[i][j], types[i][j], terms_len[i][j], lpms[lpms_idx][0], N, K_exp_vals, means_vector))
             # else:
             #     trace_values.append(0)
     exp_val = []

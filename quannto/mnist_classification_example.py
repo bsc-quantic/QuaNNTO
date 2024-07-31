@@ -8,21 +8,20 @@ from .data_processors import *
 # === HYPERPARAMETERS DEFINITION ===
 N = 6
 layers = 1
-observable_modes = [[0,0]]
-observable_types = [[1,0]]
-is_input_reupload = True
+is_input_reupload = False
 n_inputs = 6
 n_outputs = 1
-
-num_categories = 10
-dataset_size = 150
-output_range = (0, 9)
-in_norm_range = (0.15, 6)
+observable = 'position'
+in_norm_range = (0.15, 3)
 out_norm_range = (1, 10)
 
-model_name = "mnist_encoded"
+# === DATASET SETTINGS ===
+output_range = (0, 9)
+num_categories = 10
+dataset_size = 200
 testing_set_size = 100
-dataset = autoencoder_mnist(N)
+model_name = "mnist_encoded"
+dataset = autoencoder_mnist(n_inputs)
 
 # === PREPROCESSORS AND POSTPROCESSORS ===
 in_preprocessors = []
@@ -44,8 +43,8 @@ postprocessors.append(partial(lambda x: x-1))
 train_dataset = (dataset[0][:dataset_size], dataset[1][:dataset_size])
 
 # Build the QNN and train it with the generated dataset
-qnn, loss = build_and_train_model(model_name, N, layers, n_inputs, n_outputs, observable_modes, observable_types, 
-                            is_input_reupload, train_dataset, in_preprocessors, out_preprocessors, postprocessors)
+qnn, loss = build_and_train_model(model_name, N, layers, n_inputs, n_outputs, observable, is_input_reupload, 
+                                  train_dataset, in_preprocessors, out_preprocessors, postprocessors)
 
 plt.plot(np.log(np.array(loss)+1), label=f'N={N}')
 plt.ylim(bottom=0.0)
@@ -54,6 +53,7 @@ plt.ylabel('Logarithmic loss value')
 plt.title(f'LOGARITHMIC LOSS FUNCTIONS')
 plt.legend()
 plt.show()
+
 # Generate a linearly-spaced testing dataset of the target function and test the trained QNN
 test_dataset = (dataset[0][dataset_size : dataset_size+testing_set_size], dataset[1][dataset_size : dataset_size+testing_set_size])
 qnn_test_outputs = test_model(qnn, test_dataset)

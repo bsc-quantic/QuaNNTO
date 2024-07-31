@@ -52,13 +52,11 @@ class QNN:
     '''
     Class for continuous variables quantum (optics) neural network building, training, evaluation and profiling.
     '''
-    def __init__(self, model_name, N, layers, n_in, n_out, is_input_reupload=False,
+    def __init__(self, model_name, N, layers, n_in, n_out, observable='position', is_input_reupload=False,
                  in_preprocessors=[], out_preprocessors=[], postprocessors=[]):
         # The number of modes N must be greater or equal to the number of inputs and outputs
         assert N >= n_in
         assert N >= n_out
-        # The number of observables must coincide with the number of outputs
-        #assert len(observable_modes) == len(observable_types) == n_out
         
         self.model_name = model_name
         self.N = N
@@ -72,21 +70,23 @@ class QNN:
         
         # Normalization expression related to a single photon addition on first mode for each QNN layer
         self.norm_trace_expr = expand(complete_trace_expression(self.N, [0], self.n_out, include_obs=False))
-        
+
         # Full trace expression including the photon additions and the observable to be measured
         # TODO: Generalize for any number of outputs
-        self.trace_expr = expand(complete_trace_expression(self.N, [0], self.n_out, include_obs=True)[0])
+        self.trace_expr = expand(complete_trace_expression(self.N, [0], self.n_out, include_obs=True, obs=observable)[0])
+        print("EXPECTATION VALUE EXPRESSION:")
+        print(self.trace_expr)
         
         # TODO: Generalize for any number of perfect matchings needed for the exp val expression
         self.modes, self.types = extract_ladder_expressions(self.trace_expr)
         self.np_modes, self.lens_modes = to_np_array(self.modes)
         self.np_types, self.lens_types = to_np_array(self.types)
-        max_lpms = np.max(self.lens_modes) + 1
-        
+                
         self.modes_norm, self.types_norm = extract_ladder_expressions(self.norm_trace_expr)
         self.np_modes_norm, self.lens_modes_norm = to_np_array(self.modes_norm)
         self.np_types_norm, self.lens_types_norm = to_np_array(self.types_norm)
         
+        max_lpms = np.max(self.lens_modes)
         self.lpms = [to_np_array([loop_perfect_matchings(lens)]) for lens in range(3, max_lpms+1)]
         self.np_lpms = nb.typed.List([lpms for (lpms, _) in self.lpms])
         self.lens_lpms = nb.typed.List([lens for (_, lens) in self.lpms])
@@ -97,6 +97,7 @@ class QNN:
         ladder_subs.update({a[i]: 1 for i in range(self.N)})
         
         unnorm_expr_terms = list(self.trace_expr.args)
+        #print(unnorm_expr_terms)
         self.unnorm_subs_expr_terms = []
         for term in unnorm_expr_terms:
             new_term = term.subs(ladder_subs)
@@ -108,8 +109,6 @@ class QNN:
             new_term = norm_term.subs(ladder_subs)
             self.norm_subs_expr_terms.append(new_term)
             
-        print(self.unnorm_subs_expr_terms)
-        print(len(self.unnorm_subs_expr_terms))
         d_r = symbols(f'r0:{N}', commutative=True)
         d_i = symbols(f'i0:{N}', commutative=True)
         dim = 2*N
@@ -124,7 +123,6 @@ class QNN:
             self.nb_unnorm.append(f)
         for f in nb_num_norm:
             self.nb_norm.append(f)
-        print(self.nb_unnorm)
         
         self.u_bar = CanonicalLadderTransformations(N)
         self.qnn_profiling = ProfilingQNN(N, layers)
@@ -275,7 +273,7 @@ def test_model(qnn, testing_dataset):
     
     return reduce(lambda x, func: func(x), qnn.postprocessors, qnn_outputs)
     
-def build_and_train_model(name, N, layers, n_inputs, n_outputs, is_input_reupload, 
+def build_and_train_model(name, N, layers, n_inputs, n_outputs, observable, is_input_reupload, 
                           dataset, in_preprocs=[], out_prepocs=[], postprocs=[], init_pars=None, save=True):
     '''
     Creates and trains a QNN model with the given hyperparameters and dataset by optimizing the 
@@ -324,7 +322,7 @@ def build_and_train_model(name, N, layers, n_inputs, n_outputs, is_input_reuploa
         loss_values = []
     
     qnn = QNN("model_N" + str(N) + "_L" + str(layers) + "_" + name, N, layers, 
-              n_inputs, n_outputs, is_input_reupload, in_preprocs, out_prepocs, postprocs)
+              n_inputs, n_outputs, observable, is_input_reupload, in_preprocs, out_prepocs, postprocs)
     train_inputs = reduce(lambda x, func: func(x), qnn.in_preprocessors, dataset[0])
     train_outputs = reduce(lambda x, func: func(x), qnn.out_preprocessors, dataset[1])
     print(train_inputs)
