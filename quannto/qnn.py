@@ -69,25 +69,35 @@ class QNN:
         self.is_input_reupload = is_input_reupload
         
         # Normalization expression related to a single photon addition on first mode for each QNN layer
-        self.norm_trace_expr = expand(complete_trace_expression(self.N, [0], self.n_out, include_obs=False))
+        self.norm_trace_expr = complete_trace_expression(self.N, [0], self.n_out, include_obs=False)
 
         # Full trace expression including the photon additions and the observable to be measured
         # TODO: Generalize for any number of outputs
-        self.trace_expr = expand(complete_trace_expression(self.N, [0], self.n_out, include_obs=True, obs=observable)[0])
+        self.trace_expr = complete_trace_expression(self.N, [0], self.n_out, include_obs=True, obs=observable)
         print("EXPECTATION VALUE EXPRESSION:")
         print(self.trace_expr)
         
+        print("NORM EXPRESSION:")
+        print(self.norm_trace_expr)
+        
         # TODO: Generalize for any number of perfect matchings needed for the exp val expression
-        self.modes, self.types = extract_ladder_expressions(self.trace_expr)
+        self.modes, self.types = [], []
+        for outs in range(self.n_out):
+            modes, types = extract_ladder_expressions(self.trace_expr[outs])
+            self.modes.append(modes)
+            self.types.append(types)
         self.np_modes, self.lens_modes = to_np_array(self.modes)
         self.np_types, self.lens_types = to_np_array(self.types)
                 
-        self.modes_norm, self.types_norm = extract_ladder_expressions(self.norm_trace_expr)
+        modes_norm, types_norm = extract_ladder_expressions(self.norm_trace_expr)
+        self.modes_norm, self.types_norm = [modes_norm], [types_norm]
         self.np_modes_norm, self.lens_modes_norm = to_np_array(self.modes_norm)
         self.np_types_norm, self.lens_types_norm = to_np_array(self.types_norm)
         
         max_lpms = np.max(self.lens_modes)
         self.lpms = [to_np_array([loop_perfect_matchings(lens)]) for lens in range(3, max_lpms+1)]
+        if len(self.lpms) == 0:
+            self.lpms = [to_np_array([loop_perfect_matchings(3)])]
         self.np_lpms = nb.typed.List([lpms for (lpms, _) in self.lpms])
         self.lens_lpms = nb.typed.List([lens for (_, lens) in self.lpms])
         
@@ -96,12 +106,14 @@ class QNN:
         ladder_subs = {c[i]: 1 for i in range(self.N)}
         ladder_subs.update({a[i]: 1 for i in range(self.N)})
         
-        unnorm_expr_terms = list(self.trace_expr.args)
-        #print(unnorm_expr_terms)
-        self.unnorm_subs_expr_terms = []
-        for term in unnorm_expr_terms:
-            new_term = term.subs(ladder_subs)
-            self.unnorm_subs_expr_terms.append(new_term)
+        self.unnorm_expr_terms_out = []
+        for outs in range(self.n_out):
+            unnorm_expr_terms = list(self.trace_expr[outs].args)
+            unnorm_subs_expr_terms = []
+            for term in unnorm_expr_terms:
+                new_term = term.subs(ladder_subs)
+                unnorm_subs_expr_terms.append(new_term)
+            self.unnorm_expr_terms_out.append(unnorm_subs_expr_terms)
             
         norm_expr_terms = list(self.norm_trace_expr.args)
         self.norm_subs_expr_terms = []
@@ -113,17 +125,25 @@ class QNN:
         d_i = symbols(f'i0:{N}', commutative=True)
         dim = 2*N
         S = MatrixSymbol('S', dim, dim)        
-        num_unnorm = [lambdify((S, d_r, d_i), unnorm_trm, modules='numpy') for unnorm_trm in self.unnorm_subs_expr_terms]
+        num_unnorm = []
+        for outs in range(self.n_out):
+            num_unnorm.append([lambdify((S, d_r, d_i), unnorm_trm, modules='numpy') for unnorm_trm in self.unnorm_expr_terms_out[outs]])
         num_norm = [lambdify((S, d_r, d_i), norm_trm, modules='numpy') for norm_trm in self.norm_subs_expr_terms]
-        self.nb_unnorm = nb.typed.List.empty_list(nb.types.float64(nb.types.Array(nb.types.float64, 2, 'C'), nb.types.Array(nb.types.complex64, 1, 'C'), nb.types.Array(nb.types.complex64, 1, 'C')).as_type())
+        self.nb_unnorm = nb.typed.List.empty_list(nb.types.ListType(nb.types.float64(nb.types.Array(nb.types.float64, 2, 'C'), nb.types.Array(nb.types.complex64, 1, 'C'), nb.types.Array(nb.types.complex64, 1, 'C')).as_type()))
         self.nb_norm = nb.typed.List.empty_list(nb.types.float64(nb.types.Array(nb.types.float64, 2, 'C'), nb.types.Array(nb.types.complex64, 1, 'C'), nb.types.Array(nb.types.complex64, 1, 'C')).as_type())
-        nb_num_unnorm = [nb.njit(f) for f in num_unnorm]
+        nb_num_unnorm = []
+        for outs in range(self.n_out):
+            nb_num_unnorm.append([nb.njit(f) for f in num_unnorm[outs]])
         nb_num_norm = [nb.njit(f) for f in num_norm]
-        for f in nb_num_unnorm:
-            self.nb_unnorm.append(f)
+        for outs in range(self.n_out):
+            nb_unnorm_out = nb.typed.List.empty_list(nb.types.float64(nb.types.Array(nb.types.float64, 2, 'C'), nb.types.Array(nb.types.complex64, 1, 'C'), nb.types.Array(nb.types.complex64, 1, 'C')).as_type())
+            for f in nb_num_unnorm[outs]:
+                nb_unnorm_out.append(f)
+            self.nb_unnorm.append(nb_unnorm_out)
         for f in nb_num_norm:
             self.nb_norm.append(f)
-        
+        print(self.nb_unnorm)
+        print(self.nb_norm)
         self.u_bar = CanonicalLadderTransformations(N)
         self.qnn_profiling = ProfilingQNN(N, layers)
 

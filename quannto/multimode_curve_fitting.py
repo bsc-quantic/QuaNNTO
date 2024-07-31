@@ -7,19 +7,19 @@ from .results_utils import *
 from .data_processors import *
 
 # === HYPERPARAMETERS DEFINITION ===
-modes = [2]
+modes = [3]
 layers = 1
 is_input_reupload = False
-n_inputs = 1
-n_outputs = 1
-observable = 'position'
+n_inputs = 2
+n_outputs = 2
+observable = 'number'
 in_norm_range = (0, 5)
 out_norm_range = (1, 10)
 
 # === TARGET FUNCTION SETTINGS ===
-target_function = test_function_1in_1out
+target_function = test_function_2in_2out
 dataset_size = 70
-input_range = (0, 3)
+input_range = (0, 10)
 output_range = get_range(generate_linear_dataset_of(target_function, n_inputs, n_outputs, dataset_size*100, input_range)[1])
 testing_set_size = 200
 
@@ -64,7 +64,7 @@ for (N, color) in zip(modes, colors):
 
     # Build the QNN and train it with the generated dataset
     qnn, loss = build_and_train_model(model_name, N, layers, n_inputs, n_outputs, observable, is_input_reupload, train_dataset,
-                                      in_preprocessors, out_preprocessors, postprocessors)#, init_pars=np.array([1.09070584, 0.22993975, 1.63608856, -1.28639551, -0.4042303]))
+                                      in_preprocessors, out_preprocessors, postprocessors)#, init_pars=np.ones((12)))
     losses.append(loss.copy())
     qnn_test_outputs = test_model(qnn, test_dataset)
     #print(qnn_test_outputs)

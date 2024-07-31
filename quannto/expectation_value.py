@@ -119,7 +119,7 @@ def extract_ladder_expressions(trace_expr):
                 idx += 1
         ladder_modes.append(tr_modes)
         ladder_types.append(tr_types)
-    return [ladder_modes], [ladder_types]
+    return ladder_modes, ladder_types
 
 # TODO: Include layers
 def complete_trace_expression(N, photon_additions, n_outputs, include_obs=False, obs='position'):
@@ -169,9 +169,9 @@ def complete_trace_expression(N, photon_additions, n_outputs, include_obs=False,
             elif obs == 'number':
                 # Number operator
                 expr = sup_dag*c[i]*a[i]*sup
-            expanded_expr.append(expr)
+            expanded_expr.append(expand(expr))
     else:
-        expanded_expr = sup_dag*sup
+        expanded_expr = expand(sup_dag*sup)
     
     return expanded_expr
 
@@ -197,13 +197,12 @@ def single_ladder_exp_val(term_mode, term_type, N, means_vector):
 def subs_terms_in_trace(terms, modes, types, terms_len, lpms, N, K_exp_vals, means_vector):
     trace_values=[]
     for i in prange(len(modes)):
-        for j in prange(len(modes[0])):
-            # if terms[j] != 0:
-            # TODO: Better way to index the LPM according to length
-            lpms_idx = terms_len[i][j] - 3 if terms_len[i][j] > 3 else 0
-            trace_values.append(get_expectation_value(modes[i][j], types[i][j], terms_len[i][j], lpms[lpms_idx][0], N, K_exp_vals, means_vector))
-            # else:
-            #     trace_values.append(0)
+        # if terms[j] != 0:
+        # TODO: Better way to index the LPM according to length
+        lpms_idx = terms_len[i] - 3 if terms_len[i] > 3 else 0
+        trace_values.append(get_expectation_value(modes[i], types[i], terms_len[i], lpms[lpms_idx][0], N, K_exp_vals, means_vector))
+        # else:
+        #     trace_values.append(0)
     exp_val = []
     for (coef, term) in zip(trace_values, terms):
         # term.subs(dict(zip(term.free_symbols, [1 for i in range(len(term.free_symbols))])))
@@ -213,24 +212,25 @@ def subs_terms_in_trace(terms, modes, types, terms_len, lpms, N, K_exp_vals, mea
 def compute_exp_val_loop(nb_unnorm, nb_norm, modes, types, unnorm_terms_len, modes_norm, types_norm, norm_terms_len, lpms, D, G, K_exp_vals, means_vector):
     t1 = time.time()
     N = len(G) // 2
-    
-    unnorm_terms = nb.typed.List(subs_in_trace_terms(nb_unnorm, D, G))
+    unnorm_terms = nb.typed.List([nb.typed.List(subs_in_trace_terms(nb_unnorm[outs], D, G)) for outs in range(len(modes))])
     norm_terms = nb.typed.List(subs_in_trace_terms(nb_norm, D, G))
     subs_time = time.time() - t1
 
     # For unnormalized exp val
     t2 = time.time()
-    unnorm = expand(sum(subs_terms_in_trace(unnorm_terms, modes, types, unnorm_terms_len, lpms, N, K_exp_vals, means_vector)))
+    unnorm = np.zeros((len(modes)), dtype='complex')
+    for outs in range(len(modes)):
+        unnorm[outs] = expand(sum(subs_terms_in_trace(unnorm_terms[outs], modes[outs], types[outs], unnorm_terms_len[outs], lpms, N, K_exp_vals, means_vector)))
     unnorm_time = time.time() - t2
     
     # For normalization factor
     t3 = time.time()
-    if len(modes_norm[0]) == 0:
+    if len(modes_norm) == 0:
         norm = 1
     else:
-        norm = expand(sum(subs_terms_in_trace(norm_terms, modes_norm, types_norm, norm_terms_len, lpms, N, K_exp_vals, means_vector)))
-    norm_time = time.time() - t3 
-    norm_val = np.real_if_close(np.complex128(expand(unnorm/norm)))
+        norm = expand(sum(subs_terms_in_trace(norm_terms, modes_norm[0], types_norm[0], norm_terms_len[0], lpms, N, K_exp_vals, means_vector)))
+    norm_time = time.time() - t3
+    norm_val = np.real_if_close(np.complex128(unnorm/norm))
     
     total_time = time.time() - t1
     #print(f'Time expression subs: {np.round(subs_time, 3)} {np.round(100*subs_time/total_time, 3)}%')
@@ -301,12 +301,12 @@ def complete_exp_val(modes, types, perf, N, K, means):
     return values
 
 def to_np_array(lists):
-    lengths = np.full((len(lists), len(lists[0])), -1)
+    lengths = np.full((len(lists), len(lists[0])), -1) if len(lists[0]) > 0 else np.array([0])
     for out_idx in range(len(lists)):
         for term_idx in range(len(lists[out_idx])):
             lengths[out_idx, term_idx] = len(lists[out_idx][term_idx])
     max_length = np.max(lengths)
-    arr = np.full((len(lists), len(lists[0]), max_length), -1)
+    arr = np.full((len(lists), len(lists[0]), max_length), -1) if len(lists[0]) > 0 else np.array([])
     for out_idx in range(len(lists)):
         for term_idx in range(len(lists[out_idx])):
             arr[out_idx, term_idx, :len(lists[out_idx][term_idx])] = np.array(lists[out_idx][term_idx])
