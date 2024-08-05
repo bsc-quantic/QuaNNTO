@@ -52,7 +52,7 @@ class QNN:
     '''
     Class for continuous variables quantum (optics) neural network building, training, evaluation and profiling.
     '''
-    def __init__(self, model_name, N, layers, n_in, n_out, observable='position', is_input_reupload=False,
+    def __init__(self, model_name, N, layers, n_in, n_out, photon_add=[0], observable='position', is_input_reupload=False,
                  in_preprocessors=[], out_preprocessors=[], postprocessors=[]):
         # The number of modes N must be greater or equal to the number of inputs and outputs
         assert N >= n_in
@@ -69,11 +69,11 @@ class QNN:
         self.is_input_reupload = is_input_reupload
         
         # Normalization expression related to a single photon addition on first mode for each QNN layer
-        self.norm_trace_expr = complete_trace_expression(self.N, [0], self.n_out, include_obs=False)
+        self.norm_trace_expr = complete_trace_expression(self.N, photon_add, self.n_out, include_obs=False)
 
         # Full trace expression including the photon additions and the observable to be measured
         # TODO: Generalize for any number of outputs
-        self.trace_expr = complete_trace_expression(self.N, [0], self.n_out, include_obs=True, obs=observable)
+        self.trace_expr = complete_trace_expression(self.N, photon_add, self.n_out, include_obs=True, obs=observable)
         print("EXPECTATION VALUE EXPRESSION:")
         print(self.trace_expr)
         
@@ -124,7 +124,8 @@ class QNN:
         d_r = symbols(f'r0:{N}', commutative=True)
         d_i = symbols(f'i0:{N}', commutative=True)
         dim = 2*N
-        S = MatrixSymbol('S', dim, dim)        
+        S = MatrixSymbol('S', dim, dim)
+        
         num_unnorm = []
         for outs in range(self.n_out):
             num_unnorm.append([lambdify((S, d_r, d_i), unnorm_trm, modules='numpy') for unnorm_trm in self.unnorm_expr_terms_out[outs]])
@@ -142,8 +143,7 @@ class QNN:
             self.nb_unnorm.append(nb_unnorm_out)
         for f in nb_num_norm:
             self.nb_norm.append(f)
-        print(self.nb_unnorm)
-        print(self.nb_norm)
+            
         self.u_bar = CanonicalLadderTransformations(N)
         self.qnn_profiling = ProfilingQNN(N, layers)
 
@@ -288,12 +288,12 @@ def test_model(qnn, testing_dataset):
         error[k] = ((test_outputs[k] - qnn_outputs[k])**2).sum()
     mean_error = error.sum()/(len(error)*len(test_outputs[0]))
     print(f"MSE: {mean_error}")
-    """for (i,j) in zip(test_outputs, qnn_outputs):
-        print(f"Expected: {i} Obtained: {j}")"""
+    """ for (i,j) in zip(test_outputs, qnn_outputs):
+        print(f"Expected: {i} Obtained: {j}") """
     
     return reduce(lambda x, func: func(x), qnn.postprocessors, qnn_outputs)
     
-def build_and_train_model(name, N, layers, n_inputs, n_outputs, observable, is_input_reupload, 
+def build_and_train_model(name, N, layers, n_inputs, n_outputs, photon_additions, observable, is_input_reupload, 
                           dataset, in_preprocs=[], out_prepocs=[], postprocs=[], init_pars=None, save=True):
     '''
     Creates and trains a QNN model with the given hyperparameters and dataset by optimizing the 
@@ -328,7 +328,6 @@ def build_and_train_model(name, N, layers, n_inputs, n_outputs, observable, is_i
         :param xk: QNN tunable parameters
         '''
         e = training_QNN(xk)
-        print(xk)
         print(e)
         loss_values.append(e)
         
@@ -341,12 +340,10 @@ def build_and_train_model(name, N, layers, n_inputs, n_outputs, observable, is_i
             best_loss_values = loss_values.copy()
         loss_values = []
     
-    qnn = QNN("model_N" + str(N) + "_L" + str(layers) + "_" + name, N, layers, 
-              n_inputs, n_outputs, observable, is_input_reupload, in_preprocs, out_prepocs, postprocs)
+    qnn = QNN("model_N" + str(N) + "_L" + str(layers) + "_" + name, N, layers, n_inputs, n_outputs,
+              photon_additions, observable, is_input_reupload, in_preprocs, out_prepocs, postprocs)
     train_inputs = reduce(lambda x, func: func(x), qnn.in_preprocessors, dataset[0])
     train_outputs = reduce(lambda x, func: func(x), qnn.out_preprocessors, dataset[1])
-    print(train_inputs)
-    print(train_outputs)
     
     global best_loss_values
     best_loss_values = [10]
@@ -366,8 +363,8 @@ def build_and_train_model(name, N, layers, n_inputs, n_outputs, observable, is_i
     qnn.build_QNN(result.x)
     
     qnn_outputs = test_model(qnn, dataset)
-    plot_qnn_train_results(qnn, dataset[1], qnn_outputs, loss_values)
-    show_times(qnn)
+    #plot_qnn_train_results(qnn, dataset[1], qnn_outputs, loss_values)
+    #show_times(qnn)
     qnn.print_qnn()
     
     if save:

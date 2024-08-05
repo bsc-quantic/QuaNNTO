@@ -27,6 +27,9 @@ observable = str(args.obs)
 assert (observable == 'position' or observable == 'momentum' or observable == 'number')
 model_name = (args.dataset)[(args.dataset).index("/")+1 : (args.dataset).index(".")]
 
+# Non-Gaussianity: by default, photon addition on mode 0
+photon_additions = [0]
+
 # Dataset setup
 dataset_df = pd.read_csv(args.dataset)
 inputs_set = dataset_df.iloc[:, 0:n_in].to_numpy()
@@ -55,7 +58,7 @@ postprocessors = []
 postprocessors.append(partial(rescale_data, data_range=out_rescaling, scale_data_range=out_data_ranges[0]))
 
 # Create and train a QNN model
-qnn, loss = build_and_train_model(model_name, N, layers, n_in, n_out, observable, is_input_reupload, training_set,
+qnn, loss = build_and_train_model(model_name, N, layers, n_in, n_out, photon_additions, observable, is_input_reupload, training_set,
                                       in_preprocessors, out_preprocessors, postprocessors)
 
 # Test the model

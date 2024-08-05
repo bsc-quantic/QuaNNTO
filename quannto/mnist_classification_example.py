@@ -6,12 +6,13 @@ from .results_utils import *
 from .data_processors import *
 
 # === HYPERPARAMETERS DEFINITION ===
-N = 6
+N = 5
+photon_additions = [0]
 layers = 1
 is_input_reupload = False
-n_inputs = 6
+n_inputs = 5
 n_outputs = 1
-observable = 'position'
+observable = 'number'
 in_norm_range = (0.15, 3)
 out_norm_range = (1, 10)
 
@@ -43,7 +44,7 @@ postprocessors.append(partial(lambda x: x-1))
 train_dataset = (dataset[0][:dataset_size], dataset[1][:dataset_size])
 
 # Build the QNN and train it with the generated dataset
-qnn, loss = build_and_train_model(model_name, N, layers, n_inputs, n_outputs, observable, is_input_reupload, 
+qnn, loss = build_and_train_model(model_name, N, layers, n_inputs, n_outputs, photon_additions, observable, is_input_reupload, 
                                   train_dataset, in_preprocessors, out_preprocessors, postprocessors)
 
 plt.plot(np.log(np.array(loss)+1), label=f'N={N}')
