@@ -207,6 +207,14 @@ class QNN:
         self.mean_vector = np.zeros(2*self.N)
         self.displacement_operator(input)
         self.qnn_profiling.input_prep_times.append(time.time() - input_prep_start)
+        
+        # 1.1. When using input reuploading: build the symplectic coefficients for ladder operators' superposition
+        # TODO: Modify the profiling name
+        #ladder_superpos_start = time.time()
+        if self.is_input_reupload:
+            for l in range(self.layers):
+                self.D_l[l][0:len(input)] = input
+        #self.qnn_profiling.ladder_superpos_times.append(time.time() - ladder_superpos_start)
 
         # 2. Apply the Gaussian transformation acting as weights matrix
         gauss_start = time.time()
@@ -217,13 +225,6 @@ class QNN:
         K_exp_vals_start = time.time()
         K_exp_vals = compute_K_exp_vals(self.V, self.mean_vector)
         self.qnn_profiling.K_exp_vals_times.append(time.time() - K_exp_vals_start)
-
-        # 4. When using input reuploading: build the symplectic coefficients for ladder operators' superposition
-        """ ladder_superpos_start = time.time()
-        if self.is_input_reupload:
-            self.trace_coefs = self.non_gauss_symplectic_coefs()
-        
-        self.qnn_profiling.ladder_superpos_times.append(time.time() - ladder_superpos_start) """
 
         # 5. Compute the observables' normalized expectation value of the non-Gaussianity applied to the final Gaussian state
         nongauss_start = time.time()
