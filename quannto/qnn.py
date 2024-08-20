@@ -72,7 +72,6 @@ class QNN:
         self.norm_trace_expr = complete_trace_expression(self.N, photon_add, self.n_out, include_obs=False)
 
         # Full trace expression including the photon additions and the observable to be measured
-        # TODO: Generalize for any number of outputs
         self.trace_expr = complete_trace_expression(self.N, photon_add, self.n_out, include_obs=True, obs=observable)
         print("EXPECTATION VALUE EXPRESSION:")
         print(self.trace_expr)
@@ -80,7 +79,6 @@ class QNN:
         print("NORM EXPRESSION:")
         print(self.norm_trace_expr)
         
-        # TODO: Generalize for any number of perfect matchings needed for the exp val expression
         self.modes, self.types = [], []
         for outs in range(self.n_out):
             modes, types = extract_ladder_expressions(self.trace_expr[outs])
@@ -227,6 +225,7 @@ class QNN:
         self.qnn_profiling.K_exp_vals_times.append(time.time() - K_exp_vals_start)
 
         # 5. Compute the observables' normalized expectation value of the non-Gaussianity applied to the final Gaussian state
+        # TODO: Generalize for multilayer
         nongauss_start = time.time()
         norm_exp_val = compute_exp_val_loop(self.nb_unnorm, self.nb_norm,
                                             self.np_modes, self.np_types, self.lens_modes,
@@ -258,6 +257,8 @@ class QNN:
     def print_qnn(self):
         for layer in range(self.layers):
             print(f"Layer {layer+1}:\nQ1 = {self.Q1_gauss[layer]}\nZ = {self.Z_gauss[layer]}\nQ2 = {self.Q2_gauss[layer]}")
+            if not self.is_input_reupload:
+                print("D = {self.D_l[layer]}")
         
     def save_model(self, filename):
         f = open("models/"+filename, 'w')
@@ -285,7 +286,7 @@ def test_model(qnn, testing_dataset):
     
     # Evaluate all testing set
     for k in range(len(test_inputs)):
-        qnn_outputs[k] = np.real_if_close(qnn.eval_QNN(test_inputs[k]))
+        qnn_outputs[k] = qnn.eval_QNN(test_inputs[k])
         error[k] = ((test_outputs[k] - qnn_outputs[k])**2).sum()
     mean_error = error.sum()/(len(error)*len(test_outputs[0]))
     print(f"MSE: {mean_error}")
