@@ -47,9 +47,20 @@ def binning(data, data_range, num_categories):
                 threshold += cat_step
     return cat
 
-def autoencoder_mnist(latent_dim):
+def filter_dataset_categories(inputs, outputs, categories):
+    filtered_inputs = []
+    filtered_outputs = []
+    for idx in range(len(outputs)):
+        if outputs[idx] in categories:
+            filtered_inputs.append(inputs[idx])
+            filtered_outputs.append(outputs[idx])
+    return (np.array(filtered_inputs), np.array(filtered_outputs))
+
+def autoencoder_mnist(latent_dim, categories):
     # Load MNIST dataset
     (x_train, y_train), (x_test, y_test) = tf.keras.datasets.mnist.load_data()
+    (x_train, y_train) = filter_dataset_categories(x_train, y_train, categories)
+    (x_test, y_test) = filter_dataset_categories(x_test, y_test, categories)
 
     # Normalize pixel values to the range [0, 1]
     x_train = x_train.astype('float32') / 255.
