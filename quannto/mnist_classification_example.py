@@ -14,19 +14,20 @@ n_inputs = 5
 n_outputs = 1
 observable = 'number'
 in_norm_range = (0.15, 3)
-out_norm_range = (1, 10)
+out_norm_range = (1, 5)
 
 # === DATASET SETTINGS ===
-output_range = (0, 9)
-num_categories = 10
+output_range = (0, 3)
+categories = [0, 1, 2, 3]
 dataset_size = 200
 testing_set_size = 100
 model_name = "mnist_encoded"
-dataset = autoencoder_mnist(n_inputs)
+dataset = autoencoder_mnist(n_inputs, categories)
 
 # === PREPROCESSORS AND POSTPROCESSORS ===
 in_preprocessors = []
 data_ranges = [(np.min(dataset[0][:,col]), np.max(dataset[0][:,col])) for col in range(len(dataset[0][0]))]
+print("ENCODED INPUTS RANGE:")
 print(data_ranges)
 in_preprocessors.append(partial(rescale_set_with_ranges, data_ranges=data_ranges, rescale_range=in_norm_range))
 
@@ -35,9 +36,9 @@ out_preprocessors.append(partial(rescale_data, data_range=output_range, scale_da
 
 postprocessors = []
 #postprocessors.append(partial(rescale_data, data_range=out_norm_range, scale_data_range=output_range))
-#postprocessors.append(partial(binning, data_range=out_norm_range, num_categories=num_categories))
-postprocessors.append(partial(np.round))
-postprocessors.append(partial(lambda x: x-1))
+#postprocessors.append(partial(binning, data_range=out_norm_range, num_categories=len(categories)))
+#postprocessors.append(partial(np.round))
+#postprocessors.append(partial(lambda x: x-1))
 #postprocessors.append(partial(np.floor))
 
 # === BUILD, TRAIN AND TEST QNN ===
