@@ -20,7 +20,8 @@ out_norm_range = (1, 5)
 output_range = (0, 3)
 categories = [0, 1, 2, 3]
 dataset_size = 200
-testing_set_size = 100
+validset_size = 40
+testset_size = 100
 model_name = "mnist_encoded"
 dataset = autoencoder_mnist(n_inputs, categories)
 
@@ -43,12 +44,14 @@ postprocessors = []
 
 # === BUILD, TRAIN AND TEST QNN ===
 train_dataset = (dataset[0][:dataset_size], dataset[1][:dataset_size])
+valid_dataset = (dataset[0][dataset_size : dataset_size+validset_size], dataset[1][dataset_size : dataset_size+validset_size])
 
 # Build the QNN and train it with the generated dataset
-qnn, loss = build_and_train_model(model_name, N, layers, n_inputs, n_outputs, photon_additions, observable, is_input_reupload, 
-                                  train_dataset, in_preprocessors, out_preprocessors, postprocessors)
+qnn, train_loss, valid_loss = build_and_train_model(model_name, N, layers, n_inputs, n_outputs, photon_additions, observable, is_input_reupload, 
+                                                    train_dataset, valid_dataset, in_preprocessors, out_preprocessors, postprocessors)
 
-plt.plot(np.log(np.array(loss)+1), label=f'N={N}')
+plt.plot(np.log(np.array(train_loss)+1), c='red', label=f'Train loss N={N}')
+plt.plot(np.log(np.array(valid_loss)+1), c='red', linestyle='dashed', label=f'Validation loss N={N}')
 plt.ylim(bottom=0.0)
 plt.xlabel('Epochs')
 plt.ylabel('Logarithmic loss value')
@@ -57,7 +60,7 @@ plt.legend()
 plt.show()
 
 # Generate a linearly-spaced testing dataset of the target function and test the trained QNN
-test_dataset = (dataset[0][dataset_size : dataset_size+testing_set_size], dataset[1][dataset_size : dataset_size+testing_set_size])
+test_dataset = (dataset[0][dataset_size+validset_size : dataset_size+validset_size+testset_size], dataset[1][dataset_size+validset_size : dataset_size+validset_size+testset_size])
 qnn_test_outputs = test_model(qnn, test_dataset)
 for (i,j) in zip(test_dataset[1], qnn_test_outputs):
     print(f"Expected: {i} Obtained: {j}")

@@ -68,6 +68,13 @@ class QNN:
         self.postprocessors = postprocessors
         self.is_input_reupload = is_input_reupload
         
+        self.Q1_gauss = np.zeros((self.layers, 2*self.N, 2*self.N))
+        self.Q2_gauss = np.zeros((self.layers, 2*self.N, 2*self.N))
+        self.Z_gauss = np.zeros((self.layers, 2*self.N, 2*self.N))
+        self.G_l = np.zeros((self.layers, 2*self.N, 2*self.N))
+        self.D_l = np.zeros((self.layers, 2*self.N))
+        self.G = np.eye(2*self.N)
+        
         # Normalization expression related to a single photon addition on first mode for each QNN layer
         self.norm_trace_expr = complete_trace_expression(self.N, photon_add, self.n_out, include_obs=False)
 
@@ -149,14 +156,7 @@ class QNN:
         self.tunable_parameters = np.copy(parameters)
         self.set_parameters(parameters)
 
-    def set_parameters(self, parameters):
-        self.Q1_gauss = np.zeros((self.layers, 2*self.N, 2*self.N))
-        self.Q2_gauss = np.zeros((self.layers, 2*self.N, 2*self.N))
-        self.Z_gauss = np.zeros((self.layers, 2*self.N, 2*self.N))
-        self.G_l = np.zeros((self.layers, 2*self.N, 2*self.N))
-        self.D_l = np.zeros((self.layers, 2*self.N))
-        self.G = np.eye(2*self.N)
-        
+    def set_parameters(self, parameters):        
         current_par_idx = 0
         for l in range(self.layers):
             # Build passive-optics Q1 and Q2 for the Gaussian transformation
@@ -258,7 +258,7 @@ class QNN:
         for layer in range(self.layers):
             print(f"Layer {layer+1}:\nQ1 = {self.Q1_gauss[layer]}\nZ = {self.Z_gauss[layer]}\nQ2 = {self.Q2_gauss[layer]}")
             if not self.is_input_reupload:
-                print("D = {self.D_l[layer]}")
+                print(f"D = {self.D_l[layer]}")
         
     def save_model(self, filename):
         f = open("models/"+filename, 'w')
@@ -296,7 +296,7 @@ def test_model(qnn, testing_dataset):
     return reduce(lambda x, func: func(x), qnn.postprocessors, qnn_outputs)
     
 def build_and_train_model(name, N, layers, n_inputs, n_outputs, photon_additions, observable, is_input_reupload, 
-                          dataset, in_preprocs=[], out_prepocs=[], postprocs=[], init_pars=None, save=True):
+                          train_set, valid_set, in_preprocs=[], out_prepocs=[], postprocs=[], init_pars=None, save=True):
     '''
     Creates and trains a QNN model with the given hyperparameters and dataset by optimizing the 
     tunable parameters of the QNN.
@@ -307,7 +307,7 @@ def build_and_train_model(name, N, layers, n_inputs, n_outputs, photon_additions
     :param observable_modes: Observable operator modes
     :param observable_types: Observable operator ladder types
     :param is_input_reupload: Boolean determining whether the model has input reuploading
-    :param dataset: List of inputs and outputs to be learned
+    :param train_set: List of inputs and outputs to be learned
     :param init_pars: Initialization parameters for the QNN
     :param save: Boolean determining whether to save the model (default=True)
     :return: Trained QNN model
@@ -330,8 +330,11 @@ def build_and_train_model(name, N, layers, n_inputs, n_outputs, photon_additions
         :param xk: QNN tunable parameters
         '''
         e = training_QNN(xk)
-        print(e)
+        print(f'Training loss: {e}')
+        val_e = validate_QNN(xk)
+        print(f'Validation loss: {val_e}')
         loss_values.append(e)
+        validation_loss.append(val_e)
         
     def callback_hopping(x,f,accept):
         global best_loss_values
@@ -344,15 +347,21 @@ def build_and_train_model(name, N, layers, n_inputs, n_outputs, photon_additions
     
     qnn = QNN("model_N" + str(N) + "_L" + str(layers) + "_" + name, N, layers, n_inputs, n_outputs,
               photon_additions, observable, is_input_reupload, in_preprocs, out_prepocs, postprocs)
-    train_inputs = reduce(lambda x, func: func(x), qnn.in_preprocessors, dataset[0])
-    train_outputs = reduce(lambda x, func: func(x), qnn.out_preprocessors, dataset[1])
+    train_inputs = reduce(lambda x, func: func(x), qnn.in_preprocessors, train_set[0])
+    train_outputs = reduce(lambda x, func: func(x), qnn.out_preprocessors, train_set[1])
+    
+    valid_inputs = reduce(lambda x, func: func(x), qnn.in_preprocessors, valid_set[0])
+    valid_outputs = reduce(lambda x, func: func(x), qnn.out_preprocessors, valid_set[1])
     
     global best_loss_values
     best_loss_values = [10]
     global loss_values
     loss_values = []
+    global validation_loss
+    validation_loss = []
     
     training_QNN = partial(qnn.train_QNN, inputs_dataset=train_inputs, outputs_dataset=train_outputs)
+    validate_QNN = partial(qnn.train_QNN, inputs_dataset=valid_inputs, outputs_dataset=valid_outputs)
     training_start = time.time()
     result = opt.minimize(training_QNN, init_pars, method='L-BFGS-B', callback=callback)
     #minimizer_kwargs = {"method": "L-BFGS-B", "callback": callback}
@@ -364,7 +373,7 @@ def build_and_train_model(name, N, layers, n_inputs, n_outputs, photon_additions
     
     qnn.build_QNN(result.x)
     
-    qnn_outputs = test_model(qnn, dataset)
+    qnn_outputs = test_model(qnn, train_set)
     #plot_qnn_train_results(qnn, dataset[1], qnn_outputs, loss_values)
     #show_times(qnn)
     qnn.print_qnn()
@@ -373,5 +382,5 @@ def build_and_train_model(name, N, layers, n_inputs, n_outputs, photon_additions
         qnn.qnn_profiling.clear_times()
         qnn.save_model(qnn.model_name + ".txt")
     
-    return qnn, loss_values
+    return qnn, loss_values, validation_loss
 

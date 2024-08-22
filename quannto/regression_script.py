@@ -1,6 +1,7 @@
 import argparse
 import pandas as pd
 from functools import partial
+import matplotlib.pyplot as plt
 
 from .qnn import build_and_train_model, test_model
 from .data_processors import *
@@ -38,9 +39,12 @@ dataset = [inputs_set, outputs_set]
 in_data_ranges = [(np.min(dataset[0][:,col]), np.max(dataset[0][:,col])) for col in range(len(dataset[0][0]))]
 out_data_ranges = [(np.min(dataset[1][:,col]), np.max(dataset[1][:,col])) for col in range(len(dataset[1][0]))]
 
-training_set_size = 100
-training_set = [dataset[0][:training_set_size], dataset[1][:training_set_size]]
-print_dataset(training_set[0], training_set[1])
+trainset_size = 100
+train_dataset = [dataset[0][:trainset_size], dataset[1][:trainset_size]]
+print_dataset(train_dataset[0], train_dataset[1])
+validset_size = 40
+valid_dataset = [dataset[0][trainset_size : trainset_size+validset_size], dataset[1][trainset_size : trainset_size+validset_size]]
+print_dataset(valid_dataset[0], valid_dataset[1])
 
 # Data preprocessing and postprocessing
 in_preprocessors = []
@@ -58,11 +62,21 @@ postprocessors = []
 postprocessors.append(partial(rescale_data, data_range=out_rescaling, scale_data_range=out_data_ranges[0]))
 
 # Create and train a QNN model
-qnn, loss = build_and_train_model(model_name, N, layers, n_in, n_out, photon_additions, observable, is_input_reupload, training_set,
-                                      in_preprocessors, out_preprocessors, postprocessors)
+qnn, train_loss, valid_loss = build_and_train_model(model_name, N, layers, n_in, n_out, photon_additions, observable, is_input_reupload,
+                                                    train_dataset, valid_dataset, in_preprocessors, out_preprocessors, postprocessors)
+
+# Plot the training and validation loss values
+plt.plot(np.log(np.array(train_loss)+1), c='red', label=f'Train loss N={N}')
+plt.plot(np.log(np.array(valid_loss)+1), c='red', linestyle='dashed', label=f'Validation loss N={N}')
+plt.ylim(bottom=0.0)
+plt.xlabel('Epochs')
+plt.ylabel('Logarithmic loss value')
+plt.title(f'LOGARITHMIC LOSS FUNCTIONS')
+plt.legend()
+plt.show()
 
 # Test the model
 testing_set_size = 100
-testing_set = (dataset[0][training_set_size : training_set_size+testing_set_size], dataset[1][training_set_size : training_set_size+testing_set_size])
+testing_set = (dataset[0][trainset_size+validset_size : trainset_size+validset_size+testing_set_size], dataset[1][trainset_size+validset_size : trainset_size+validset_size+testing_set_size])
 qnn_test_outputs = test_model(qnn, testing_set)
 plot_qnn_testing(qnn, testing_set[1], qnn_test_outputs)
