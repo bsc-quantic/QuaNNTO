@@ -121,7 +121,7 @@ def extract_ladder_expressions(trace_expr):
         ladder_types.append(tr_types)
     return ladder_modes, ladder_types
 
-# TODO: Include layers
+# TODO: Generalize for multilayer
 def complete_trace_expression(N, photon_additions, n_outputs, include_obs=False, obs='position'):
     '''
     Builds the non-Gaussian state expression of a multi-photon added
@@ -195,44 +195,50 @@ def single_ladder_exp_val(term_mode, term_type, N, means_vector):
 
 @njit
 def subs_terms_in_trace(terms, modes, types, terms_len, lpms, N, K_exp_vals, means_vector):
-    trace_values=[]
+    #trace_values=[]
+    sum_tr_values = 0.0 + 0.0*1j
     for i in prange(len(modes)):
         # if terms[j] != 0:
         # TODO: Better way to index the LPM according to length
         lpms_idx = terms_len[i] - 3 if terms_len[i] > 3 else 0
-        trace_values.append(get_expectation_value(modes[i], types[i], terms_len[i], lpms[lpms_idx][0], N, K_exp_vals, means_vector))
+        sum_tr_values += get_expectation_value(modes[i], types[i], terms_len[i], lpms[lpms_idx][0], N, K_exp_vals, means_vector) * terms[i]
+    """     trace_values.append(get_expectation_value(modes[i], types[i], terms_len[i], lpms[lpms_idx][0], N, K_exp_vals, means_vector))
         # else:
         #     trace_values.append(0)
     exp_val = []
     for (coef, term) in zip(trace_values, terms):
         # term.subs(dict(zip(term.free_symbols, [1 for i in range(len(term.free_symbols))])))
         exp_val.append(coef * term)
-    return exp_val
+    return exp_val """
+    return sum_tr_values
 
+@njit
 def compute_exp_val_loop(nb_unnorm, nb_norm, modes, types, unnorm_terms_len, modes_norm, types_norm, norm_terms_len, lpms, D, G, K_exp_vals, means_vector):
-    t1 = time.time()
+    #t1 = time.time()
     N = len(G) // 2
     unnorm_terms = nb.typed.List([nb.typed.List(subs_in_trace_terms(nb_unnorm[outs], D, G)) for outs in range(len(modes))])
     norm_terms = nb.typed.List(subs_in_trace_terms(nb_norm, D, G))
-    subs_time = time.time() - t1
+    #subs_time = time.time() - t1
 
     # For unnormalized exp val
-    t2 = time.time()
+    #t2 = time.time()
     unnorm = np.zeros((len(modes)), dtype='complex')
-    for outs in range(len(modes)):
-        unnorm[outs] = expand(sum(subs_terms_in_trace(unnorm_terms[outs], modes[outs], types[outs], unnorm_terms_len[outs], lpms, N, K_exp_vals, means_vector)))
-    unnorm_time = time.time() - t2
+    for outs in prange(len(modes)):
+        #unnorm[outs] = expand(sum(subs_terms_in_trace(unnorm_terms[outs], modes[outs], types[outs], unnorm_terms_len[outs], lpms, N, K_exp_vals, means_vector)))
+        unnorm[outs] = subs_terms_in_trace(unnorm_terms[outs], modes[outs], types[outs], unnorm_terms_len[outs], lpms, N, K_exp_vals, means_vector)
+    #unnorm_time = time.time() - t2
     
     # For normalization factor
-    t3 = time.time()
+    #t3 = time.time()
     if len(modes_norm) == 0:
         norm = 1
     else:
-        norm = expand(sum(subs_terms_in_trace(norm_terms, modes_norm[0], types_norm[0], norm_terms_len[0], lpms, N, K_exp_vals, means_vector)))
-    norm_time = time.time() - t3
-    norm_val = np.real_if_close(np.complex128(unnorm/norm))
+        #norm = expand(sum(subs_terms_in_trace(norm_terms, modes_norm[0], types_norm[0], norm_terms_len[0], lpms, N, K_exp_vals, means_vector)))
+        norm = subs_terms_in_trace(norm_terms, modes_norm[0], types_norm[0], norm_terms_len[0], lpms, N, K_exp_vals, means_vector)
+    #norm_time = time.time() - t3
+    norm_val = unnorm/norm
     
-    total_time = time.time() - t1
+    #total_time = time.time() - t1
     #print(f'Time expression subs: {np.round(subs_time, 3)} {np.round(100*subs_time/total_time, 3)}%')
     #print(f'Time unnorm expression: {np.round(unnorm_time, 3)} {np.round(100*unnorm_time/total_time, 3)}%')
     #print(f'Time norm expression: {np.round(norm_time, 3)} {np.round(100*norm_time/total_time, 3)}%')
@@ -263,7 +269,7 @@ def ladder_exp_val(perf_matchings, ladder_modes, ladder_types, means_vector, cov
     :param cov_mat_identities: All possible expectation values of pairs of dagger operators acting on a Gaussian state
     :return: Corresponding expectation value of the energy
     '''
-    energy = np.complex128(0)
+    trace_sum = np.complex128(0)
     for perf_match in perf_matchings:
         trace_prod = np.complex128(1+0j)
         for i1,i2 in zip(perf_match[0::2], perf_match[1::2]):
@@ -274,8 +280,8 @@ def ladder_exp_val(perf_matchings, ladder_modes, ladder_types, means_vector, cov
                 trace_prod *= cov_mat_identities[ladder_types[i1] + 2*ladder_types[i2], ladder_modes[i1], ladder_modes[i2]]
             else:
                 trace_prod *= single_ladder_exp_val(ladder_modes[i1], ladder_types[i2], len(means_vector) // 2, means_vector)
-        energy += trace_prod
-    return energy
+        trace_sum += trace_prod
+    return trace_sum
 
 def loop_perfect_matchings(N):
     # This function generates all perfect matchings of a complete graph with loops
