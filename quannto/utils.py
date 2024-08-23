@@ -17,8 +17,31 @@ def hermitian_matrix(m, N):
             mat[j,i] = mat[i,j] = m[c]
             c+=1
     return mat
-            
+
+def general_hermitian_matrix(pars, N):
+    '''
+    Builds a general NxN complex hermitian matrix based on 
+    the input N² parameters.
     
+    :param pars: Vector of N² parameters
+    :param N: Matrix dimension
+    :return: Hermitian matrix
+    '''
+    c = 0
+    offdiag_size = int((N-1)*N/2)
+    offreal = pars[:offdiag_size]
+    offim = pars[offdiag_size : 2*offdiag_size]
+    diag = pars[2*offdiag_size : 2*offdiag_size + N]
+    mat = np.zeros((N,N), dtype='complex64')
+    for i in range(0,N):
+        for j in range(i,N):
+            if i==j:
+                mat[i,i] = diag[i]
+            else:
+                mat[i,j] = offreal[c] + 1j*offim[c]
+                mat[j,i] = offreal[c] - 1j*offim[c]
+                c += 1
+    return mat
 
 def unitary_from_hermitian(H):
     '''
@@ -96,11 +119,11 @@ def check_symp_orth(SO):
     Y_prime = SO[0:N, N:]
     cond_1_prime = X_prime@Y_prime.T - Y_prime@X_prime.T
     print(f'Symplecticity condition:')
-    print(np.allclose(cond_1_prime, np.zeros((N, N))))
+    print(np.allclose(np.round(cond_1_prime, 4), np.zeros((N, N))))
 
     cond_2_prime = X_prime@X_prime.T + Y_prime@Y_prime.T
     print(f'Orthogonality condition:')
-    print(np.allclose(cond_2_prime, np.eye(N)))
+    print(np.allclose(np.round(cond_2_prime, 4), np.eye(N)))
     print()
     
 def check_det_and_positive(V):
