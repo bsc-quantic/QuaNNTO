@@ -9,6 +9,7 @@ from functools import partial, reduce
 from .utils import *
 from .expectation_value import *
 from .results_utils import *
+from .loss_functions import mse
 
 loss_values = []
 best_loss_values = [10]
@@ -157,22 +158,23 @@ class QNN:
         self.set_parameters(parameters)
 
     def set_parameters(self, parameters):        
+        self.G = np.eye(2*self.N)
         current_par_idx = 0
         for l in range(self.layers):
             # Build passive-optics Q1 and Q2 for the Gaussian transformation
-            #H = hermitian_matrix(parameters[current_par_idx : current_par_idx + self.N**2].reshape((self.N, self.N)))
             H = hermitian_matrix(parameters[current_par_idx : current_par_idx + ((self.N**2 + self.N) // 2)], self.N)
+            #H = general_hermitian_matrix(parameters[current_par_idx : current_par_idx + self.N**2], self.N)
             U = unitary_from_hermitian(H)
             self.Q1_gauss[l] = np.real_if_close(self.u_bar.to_canonical_op(U))
-            #current_par_idx += self.N**2
             current_par_idx += ((self.N**2 + self.N) // 2)
+            #current_par_idx += self.N**2
             
-            #H = hermitian_matrix(parameters[current_par_idx : current_par_idx + self.N**2].reshape((self.N, self.N)))
             H = hermitian_matrix(parameters[current_par_idx : current_par_idx + ((self.N**2 + self.N) // 2)], self.N)
+            #H = general_hermitian_matrix(parameters[current_par_idx : current_par_idx + self.N**2], self.N)
             U = unitary_from_hermitian(H)
             self.Q2_gauss[l] = np.real_if_close(self.u_bar.to_canonical_op(U))
-            #current_par_idx += self.N**2
             current_par_idx += ((self.N**2 + self.N) // 2)
+            #current_par_idx += self.N**2
             
             # Build squeezing diagonal matrix Z
             sqz_parameters = np.abs(parameters[current_par_idx : current_par_idx + self.N])
@@ -182,7 +184,7 @@ class QNN:
 
             # Build final Gaussian transformation
             self.G_l[l] = self.Q2_gauss[l] @ self.Z_gauss[l] @ self.Q1_gauss[l]
-            #self.G = self.G_l[l] @ self.G
+            self.G = self.G_l[l] @ self.G
             
             # Build displacements
             if not self.is_input_reupload:
@@ -237,22 +239,17 @@ class QNN:
         #print(f"OUTCOME: {np.real_if_close(norm_exp_val, tol=1e6)}")
         return np.real_if_close(norm_exp_val, tol=1e6)
 
-    def train_QNN(self, parameters, inputs_dataset, outputs_dataset):
+    def train_QNN(self, parameters, inputs_dataset, outputs_dataset, loss_function):
         build_start = time.time()
         self.build_QNN(parameters)
         self.qnn_profiling.build_qnn_times.append(time.time() - build_start)
         
         shuffle_indices = np.random.permutation(len(inputs_dataset))
-        mse = 0
+        qnn_outputs = np.full_like(outputs_dataset, 0)
         for dataset_idx in shuffle_indices:
-            qnn_outputs = self.eval_QNN(inputs_dataset[dataset_idx])
-            #print(f"Desired: {outputs_dataset[dataset_idx]} Obtained: {qnn_outputs}")
-            #qnn_outputs = reduce(lambda x, func: func(x), self.postprocessors, qnn_outputs)
-            mse += ((outputs_dataset[dataset_idx] - qnn_outputs)**2).sum()
-        """ for inputs, outputs in zip(inputs_dataset, outputs_dataset):
-            qnn_outputs = self.eval_QNN(inputs)
-            mse += ((outputs - qnn_outputs)**2).sum() """
-        return mse/len(inputs_dataset)
+            qnn_outputs[dataset_idx] = self.eval_QNN(inputs_dataset[dataset_idx])
+            
+        return loss_function(qnn_outputs, outputs_dataset)
     
     def print_qnn(self):
         for layer in range(self.layers):
@@ -270,7 +267,7 @@ def load_model(filename):
         qnn_str = jsonpickle.decode(f.read())
     return qnn_str
     
-def test_model(qnn, testing_dataset):
+def test_model(qnn, testing_dataset, loss_function):
     '''
     Makes predictions of the given QNN using the input testing dataset.
     
@@ -281,22 +278,20 @@ def test_model(qnn, testing_dataset):
     test_inputs = reduce(lambda x, func: func(x), qnn.in_preprocessors, testing_dataset[0])
     test_outputs = reduce(lambda x, func: func(x), qnn.out_preprocessors, testing_dataset[1])
     
-    error = np.zeros((len(testing_dataset[1]), len(testing_dataset[1][0])))
-    qnn_outputs = np.zeros((len(testing_dataset[1]), len(testing_dataset[1][0])))
+    #error = np.zeros((len(testing_dataset[1]), len(testing_dataset[1][0])))
+    #qnn_outputs = np.zeros((len(testing_dataset[1]), len(testing_dataset[1][0])))
+    qnn_outputs = np.full_like(test_outputs, 0)
     
     # Evaluate all testing set
     for k in range(len(test_inputs)):
         qnn_outputs[k] = qnn.eval_QNN(test_inputs[k])
-        error[k] = ((test_outputs[k] - qnn_outputs[k])**2).sum()
-    mean_error = error.sum()/(len(error)*len(test_outputs[0]))
-    print(f"MSE: {mean_error}")
-    """ for (i,j) in zip(test_outputs, qnn_outputs):
-        print(f"Expected: {i} Obtained: {j}") """
+    mean_error = loss_function(test_outputs, qnn_outputs)
+    print(f"MSE FOR TESTING SET: {mean_error}")
     
     return reduce(lambda x, func: func(x), qnn.postprocessors, qnn_outputs)
     
 def build_and_train_model(name, N, layers, n_inputs, n_outputs, photon_additions, observable, is_input_reupload, 
-                          train_set, valid_set, in_preprocs=[], out_prepocs=[], postprocs=[], init_pars=None, save=True):
+                          train_set, valid_set, loss_function=mse, in_preprocs=[], out_prepocs=[], postprocs=[], init_pars=None, save=True):
     '''
     Creates and trains a QNN model with the given hyperparameters and dataset by optimizing the 
     tunable parameters of the QNN.
@@ -313,15 +308,15 @@ def build_and_train_model(name, N, layers, n_inputs, n_outputs, photon_additions
     :return: Trained QNN model
     '''
     if type(init_pars) == type(None):
-        #init_pars = np.random.rand(layers*(2*N**2)) if is_input_reupload else np.random.rand(layers*(2*N**2 + N))
         init_pars = np.random.rand(layers*(2*((N**2 + N) // 2) + N)) if is_input_reupload else np.random.rand(layers*(2*((N**2 + N) // 2) + N + 2*N))
+        #init_pars = np.random.rand(layers*(2*N**2 + N)) if is_input_reupload else np.random.rand(layers*(2*N**2 + 3*N))
     else:
         if is_input_reupload:
-            #assert len(init_pars) == layers*(2*N**2)
             assert len(init_pars) == layers*(2*((N**2 + N) // 2) + N)
-        else:
             #assert len(init_pars) == layers*(2*N**2 + N)
+        else:
             assert len(init_pars) == layers*(2*((N**2 + N) // 2) + N + 2*N)
+            #assert len(init_pars) == layers*(2*N**2 + 3*N)
     
     def callback(xk):
         '''
@@ -360,8 +355,8 @@ def build_and_train_model(name, N, layers, n_inputs, n_outputs, photon_additions
     global validation_loss
     validation_loss = []
     
-    training_QNN = partial(qnn.train_QNN, inputs_dataset=train_inputs, outputs_dataset=train_outputs)
-    validate_QNN = partial(qnn.train_QNN, inputs_dataset=valid_inputs, outputs_dataset=valid_outputs)
+    training_QNN = partial(qnn.train_QNN, inputs_dataset=train_inputs, outputs_dataset=train_outputs, loss_function=loss_function)
+    validate_QNN = partial(qnn.train_QNN, inputs_dataset=valid_inputs, outputs_dataset=valid_outputs, loss_function=loss_function)
     training_start = time.time()
     result = opt.minimize(training_QNN, init_pars, method='L-BFGS-B', callback=callback)
     #minimizer_kwargs = {"method": "L-BFGS-B", "callback": callback}
@@ -373,8 +368,8 @@ def build_and_train_model(name, N, layers, n_inputs, n_outputs, photon_additions
     
     qnn.build_QNN(result.x)
     
-    qnn_outputs = test_model(qnn, train_set)
-    #plot_qnn_train_results(qnn, dataset[1], qnn_outputs, loss_values)
+    #qnn_outputs = test_model(qnn, train_set, loss_function)
+    #plot_qnn_train_results(qnn, train_outputs[1], qnn_outputs, loss_values)
     #show_times(qnn)
     qnn.print_qnn()
     
