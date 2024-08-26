@@ -5,44 +5,47 @@ from .qnn import test_model, build_and_train_model
 from .synth_datasets import *
 from .results_utils import *
 from .data_processors import *
+from .loss_functions import *
 
 # === HYPERPARAMETERS DEFINITION ===
-modes = [2,3,4]
+modes = [4,5,6]
 photon_additions = [0]
 layers = 1
-is_input_reupload = True
+is_input_reupload = False
 n_inputs = 1
 n_outputs = 1
 observable = 'number'
 in_norm_range = (-2, 2)
 out_norm_range = (1, 5)
+loss_function = mse
 
 # === TARGET FUNCTION SETTINGS ===
 target_function = sin_cos_function
-trainset_size = 100
+trainset_size = 20
 input_range = (0, 1)
 output_range = get_range(generate_linear_dataset_of(target_function, n_inputs, n_outputs, trainset_size*100, input_range)[1])
 testset_size = 200
 
 # Generate a training dataset of the target function to be learned
 train_dataset = generate_dataset_of(target_function, n_inputs, n_outputs, trainset_size, input_range)
-dataset_range = get_range(train_dataset[0])
-#input_range = get_range(train_dataset[0])
-#train_df = pd.read_csv("curve_fitting_datasets/sincos_trainset_features.csv")
-#x_train = train_df.iloc[:, 0:n_inputs].to_numpy()
-#y_train = train_df.iloc[:, -n_outputs:].to_numpy()
-#train_dataset = [x_train, y_train]
+input_range = get_range(train_dataset[0])
 
 # Generate a validation dataset of the target function
-validset_size = 40
-valid_dataset = generate_dataset_of(target_function, n_inputs, n_outputs, validset_size, dataset_range)
+validset_size = 20
+valid_dataset = generate_dataset_of(target_function, n_inputs, n_outputs, validset_size, input_range)
+
+plt.plot(train_dataset[0], train_dataset[1], 'go', label='Training set')
+#plt.plot(valid_dataset[0], valid_dataset[1], 'ro', label='Validation set')
+plt.title(f'Dataset')
+plt.xlabel('Input')
+plt.xlim()
+plt.ylabel('Output')
+plt.grid(linestyle='--', linewidth=0.4)
+plt.legend()
+plt.show()
 
 # Generate a linearly-spaced testing dataset of the target function and test the trained QNN
-test_dataset = generate_linear_dataset_of(target_function, n_inputs, n_outputs, testset_size, dataset_range)
-#test_df = pd.read_csv("curve_fitting_datasets/sincos_testset_lin_features.csv")
-#x_test = test_df.iloc[:, 0:n_inputs].to_numpy()
-#y_test = test_df.iloc[:, -n_outputs:].to_numpy()
-#test_dataset = [x_test, y_test]
+test_dataset = generate_linear_dataset_of(target_function, n_inputs, n_outputs, testset_size, input_range)
 
 # === BUILD, TRAIN AND TEST QNN MODELS WITH DIFFERENT MODES ===
 #colors = plt.cm.rainbow(np.linspace(0, 1, len(modes)))
@@ -70,10 +73,10 @@ for (N, color) in zip(modes, colors):
 
     # Build the QNN and train it with the generated dataset
     qnn, train_loss, valid_loss = build_and_train_model(model_name, N, layers, n_inputs, n_outputs, photon_additions, observable, is_input_reupload,
-                                                        train_dataset, valid_dataset, in_preprocessors, out_preprocessors, postprocessors)#, init_pars=np.ones((12)))
+                                                        train_dataset, valid_dataset, loss_function, in_preprocessors, out_preprocessors, postprocessors)#, init_pars=np.ones((12)))
     train_losses.append(train_loss.copy())
     valid_losses.append(valid_loss.copy())
-    qnn_test_outputs = test_model(qnn, test_dataset)
+    qnn_test_outputs = test_model(qnn, test_dataset, loss_function)
     #print(qnn_test_outputs)
     qnn_outs.append(qnn_test_outputs.copy())
     
@@ -84,6 +87,7 @@ plt.title(f'TESTING SET')
 plt.xlabel('Input samples')
 plt.xlim()
 plt.ylabel('Output')
+plt.grid(linestyle='--', linewidth=0.4)
 plt.legend()
 plt.show()
 
@@ -94,5 +98,6 @@ plt.ylim(bottom=0.0)
 plt.xlabel('Epochs')
 plt.ylabel('Logarithmic loss value')
 plt.title(f'LOGARITHMIC TRAINING AND VALIDATION LOSS')
+plt.grid(linestyle='--', linewidth=0.4)
 plt.legend()
 plt.show()

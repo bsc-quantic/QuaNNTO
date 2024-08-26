@@ -7,6 +7,7 @@ from .qnn import build_and_train_model, test_model
 from .data_processors import *
 from .results_utils import plot_qnn_testing
 from .synth_datasets import print_dataset
+from .loss_functions import *
 
 parser = argparse.ArgumentParser(description="Build and train a QNN model", formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 parser.add_argument("modes", help="Modes (neurons per layer) of the QNN")
@@ -15,6 +16,7 @@ parser.add_argument("inputs", help="Number of inputs of the dataset")
 parser.add_argument("outputs", help="Number of inputs of the dataset")
 parser.add_argument("input_reuploading", help="0 for no input reuploading, 1 otherwise")
 parser.add_argument("obs", help="Observable operator for the outputs: 'position', 'momentum' or 'number'.")
+parser.add_argument("loss", help="Loss function: 'mse' or 'nll'.")
 parser.add_argument("dataset", help="Dataset to be evaluated")
 args = parser.parse_args()
 
@@ -26,6 +28,8 @@ n_out = int(args.outputs)
 is_input_reupload = True if int(args.input_reuploading)==1 else False
 observable = str(args.obs)
 assert (observable == 'position' or observable == 'momentum' or observable == 'number')
+loss = str(args.loss)
+assert (loss == 'mse' or loss == 'nll')
 model_name = (args.dataset)[(args.dataset).index("/")+1 : (args.dataset).index(".")]
 
 # Non-Gaussianity: by default, photon addition on mode 0
@@ -38,6 +42,7 @@ outputs_set = dataset_df.iloc[:, n_in:].to_numpy()
 dataset = [inputs_set, outputs_set]
 in_data_ranges = [(np.min(dataset[0][:,col]), np.max(dataset[0][:,col])) for col in range(len(dataset[0][0]))]
 out_data_ranges = [(np.min(dataset[1][:,col]), np.max(dataset[1][:,col])) for col in range(len(dataset[1][0]))]
+loss_function = retrieve_loss_function(loss)
 
 trainset_size = 100
 train_dataset = [dataset[0][:trainset_size], dataset[1][:trainset_size]]
@@ -63,7 +68,7 @@ postprocessors.append(partial(rescale_data, data_range=out_rescaling, scale_data
 
 # Create and train a QNN model
 qnn, train_loss, valid_loss = build_and_train_model(model_name, N, layers, n_in, n_out, photon_additions, observable, is_input_reupload,
-                                                    train_dataset, valid_dataset, in_preprocessors, out_preprocessors, postprocessors)
+                                                    train_dataset, valid_dataset, loss_function, in_preprocessors, out_preprocessors, postprocessors)
 
 # Plot the training and validation loss values
 plt.plot(np.log(np.array(train_loss)+1), c='red', label=f'Train loss N={N}')
@@ -78,5 +83,5 @@ plt.show()
 # Test the model
 testing_set_size = 100
 testing_set = (dataset[0][trainset_size+validset_size : trainset_size+validset_size+testing_set_size], dataset[1][trainset_size+validset_size : trainset_size+validset_size+testing_set_size])
-qnn_test_outputs = test_model(qnn, testing_set)
+qnn_test_outputs = test_model(qnn, testing_set, loss_function)
 plot_qnn_testing(qnn, testing_set[1], qnn_test_outputs)
