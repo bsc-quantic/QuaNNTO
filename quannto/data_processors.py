@@ -8,6 +8,9 @@ def trigonometric_feature_expressivity(features, num_final_features):
             transf_feats[i,j] = (j+1)*np.sin((j+1)*features[i])
     return transf_feats
 
+def trigonometric_one_input(inputs):
+    return np.sin(inputs)
+
 def polynomial_feature_expressivity(features, num_final_features):
     transf_feats = np.zeros((len(features), num_final_features))
     for i in range(len(features)):
@@ -47,6 +50,31 @@ def binning(data, data_range, num_categories):
                 threshold += cat_step
     return cat
 
+def softmax_discretization(outputs):
+    prob_outputs = np.array([np.e**out for out in outputs])
+    norm_outputs = np.sum(prob_outputs, axis=1)
+    return np.array([prob_outputs[i]/norm_outputs[i] for i in range(len(prob_outputs))])
+
+def one_hot_encoding(values, num_cats):
+    one_hot_set = np.zeros((len(values), num_cats))
+    for i in range(len(values)):
+        one_hot_set[i][values[i][0]] = 1
+    return one_hot_set
+
+def greatest_probability(probs):
+    m = np.zeros((len(probs), 1))
+    for i in range(len(probs)):
+        max_prob_idx = 0
+        for j in range(len(probs[i])):
+            if probs[i, j] > probs[i, max_prob_idx]:
+                max_prob_idx = j
+        m[i, 0] = max_prob_idx
+    return m
+    
+def binary_class_probability(output, output_range):
+    output_mid = (output_range[1] - output_range[0]) / 2
+    return 0 if output < output_range[0] + output_mid else 1
+
 def filter_dataset_categories(inputs, outputs, categories):
     filtered_inputs = []
     filtered_outputs = []
@@ -61,6 +89,7 @@ def autoencoder_mnist(latent_dim, categories):
     (x_train, y_train), (x_test, y_test) = tf.keras.datasets.mnist.load_data()
     (x_train, y_train) = filter_dataset_categories(x_train, y_train, categories)
     (x_test, y_test) = filter_dataset_categories(x_test, y_test, categories)
+    print(f"AUTOENCODER DATASET SIZE: {len(x_test)}")
 
     # Normalize pixel values to the range [0, 1]
     x_train = x_train.astype('float32') / 255.
@@ -98,7 +127,7 @@ def autoencoder_mnist(latent_dim, categories):
 
     # Train the autoencoder
     autoencoder.fit(x_train, x_train,
-                    epochs=5,
+                    epochs=10,
                     batch_size=128,
                     shuffle=True,
                     validation_data=(x_test, x_test))
@@ -111,6 +140,7 @@ def autoencoder_mnist(latent_dim, categories):
     x_test_compressed = encoder_model.predict(x_test)
 
     # Return the compressed inputs of the training dataset
-    return x_train_compressed, np.array([[y_elem] for y_elem in y_train])
+    #return x_train_compressed, np.array([[y_elem] for y_elem in y_train])
+    return x_test_compressed, np.array([[y_elem] for y_elem in y_test])
 
     

@@ -1,4 +1,8 @@
 from functools import partial
+import matplotlib.pyplot as plt
+import numpy as np
+import seaborn as sns
+from sklearn.metrics import confusion_matrix
 
 from .qnn import test_model, build_and_train_model
 from .synth_datasets import *
@@ -7,21 +11,21 @@ from .data_processors import *
 from .loss_functions import *
 
 # === HYPERPARAMETERS DEFINITION ===
-N = 6
+N = 5
 photon_additions = [0]
 layers = 1
 is_input_reupload = False
-n_inputs = 6
-n_outputs = 1
-observable = 'position'
-in_norm_range = (0.15, 3)
-out_norm_range = (0, 1)
-loss_function = mse
+n_inputs = 5
+n_outputs = 2
+observable = 'number'
+in_norm_range = (-2, 2)
+out_norm_range = (1, 2)
+loss_function = cross_entropy
 
 # === DATASET SETTINGS ===
 output_range = (0, 1)
 categories = [0, 1]
-dataset_size = 140
+dataset_size = 200
 validset_size = 40
 testset_size = 40
 model_name = "mnist_encoded"
@@ -38,7 +42,7 @@ out_preprocessors = []
 out_preprocessors.append(partial(rescale_data, data_range=output_range, scale_data_range=out_norm_range))
 
 postprocessors = []
-postprocessors.append(partial(rescale_data, data_range=out_norm_range, scale_data_range=output_range))
+postprocessors.append(partial(softmax_discretization))
 #postprocessors.append(partial(rescale_data, data_range=out_norm_range, scale_data_range=output_range))
 #postprocessors.append(partial(binning, data_range=out_norm_range, num_categories=len(categories)))
 #postprocessors.append(partial(np.round))
@@ -48,7 +52,7 @@ postprocessors.append(partial(rescale_data, data_range=out_norm_range, scale_dat
 # === BUILD, TRAIN AND TEST QNN ===
 train_dataset = (dataset[0][:dataset_size], dataset[1][:dataset_size])
 valid_dataset = (dataset[0][dataset_size : dataset_size+validset_size], dataset[1][dataset_size : dataset_size+validset_size])
-
+print(train_dataset)
 # Build the QNN and train it with the generated dataset
 qnn, train_loss, valid_loss = build_and_train_model(model_name, N, layers, n_inputs, n_outputs, photon_additions, observable, is_input_reupload, 
                                                     train_dataset, valid_dataset, loss_function, in_preprocessors, out_preprocessors, postprocessors)
@@ -70,3 +74,27 @@ for (i,j) in zip(test_dataset[1], qnn_test_outputs):
 accuracy = ((qnn_test_outputs - 1) == test_dataset[1]).sum()
 print(f"Accuracy: {accuracy}/{len(qnn_test_outputs)} = {accuracy/len(qnn_test_outputs)}")
 plot_qnn_testing(qnn, test_dataset[1], qnn_test_outputs)
+
+# Generate the confusion matrix
+cm = confusion_matrix(test_dataset[1], qnn_test_outputs)
+
+# Normalize the confusion matrix
+cm_normalized = cm.astype('float') / cm.sum(axis=1)[:, np.newaxis]
+cm_total = cm.astype('float') / cm.sum()
+
+# Plotting the confusion matrix as a green heatmap with variable opacity
+plt.figure(figsize=(8, 6))
+sns.heatmap(cm_normalized, annot=True, fmt='.2f', cmap='Greens', alpha=cm_normalized)
+
+plt.title('Confusion Matrix')
+plt.xlabel('Predicted Label')
+plt.ylabel('True Label')
+plt.show()
+
+plt.figure(figsize=(8, 6))
+sns.heatmap(cm_total, annot=True, fmt='.2f', cmap='Greens', alpha=cm_normalized)
+
+plt.title('Confusion Matrix')
+plt.xlabel('Predicted Label')
+plt.ylabel('True Label')
+plt.show()
