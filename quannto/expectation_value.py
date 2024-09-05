@@ -1,5 +1,5 @@
 import numpy as np
-from sympy import symbols, expand, MatrixSymbol
+from sympy import symbols, expand, MatrixSymbol, Add
 from numba import njit, prange
 import numba as nb
 import time
@@ -88,9 +88,14 @@ def extract_ladder_expressions(trace_expr):
     :param trace_expr: Symbolic expression of creation and annihilation operators
     :return: Pair of lists containing the modes the ladder operators act onto and their type
     '''
+    if len(trace_expr.args) > 0 and str(trace_expr.args[0]) == 'aux':
+        trace_args = trace_expr.args[1:]
+    else:
+        trace_args = trace_expr.args
+        
     ladder_modes = []
     ladder_types = []
-    for sym_term in trace_expr.args:
+    for sym_term in trace_args:
         term = str(sym_term).replace(" ","").replace("*","")
         tr_modes = []
         tr_types = []
@@ -122,7 +127,7 @@ def extract_ladder_expressions(trace_expr):
     return ladder_modes, ladder_types
 
 # TODO: Generalize for multilayer
-def complete_trace_expression(N, photon_additions, n_outputs, include_obs=False, obs='position'):
+def complete_trace_expression(N, layers, photon_additions, n_outputs, include_obs=False, obs='position'):
     '''
     Builds the non-Gaussian state expression of a multi-photon added
     QNN based on superposition of ladder operators applied to the Gaussian state.
@@ -133,28 +138,30 @@ def complete_trace_expression(N, photon_additions, n_outputs, include_obs=False,
     '''
     dim = 2*N
     # Displacement vector (complex number 'r' and its conjugate 'i') for each mode
-    d_r = symbols(f'r0:{N}', commutative=True)
-    d_i = symbols(f'i0:{N}', commutative=True)
+    d_r = symbols(f'r0:{layers*N}', commutative=True)
+    d_i = symbols(f'i0:{layers*N}', commutative=True)
     # Symplectic matrix 2Nx2N
-    S = MatrixSymbol('S', dim, dim)
+    S = MatrixSymbol('S', dim, layers*dim)
     # Creation (c) and annihilation (a) operators for each mode
     c = symbols(f'c0:{N}', commutative=False)
     a = symbols(f'a0:{N}', commutative=False)
+    aux = symbols('aux')
     
     sup = 1
     sup_dag = 1
-    for i in range(len(photon_additions)):
-        # Displacement terms
-        expr = d_r[photon_additions[i]]
-        expr_dag = d_i[photon_additions[i]]
-        for j in range(N):
-            # Creation and annihilation terms with their symplectic coefficient
-            expr += S[photon_additions[i], j]*a[j]
-            expr += S[photon_additions[i], N+j]*c[j]
-            expr_dag += S[photon_additions[i], N+j]*a[j]
-            expr_dag += S[photon_additions[i], j]*c[j]
-        sup *= expr
-        sup_dag *= expr_dag
+    for l in range(layers):
+        for i in range(len(photon_additions)):
+            # Displacement terms
+            expr = d_r[l*N + photon_additions[i]]
+            expr_dag = d_i[l*N + photon_additions[i]]
+            for j in range(N):
+                # Creation and annihilation terms with their symplectic coefficient
+                expr += S[photon_additions[i], l*dim + j]*a[j]
+                expr += S[photon_additions[i], l*dim + (N+j)]*c[j]
+                expr_dag += S[photon_additions[i], l*dim + (N+j)]*a[j]
+                expr_dag += S[photon_additions[i], l*dim + j]*c[j]
+            sup *= expr
+            sup_dag *= expr_dag
     
     # TODO: Generalize for number of outputs (different expanded expression of the expectation value)
     if include_obs:
@@ -168,11 +175,13 @@ def complete_trace_expression(N, photon_additions, n_outputs, include_obs=False,
                 expr = (1j/np.sqrt(2))*(sup_dag*c[i]*sup - sup_dag*a[i]*sup)
             elif obs == 'number':
                 # Number operator
-                expr = sup_dag*c[i]*a[i]*sup
+                if len(photon_additions) == 0:
+                    expr = sup_dag*c[i]*a[i]*sup + aux
+                else:
+                    expr = sup_dag*c[i]*a[i]*sup
             expanded_expr.append(expand(expr))
     else:
         expanded_expr = expand(sup_dag*sup)
-    
     return expanded_expr
 
 @njit
@@ -225,12 +234,16 @@ def compute_exp_val_loop(nb_unnorm, nb_norm, modes, types, unnorm_terms_len, mod
     unnorm = np.zeros((len(modes)), dtype='complex')
     for outs in prange(len(modes)):
         #unnorm[outs] = expand(sum(subs_terms_in_trace(unnorm_terms[outs], modes[outs], types[outs], unnorm_terms_len[outs], lpms, N, K_exp_vals, means_vector)))
-        unnorm[outs] = subs_terms_in_trace(unnorm_terms[outs], modes[outs], types[outs], unnorm_terms_len[outs], lpms, N, K_exp_vals, means_vector)
+        # TODO: Take care with this condition just made for 0 photon addition
+        if len(modes[outs]) == 1:
+            unnorm[outs] = subs_terms_in_trace([1], modes[outs], types[outs], unnorm_terms_len[outs], lpms, N, K_exp_vals, means_vector)
+        else:
+            unnorm[outs] = subs_terms_in_trace(unnorm_terms[outs], modes[outs], types[outs], unnorm_terms_len[outs], lpms, N, K_exp_vals, means_vector)
     #unnorm_time = time.time() - t2
     
     # For normalization factor
     #t3 = time.time()
-    if len(modes_norm) == 0:
+    if len(modes_norm[0]) == 1 and modes_norm[0][0] == -1:
         norm = 1
     else:
         #norm = expand(sum(subs_terms_in_trace(norm_terms, modes_norm[0], types_norm[0], norm_terms_len[0], lpms, N, K_exp_vals, means_vector)))
@@ -307,12 +320,12 @@ def complete_exp_val(modes, types, perf, N, K, means):
     return values
 
 def to_np_array(lists):
-    lengths = np.full((len(lists), len(lists[0])), -1) if len(lists[0]) > 0 else np.array([0])
+    lengths = np.full((len(lists), len(lists[0])), -1) if len(lists[0]) > 0 else np.array([[0]])
     for out_idx in range(len(lists)):
         for term_idx in range(len(lists[out_idx])):
             lengths[out_idx, term_idx] = len(lists[out_idx][term_idx])
     max_length = np.max(lengths)
-    arr = np.full((len(lists), len(lists[0]), max_length), -1) if len(lists[0]) > 0 else np.array([])
+    arr = np.full((len(lists), len(lists[0]), max_length), -1) if len(lists[0]) > 0 else np.array([[[-1]]])
     for out_idx in range(len(lists)):
         for term_idx in range(len(lists[out_idx])):
             arr[out_idx, term_idx, :len(lists[out_idx][term_idx])] = np.array(lists[out_idx][term_idx])

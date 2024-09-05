@@ -72,20 +72,17 @@ class QNN:
         self.Q1_gauss = np.zeros((self.layers, 2*self.N, 2*self.N))
         self.Q2_gauss = np.zeros((self.layers, 2*self.N, 2*self.N))
         self.Z_gauss = np.zeros((self.layers, 2*self.N, 2*self.N))
-        self.G_l = np.zeros((self.layers, 2*self.N, 2*self.N))
+        self.S_l = np.zeros((self.layers, 2*self.N, 2*self.N))
         self.D_l = np.zeros((self.layers, 2*self.N))
+        self.S_concat = np.zeros((2*self.N, 2*self.layers*self.N))
+        self.D_concat = np.zeros((2*self.layers*self.N))
         self.G = np.eye(2*self.N)
         
         # Normalization expression related to a single photon addition on first mode for each QNN layer
-        self.norm_trace_expr = complete_trace_expression(self.N, photon_add, self.n_out, include_obs=False)
+        self.norm_trace_expr = complete_trace_expression(self.N, layers, photon_add, self.n_out, include_obs=False)
 
         # Full trace expression including the photon additions and the observable to be measured
-        self.trace_expr = complete_trace_expression(self.N, photon_add, self.n_out, include_obs=True, obs=observable)
-        print("EXPECTATION VALUE EXPRESSION:")
-        print(self.trace_expr)
-        
-        print("NORM EXPRESSION:")
-        print(self.norm_trace_expr)
+        self.trace_expr = complete_trace_expression(self.N, layers, photon_add, self.n_out, include_obs=True, obs=observable)
         
         self.modes, self.types = [], []
         for outs in range(self.n_out):
@@ -114,23 +111,24 @@ class QNN:
         
         self.unnorm_expr_terms_out = []
         for outs in range(self.n_out):
-            unnorm_expr_terms = list(self.trace_expr[outs].args)
+            unnorm_expr_terms = list(self.trace_expr[outs].args) if len(photon_add) > 0 or observable!='number' else list(self.trace_expr[outs].args[1:])
             unnorm_subs_expr_terms = []
             for term in unnorm_expr_terms:
                 new_term = term.subs(ladder_subs)
                 unnorm_subs_expr_terms.append(new_term)
             self.unnorm_expr_terms_out.append(unnorm_subs_expr_terms)
-            
+        print(f"Trace terms per output: {len(self.unnorm_expr_terms_out[0])}")
         norm_expr_terms = list(self.norm_trace_expr.args)
         self.norm_subs_expr_terms = []
         for norm_term in norm_expr_terms:
             new_term = norm_term.subs(ladder_subs)
             self.norm_subs_expr_terms.append(new_term)
-            
-        d_r = symbols(f'r0:{N}', commutative=True)
-        d_i = symbols(f'i0:{N}', commutative=True)
+        print(f"Normalization factor terms: {len(self.norm_subs_expr_terms)}")
+        
+        d_r = symbols(f'r0:{layers*N}', commutative=True)
+        d_i = symbols(f'i0:{layers*N}', commutative=True)
         dim = 2*N
-        S = MatrixSymbol('S', dim, dim)
+        S = MatrixSymbol('S', dim, layers*dim)
         
         num_unnorm = []
         for outs in range(self.n_out):
@@ -157,10 +155,11 @@ class QNN:
         self.tunable_parameters = np.copy(parameters)
         self.set_parameters(parameters)
 
-    def set_parameters(self, parameters):        
-        self.G = np.eye(2*self.N)
+    def set_parameters(self, parameters):
+        S_dim = 2*self.N
+        self.G = np.eye(S_dim)
         current_par_idx = 0
-        for l in range(self.layers):
+        for l in range(self.layers-1, -1, -1):
             # Build passive-optics Q1 and Q2 for the Gaussian transformation
             H = hermitian_matrix(parameters[current_par_idx : current_par_idx + ((self.N**2 + self.N) // 2)], self.N)
             #H = general_hermitian_matrix(parameters[current_par_idx : current_par_idx + self.N**2], self.N)
@@ -183,21 +182,23 @@ class QNN:
             current_par_idx += self.N
 
             # Build final Gaussian transformation
-            self.G_l[l] = self.Q2_gauss[l] @ self.Z_gauss[l] @ self.Q1_gauss[l]
-            self.G = self.G_l[l] @ self.G
+            self.S_l[l] = self.Q2_gauss[l] @ self.Z_gauss[l] @ self.Q1_gauss[l]
+            self.G = self.G @ self.S_l[l]
+            self.S_concat[:, l*S_dim:(l+1)*S_dim] = self.G.copy()
             
             # Build displacements
             if not self.is_input_reupload:
                 self.D_l[l] = parameters[current_par_idx : current_par_idx + 2*self.N]
                 current_par_idx += 2*self.N
-    
+                self.D_concat[l*S_dim:(l+1)*S_dim] = self.D_l[l]
+        
     def displacement_operator(self, factors):
         self.mean_vector[0:len(factors)] += factors
-
+        
     def gaussian_transformation(self):
         for l in range(self.layers):
-            self.V = self.G_l[l] @ self.V @ self.G_l[l].T
-            self.mean_vector = self.G_l[l] @ self.mean_vector
+            self.V = self.S_l[l] @ self.V @ self.S_l[l].T
+            self.mean_vector = self.S_l[l] @ self.mean_vector
             self.displacement_operator(self.D_l[l])
 
     def eval_QNN(self, input):
@@ -214,6 +215,7 @@ class QNN:
         if self.is_input_reupload:
             for l in range(self.layers):
                 self.D_l[l][0:len(input)] = input
+                self.D_concat[l*2*self.N:l*2*self.N + len(input)] = input
         #self.qnn_profiling.ladder_superpos_times.append(time.time() - ladder_superpos_start)
 
         # 2. Apply the Gaussian transformation acting as weights matrix
@@ -232,7 +234,7 @@ class QNN:
         norm_exp_val = compute_exp_val_loop(self.nb_unnorm, self.nb_norm,
                                             self.np_modes, self.np_types, self.lens_modes,
                                             self.np_modes_norm, self.np_types_norm, self.lens_modes_norm, 
-                                            self.np_lpms, self.D_l[0], self.G_l[0], K_exp_vals, self.mean_vector)
+                                            self.np_lpms, self.D_concat, self.S_concat, K_exp_vals, self.mean_vector)
         self.qnn_profiling.nongauss_times.append(time.time() - nongauss_start)
         
         #compute_times(self)
@@ -248,8 +250,7 @@ class QNN:
         qnn_outputs = np.full_like(outputs_dataset, 0)
         for dataset_idx in shuffle_indices:
             qnn_outputs[dataset_idx] = self.eval_QNN(inputs_dataset[dataset_idx])
-            
-        return loss_function(qnn_outputs, outputs_dataset)
+        return loss_function(outputs_dataset, qnn_outputs)
     
     def print_qnn(self):
         for layer in range(self.layers):
@@ -286,7 +287,7 @@ def test_model(qnn, testing_dataset, loss_function):
     for k in range(len(test_inputs)):
         qnn_outputs[k] = qnn.eval_QNN(test_inputs[k])
     mean_error = loss_function(test_outputs, qnn_outputs)
-    print(f"MSE FOR TESTING SET: {mean_error}")
+    print(f"LOSS VALUE FOR TESTING SET: {mean_error}")
     
     return reduce(lambda x, func: func(x), qnn.postprocessors, qnn_outputs)
     
@@ -334,33 +335,42 @@ def build_and_train_model(name, N, layers, n_inputs, n_outputs, photon_additions
     def callback_hopping(x,f,accept):
         global best_loss_values
         global loss_values
-        print(f"Error of basinhopping iteration: {f}")
-        print(f"Previous iteration error: {best_loss_values[-1]}\n")
-        if best_loss_values[-1] > f:
+        global best_validation_loss
+        global validation_loss
+        print(f"Best basinhopping iteration error so far: {best_loss_values[-1]}\n")
+        print(f"Current basinhopping iteration error: {f}")
+        if best_validation_loss[-1] > validation_loss[-1]:# and best_loss_values[-1] > loss_values[-1]:
             best_loss_values = loss_values.copy()
-        loss_values = []
+            best_validation_loss = validation_loss.copy()
+        loss_values = [9999]
+        validation_loss = [9999]
     
     qnn = QNN("model_N" + str(N) + "_L" + str(layers) + "_" + name, N, layers, n_inputs, n_outputs,
               photon_additions, observable, is_input_reupload, in_preprocs, out_prepocs, postprocs)
     train_inputs = reduce(lambda x, func: func(x), qnn.in_preprocessors, train_set[0])
     train_outputs = reduce(lambda x, func: func(x), qnn.out_preprocessors, train_set[1])
+    print("TRAIN DATASET:")
+    for (inp, outp, outp_prob) in zip(train_inputs, train_set[1], train_outputs):
+        print(inp, outp, outp_prob)
     
     valid_inputs = reduce(lambda x, func: func(x), qnn.in_preprocessors, valid_set[0])
     valid_outputs = reduce(lambda x, func: func(x), qnn.out_preprocessors, valid_set[1])
     
     global best_loss_values
-    best_loss_values = [10]
+    best_loss_values = [9999]
     global loss_values
-    loss_values = []
+    loss_values = [9999]
+    global best_validation_loss
+    best_validation_loss = [9999]
     global validation_loss
-    validation_loss = []
+    validation_loss = [9999]
     
     training_QNN = partial(qnn.train_QNN, inputs_dataset=train_inputs, outputs_dataset=train_outputs, loss_function=loss_function)
     validate_QNN = partial(qnn.train_QNN, inputs_dataset=valid_inputs, outputs_dataset=valid_outputs, loss_function=loss_function)
     training_start = time.time()
-    result = opt.minimize(training_QNN, init_pars, method='L-BFGS-B', callback=callback)
-    #minimizer_kwargs = {"method": "L-BFGS-B", "callback": callback}
-    #result = opt.basinhopping(training_QNN, init_pars, niter=0, minimizer_kwargs=minimizer_kwargs, callback=callback_hopping)
+    #result = opt.minimize(training_QNN, init_pars, method='L-BFGS-B', callback=callback)
+    minimizer_kwargs = {"method": "L-BFGS-B", "callback": callback}
+    result = opt.basinhopping(training_QNN, init_pars, niter=2, minimizer_kwargs=minimizer_kwargs, callback=callback_hopping)
     print(f'Total training time: {time.time() - training_start} seconds')
     
     print(f'\nOPTIMIZATION ERROR FOR N={N}, L={layers}')
@@ -368,8 +378,10 @@ def build_and_train_model(name, N, layers, n_inputs, n_outputs, photon_additions
     
     qnn.build_QNN(result.x)
     
-    #qnn_outputs = test_model(qnn, train_set, loss_function)
-    #plot_qnn_train_results(qnn, train_outputs[1], qnn_outputs, loss_values)
+    """ if n_inputs == 1:
+        qnn_outputs = test_model(qnn, train_set, loss_function)
+        plot_qnn_train_results(qnn, train_set[0], train_set[1], qnn_outputs, best_loss_values)
+    """
     #show_times(qnn)
     qnn.print_qnn()
     
@@ -377,5 +389,6 @@ def build_and_train_model(name, N, layers, n_inputs, n_outputs, photon_additions
         qnn.qnn_profiling.clear_times()
         qnn.save_model(qnn.model_name + ".txt")
     
-    return qnn, loss_values, validation_loss
+    #return qnn, loss_values, validation_loss
+    return qnn, best_loss_values, best_validation_loss
 
