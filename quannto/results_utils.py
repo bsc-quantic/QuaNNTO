@@ -8,18 +8,24 @@ def plot_qnn_testing(qnn, exp_outputs, qnn_outputs):
     plt.legend()
     plt.show()
     
-def plot_qnn_train_results(qnn, exp_outputs, qnn_outputs, loss_values):
+def plot_qnn_train_results(qnn, inputs, exp_outputs, qnn_outputs, loss_values):
     fig, (ax1, ax2) = plt.subplots(1, 2)
     fig.suptitle(f'TRAINING SET\nModel: {qnn.model_name}, Modes = {qnn.N}, Layers = {qnn.layers}')
     
     # Plot expected vs obtained outputs of the training set
-    ax1.plot(exp_outputs,'go',label='Expected results')
-    ax1.plot(qnn_outputs,'r',label='QNN results')
+    ax1.plot(inputs, exp_outputs,'go',label='Expected results')
+    ax1.plot(inputs, qnn_outputs,'r',label='QNN results')
+    ax1.set_xlabel('Input (x)')
+    ax1.set_ylabel('Output')
+    ax1.grid(linestyle='--', linewidth=0.4)
     ax1.legend()
     
     # Plot training loss values
     ax2.plot(np.log(np.array(loss_values)+1), 'r', label='Loss (logarithmic) function')
     ax2.set_ylim(bottom=0)
+    ax2.set_xlabel('Epochs')
+    ax2.set_ylabel('Logarithmic loss value')
+    ax2.grid(linestyle='--', linewidth=0.4)
     ax2.legend()
     plt.show()
     
