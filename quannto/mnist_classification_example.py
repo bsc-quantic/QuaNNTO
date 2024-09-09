@@ -3,6 +3,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import seaborn as sns
 from sklearn.metrics import confusion_matrix
+import os.path
 
 from .qnn import test_model, build_and_train_model
 from .synth_datasets import *
@@ -12,33 +13,55 @@ from .loss_functions import *
 
 # === HYPERPARAMETERS DEFINITION ===
 N = 5
-photon_additions = [0]
+photon_additions = []
 layers = 1
 is_input_reupload = False
-n_inputs = 1
+n_inputs = 2
 n_outputs = 5
 observable = 'number'
-in_norm_range = (-1, 1)
-out_norm_range = (0.5, 5)
+in_norm_range = (0.05, 1)
+out_norm_range = (0.5, 3)
 loss_function = cross_entropy
 
 # === DATASET SETTINGS ===
 categories = [0, 1, 2, 3, 4]
 num_cats = len(categories)
-dataset_size = 200
+dataset_size = 30*num_cats
 validset_size = 80
 testset_size = 80
-model_name = "mnist_encoded"
-while True:
-    dataset = autoencoder_mnist(n_inputs, categories)
+model_name = f"mnist_encoded_{N}modes_{n_inputs}lat_{num_cats}cats_{observable}_ph{len(photon_additions)}"
+
+if os.path.isfile(f"datasets/mnist_encoding_{N}modes_{n_inputs}lat_{num_cats}cats_inputs.npy"):
+    with open(f"datasets/mnist_encoding_{N}modes_{n_inputs}lat_{num_cats}cats_inputs.npy", "rb") as f:
+        inputs = np.load(f)
+    with open(f"datasets/mnist_encoding_{N}modes_{n_inputs}lat_{num_cats}cats_outputs.npy", "rb") as f:
+        outputs = np.load(f)
+    dataset = [inputs, outputs]
     data_ranges = np.array([(np.min(dataset[0][:,col]), np.max(dataset[0][:,col])) for col in range(len(dataset[0][0]))])
-    if np.all(data_ranges[:,-1] > 0):
-        break
+else:
+    while True:
+        dataset = autoencoder_mnist(n_inputs, categories)
+        data_ranges = np.array([(np.min(dataset[0][:,col]), np.max(dataset[0][:,col])) for col in range(len(dataset[0][0]))])
+        if np.all(data_ranges[:,-1] > 0):
+            break
+    with open(f"datasets/mnist_encoding_{N}modes_{n_inputs}lat_{num_cats}cats_inputs.npy", "wb") as f:
+        np.save(f, dataset[0])
+    with open(f"datasets/mnist_encoding_{N}modes_{n_inputs}lat_{num_cats}cats_outputs.npy", "wb") as f:
+        np.save(f, dataset[1])
+    
 print("ENCODED INPUTS RANGE:")
 print(data_ranges)
 print(dataset)
 output_range = (0, 1)
-plt.plot(dataset[0],dataset[1])
+colors = ['red', 'fuchsia', 'blue', 'purple']
+for (cat, color) in zip(categories, colors):
+    subset = filter_dataset_categories(dataset[0], dataset[1], [cat])
+    print(f"SUBSET OF {cat}")
+    print(subset)
+    plt.plot(subset[0][0,:], subset[0][1,:], c=color, linestyle='dotted', label=cat)
+plt.grid(linestyle='--', linewidth=0.4)
+plt.legend()
+plt.show()
 #output_range = get_range(dataset[1])
 #print("LABELS RANGE:")
 #print(output_range)
