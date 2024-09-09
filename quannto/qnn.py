@@ -350,8 +350,8 @@ def build_and_train_model(name, N, layers, n_inputs, n_outputs, photon_additions
     train_inputs = reduce(lambda x, func: func(x), qnn.in_preprocessors, train_set[0])
     train_outputs = reduce(lambda x, func: func(x), qnn.out_preprocessors, train_set[1])
     print("TRAIN DATASET:")
-    for (inp, outp, outp_prob) in zip(train_inputs, train_set[1], train_outputs):
-        print(inp, outp, outp_prob)
+    for (inp, inp_prep, outp, outp_prep) in zip(train_set[0], train_inputs, train_set[1], train_outputs):
+        print(inp, inp_prep, outp, outp_prep)
     
     valid_inputs = reduce(lambda x, func: func(x), qnn.in_preprocessors, valid_set[0])
     valid_outputs = reduce(lambda x, func: func(x), qnn.out_preprocessors, valid_set[1])
@@ -370,7 +370,7 @@ def build_and_train_model(name, N, layers, n_inputs, n_outputs, photon_additions
     training_start = time.time()
     #result = opt.minimize(training_QNN, init_pars, method='L-BFGS-B', callback=callback)
     minimizer_kwargs = {"method": "L-BFGS-B", "callback": callback}
-    result = opt.basinhopping(training_QNN, init_pars, niter=2, minimizer_kwargs=minimizer_kwargs, callback=callback_hopping)
+    result = opt.basinhopping(training_QNN, init_pars, niter=1, minimizer_kwargs=minimizer_kwargs, callback=callback_hopping)
     print(f'Total training time: {time.time() - training_start} seconds')
     
     print(f'\nOPTIMIZATION ERROR FOR N={N}, L={layers}')
@@ -388,7 +388,10 @@ def build_and_train_model(name, N, layers, n_inputs, n_outputs, photon_additions
     if save:
         qnn.qnn_profiling.clear_times()
         qnn.save_model(qnn.model_name + ".txt")
+        
+    if best_loss_values[0] == 9999:
+        best_loss_values = best_loss_values[1:]
+        best_validation_loss = best_validation_loss[1:]
     
-    #return qnn, loss_values, validation_loss
     return qnn, best_loss_values, best_validation_loss
 
