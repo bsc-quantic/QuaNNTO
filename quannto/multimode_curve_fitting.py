@@ -9,8 +9,8 @@ from .loss_functions import *
 
 # === HYPERPARAMETERS DEFINITION ===
 modes = [3]
-photon_additions = [[], [0], [0,1]]
-layers = 1
+photon_additions = [[],[0]]
+layers = 2
 is_input_reupload = False
 n_inputs = 1
 n_outputs = 1
@@ -24,7 +24,7 @@ noise = 0.3
 target_function = sin_cos_function
 trainset_size = 60
 testset_size = 200
-validset_size = 20
+validset_size = 40
 input_range = (0, 1)
 real_function = generate_linear_dataset_of(target_function, n_inputs, n_outputs, trainset_size*100, input_range)
 output_range = get_range(real_function[1])
@@ -50,6 +50,7 @@ plt.xlim()
 plt.ylabel('Output')
 plt.grid(linestyle='--', linewidth=0.4)
 plt.legend()
+plt.savefig("figures/trainset_"+target_function.__name__+"_N"+str(modes[0])+".png")
 plt.show()
 
 # Generate a linearly-spaced testing dataset of the target function and test the trained QNN
@@ -64,16 +65,13 @@ qnn_outs = []
 for N in modes:
     for ph_add in photon_additions:
         model_name = target_function.__name__
-        #in_norm_range = (1/N, N)
-        #out_norm_range = (1, (N**2 + N**(-2) - 2) / 2)
-        #out_norm_range = (1, N)
-
+        
         # Initialize the desired data processors for pre/post-processing
         in_preprocessors = []
-        #in_preprocessors.append(partial(trigonometric_one_input))
-        #input_range = (0, 1)
-        #in_preprocessors.append(partial(trigonometric_feature_expressivity, num_final_features=N))
-        #input_range = (-N, N)
+        in_preprocessors.append(partial(trigonometric_feature_expressivity, num_final_features=N))
+        input_range = (-N, N)
+        print("FEAT ENGINEERED INPUTS:")
+        print(partial(trigonometric_feature_expressivity, num_final_features=N)(train_dataset[0]))
         in_preprocessors.append(partial(rescale_data, data_range=input_range, scale_data_range=in_norm_range))
 
         out_preprocessors = []
@@ -85,8 +83,8 @@ for N in modes:
         # Build the QNN and train it with the generated dataset
         qnn, train_loss, valid_loss = build_and_train_model(model_name, N, layers, n_inputs, n_outputs, ph_add, observable, is_input_reupload,
                                                             train_dataset, valid_dataset, loss_function, in_preprocessors, out_preprocessors, postprocessors)#, init_pars=np.ones((12)))
-        train_losses.append(train_loss[1:].copy())
-        valid_losses.append(valid_loss[1:].copy())
+        train_losses.append(train_loss.copy())
+        valid_losses.append(valid_loss.copy())
         qnn_test_outputs = test_model(qnn, test_dataset, loss_function)
         #print(qnn_test_outputs)
         qnn_outs.append(qnn_test_outputs.copy())
@@ -100,6 +98,7 @@ plt.xlim()
 plt.ylabel('Output')
 plt.grid(linestyle='--', linewidth=0.4)
 plt.legend()
+plt.savefig("figures/test_res_"+model_name+"_N"+str(modes[0])+".png")
 plt.show()
 
 for (train_loss, valid_loss, ph_add, color) in zip(train_losses, valid_losses, photon_additions, colors):
@@ -111,4 +110,5 @@ plt.ylabel('Logarithmic loss value')
 plt.title(f'LOGARITHMIC TRAINING AND VALIDATION LOSS')
 plt.grid(linestyle='--', linewidth=0.4)
 plt.legend()
+plt.savefig("figures/loss_"+model_name+"_N"+str(modes[0])+".png")
 plt.show()
