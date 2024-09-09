@@ -11,19 +11,19 @@ from .data_processors import *
 from .loss_functions import *
 
 # === HYPERPARAMETERS DEFINITION ===
-N = 4
+N = 5
 photon_additions = [0]
 layers = 1
 is_input_reupload = False
 n_inputs = 1
-n_outputs = 4
-observable = 'position'
+n_outputs = 5
+observable = 'number'
 in_norm_range = (-1, 1)
-out_norm_range = (0, 1)
+out_norm_range = (0.5, 5)
 loss_function = cross_entropy
 
 # === DATASET SETTINGS ===
-categories = [0, 1, 2, 3]
+categories = [0, 1, 2, 3, 4]
 num_cats = len(categories)
 dataset_size = 200
 validset_size = 80
@@ -38,6 +38,7 @@ print("ENCODED INPUTS RANGE:")
 print(data_ranges)
 print(dataset)
 output_range = (0, 1)
+plt.plot(dataset[0],dataset[1])
 #output_range = get_range(dataset[1])
 #print("LABELS RANGE:")
 #print(output_range)

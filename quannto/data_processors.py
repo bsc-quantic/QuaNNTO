@@ -5,7 +5,7 @@ def trigonometric_feature_expressivity(features, num_final_features):
     transf_feats = np.zeros((len(features), num_final_features))
     for i in range(len(features)):
         for j in range(num_final_features):
-            transf_feats[i,j] = (j+1)*np.sin((j+1)*features[i])
+            transf_feats[i,j] = (j+1)*np.sin((j+1)*np.pi*features[i])
     return transf_feats
 
 def trigonometric_one_input(inputs):
