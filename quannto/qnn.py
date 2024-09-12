@@ -130,23 +130,16 @@ class QNN:
         dim = 2*N
         S = MatrixSymbol('S', dim, layers*dim)
         
-        num_unnorm = []
+        # TODO: Improve this part which is taking so long to init
+        t1 = time.time()
+        self.nb_num_unnorm = []
         for outs in range(self.n_out):
-            num_unnorm.append([lambdify((S, d_r, d_i), unnorm_trm, modules='numpy') for unnorm_trm in self.unnorm_expr_terms_out[outs]])
-        num_norm = [lambdify((S, d_r, d_i), norm_trm, modules='numpy') for norm_trm in self.norm_subs_expr_terms]
-        self.nb_unnorm = nb.typed.List.empty_list(nb.types.ListType(nb.types.float64(nb.types.Array(nb.types.float64, 2, 'C'), nb.types.Array(nb.types.complex64, 1, 'C'), nb.types.Array(nb.types.complex64, 1, 'C')).as_type()))
-        self.nb_norm = nb.typed.List.empty_list(nb.types.float64(nb.types.Array(nb.types.float64, 2, 'C'), nb.types.Array(nb.types.complex64, 1, 'C'), nb.types.Array(nb.types.complex64, 1, 'C')).as_type())
-        nb_num_unnorm = []
-        for outs in range(self.n_out):
-            nb_num_unnorm.append([nb.njit(f) for f in num_unnorm[outs]])
-        nb_num_norm = [nb.njit(f) for f in num_norm]
-        for outs in range(self.n_out):
-            nb_unnorm_out = nb.typed.List.empty_list(nb.types.float64(nb.types.Array(nb.types.float64, 2, 'C'), nb.types.Array(nb.types.complex64, 1, 'C'), nb.types.Array(nb.types.complex64, 1, 'C')).as_type())
-            for f in nb_num_unnorm[outs]:
-                nb_unnorm_out.append(f)
-            self.nb_unnorm.append(nb_unnorm_out)
-        for f in nb_num_norm:
-            self.nb_norm.append(f)
+            self.nb_num_unnorm.append([nb.njit(lambdify((S, d_r, d_i), unnorm_trm, modules='numpy')) for unnorm_trm in self.unnorm_expr_terms_out[outs]])
+        t2 = time.time()
+        print(f"Time to lambdify unnormalized expressions: {t2-t1}")
+        self.nb_num_norm = [nb.njit(lambdify((S, d_r, d_i), norm_trm, modules='numpy')) for norm_trm in self.norm_subs_expr_terms]
+        t3 = time.time()
+        print(f"Time to lambdify normalization expressions: {t3-t2}")
             
         self.u_bar = CanonicalLadderTransformations(N)
         self.qnn_profiling = ProfilingQNN(N, layers)
@@ -231,7 +224,13 @@ class QNN:
         # 5. Compute the observables' normalized expectation value of the non-Gaussianity applied to the final Gaussian state
         # TODO: Generalize for multilayer
         nongauss_start = time.time()
-        norm_exp_val = compute_exp_val_loop(self.nb_unnorm, self.nb_norm,
+        d_r = np.zeros((self.N), dtype='complex64')
+        for i in range(self.N):
+            d_r[i] = self.D_concat[i]+1j*self.D_concat[self.N+i]
+        d_i = np.conjugate(d_r)
+        norm_terms = np.array([self.nb_num_norm[term_idx](self.S_concat, d_r, d_i) for term_idx in range(len(self.modes_norm[0]))])
+        unnorm_terms = np.array([[self.nb_num_unnorm[outs][term_idx](self.S_concat, d_r, d_i) for term_idx in range(len(self.modes[0]))] for outs in range(len(self.modes))])
+        norm_exp_val = compute_exp_val_loop(unnorm_terms, norm_terms,
                                             self.np_modes, self.np_types, self.lens_modes,
                                             self.np_modes_norm, self.np_types_norm, self.lens_modes_norm, 
                                             self.np_lpms, self.D_concat, self.S_concat, K_exp_vals, self.mean_vector)
@@ -262,7 +261,7 @@ class QNN:
         f = open("models/"+filename, 'w')
         f.write(jsonpickle.encode(self))
         f.close()
-    
+
 def load_model(filename):
     with open(filename, 'r') as f:
         qnn_str = jsonpickle.decode(f.read())

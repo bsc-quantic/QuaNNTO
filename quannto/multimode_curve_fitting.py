@@ -8,15 +8,15 @@ from .data_processors import *
 from .loss_functions import *
 
 # === HYPERPARAMETERS DEFINITION ===
-modes = [3]
-photon_additions = [[],[0]]
-layers = 2
+modes = [4]
+photon_additions = [[],[0],[0,1]]
+layers = [1,1,1]
 is_input_reupload = False
 n_inputs = 1
 n_outputs = 1
 observable = 'number'
-in_norm_range = (0, 1)
-out_norm_range = (0.5, 5)
+in_norm_range = (-1, 1)
+out_norm_range = (0.5, 3)
 loss_function = mse
 noise = 0.3
 
@@ -63,15 +63,15 @@ train_losses = []
 valid_losses = []
 qnn_outs = []
 for N in modes:
-    for ph_add in photon_additions:
+    for (l, ph_add) in zip(layers, photon_additions):
         model_name = target_function.__name__
         
         # Initialize the desired data processors for pre/post-processing
         in_preprocessors = []
-        in_preprocessors.append(partial(trigonometric_feature_expressivity, num_final_features=N))
-        input_range = (-N, N)
-        print("FEAT ENGINEERED INPUTS:")
-        print(partial(trigonometric_feature_expressivity, num_final_features=N)(train_dataset[0]))
+        #in_preprocessors.append(partial(trigonometric_feature_expressivity, num_final_features=N))
+        #input_range = (-N, N)
+        #print("FEAT ENGINEERED INPUTS:")
+        #print(partial(trigonometric_feature_expressivity, num_final_features=N)(train_dataset[0]))
         in_preprocessors.append(partial(rescale_data, data_range=input_range, scale_data_range=in_norm_range))
 
         out_preprocessors = []
@@ -81,7 +81,7 @@ for N in modes:
         postprocessors.append(partial(rescale_data, data_range=out_norm_range, scale_data_range=output_range))
 
         # Build the QNN and train it with the generated dataset
-        qnn, train_loss, valid_loss = build_and_train_model(model_name, N, layers, n_inputs, n_outputs, ph_add, observable, is_input_reupload,
+        qnn, train_loss, valid_loss = build_and_train_model(model_name, N, l, n_inputs, n_outputs, ph_add, observable, is_input_reupload,
                                                             train_dataset, valid_dataset, loss_function, in_preprocessors, out_preprocessors, postprocessors)#, init_pars=np.ones((12)))
         train_losses.append(train_loss.copy())
         valid_losses.append(valid_loss.copy())
@@ -90,8 +90,8 @@ for N in modes:
         qnn_outs.append(qnn_test_outputs.copy())
     
 plt.plot(test_dataset[0], test_dataset[1], 'go', label='Expected results')
-for (qnn_test_outputs, ph_add, color) in zip(qnn_outs, photon_additions, colors):
-    plt.plot(test_dataset[0], qnn_test_outputs, c=color, linestyle='dashed', label=f'N={N}, {len(ph_add)} photons')
+for (qnn_test_outputs, l, ph_add, color) in zip(qnn_outs, layers, photon_additions, colors):
+    plt.plot(test_dataset[0], qnn_test_outputs, c=color, linestyle='dashed', label=f'N={N}, L={l}, {len(ph_add)} photons/layer')
 plt.title(f'TESTING SET')
 plt.xlabel('Input')
 plt.xlim()
@@ -101,9 +101,9 @@ plt.legend()
 plt.savefig("figures/test_res_"+model_name+"_N"+str(modes[0])+".png")
 plt.show()
 
-for (train_loss, valid_loss, ph_add, color) in zip(train_losses, valid_losses, photon_additions, colors):
+for (train_loss, valid_loss, l, ph_add, color) in zip(train_losses, valid_losses, layers, photon_additions, colors):
     plt.plot(np.log(np.array(train_loss)+1), c=color, label=f'Train loss N={N}, {len(ph_add)} photons')
-    plt.plot(np.log(np.array(valid_loss)+1), c=color, linestyle='dashed', label=f'Validation loss N={N}, {len(ph_add)} photons')
+    plt.plot(np.log(np.array(valid_loss)+1), c=color, linestyle='dashed', label=f'Validation loss N={N}, L={l}, {len(ph_add)} photons/layer')
 plt.ylim(bottom=0.0)
 plt.xlabel('Epochs')
 plt.ylabel('Logarithmic loss value')

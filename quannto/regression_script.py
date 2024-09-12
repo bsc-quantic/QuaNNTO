@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 from .qnn import build_and_train_model, test_model
 from .data_processors import *
 from .results_utils import plot_qnn_testing
-from .synth_datasets import print_dataset
+from .synth_datasets import print_dataset, bubblesort
 from .loss_functions import *
 
 parser = argparse.ArgumentParser(description="Build and train a QNN model", formatter_class=argparse.ArgumentDefaultsHelpFormatter)
@@ -44,7 +44,7 @@ in_data_ranges = [(np.min(dataset[0][:,col]), np.max(dataset[0][:,col])) for col
 out_data_ranges = [(np.min(dataset[1][:,col]), np.max(dataset[1][:,col])) for col in range(len(dataset[1][0]))]
 loss_function = retrieve_loss_function(loss)
 
-trainset_size = 100
+trainset_size = 200
 train_dataset = [dataset[0][:trainset_size], dataset[1][:trainset_size]]
 print_dataset(train_dataset[0], train_dataset[1])
 validset_size = 40
@@ -53,7 +53,7 @@ print_dataset(valid_dataset[0], valid_dataset[1])
 
 # Data preprocessing and postprocessing
 in_preprocessors = []
-in_rescaling = (0.5, 3.5)
+in_rescaling = (0, 1)
 print(in_data_ranges)
 in_preprocessors.append(partial(rescale_set_with_ranges, data_ranges=in_data_ranges, rescale_range=in_rescaling))
 
@@ -82,6 +82,6 @@ plt.show()
 
 # Test the model
 testing_set_size = 100
-testing_set = (dataset[0][trainset_size+validset_size : trainset_size+validset_size+testing_set_size], dataset[1][trainset_size+validset_size : trainset_size+validset_size+testing_set_size])
+testing_set = bubblesort(dataset[0][trainset_size+validset_size : trainset_size+validset_size+testing_set_size], dataset[1][trainset_size+validset_size : trainset_size+validset_size+testing_set_size])
 qnn_test_outputs = test_model(qnn, testing_set, loss_function)
 plot_qnn_testing(qnn, testing_set[1], qnn_test_outputs)

@@ -13,7 +13,7 @@ from .loss_functions import *
 
 # === HYPERPARAMETERS DEFINITION ===
 N = 5
-photon_additions = []
+photon_additions = [0,1]
 layers = 1
 is_input_reupload = False
 n_inputs = 2

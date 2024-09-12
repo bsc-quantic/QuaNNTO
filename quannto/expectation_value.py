@@ -195,7 +195,7 @@ def subs_in_trace_terms(trace_terms, D, symp_mat):
     
     for term_idx in prange(len(trace_terms)):
         expr_terms.append(trace_terms[term_idx](symp_mat, d_r, d_i))
-        
+
     return expr_terms
 
 @njit
@@ -211,29 +211,18 @@ def subs_terms_in_trace(terms, modes, types, terms_len, lpms, N, K_exp_vals, mea
         # TODO: Better way to index the LPM according to length
         lpms_idx = terms_len[i] - 3 if terms_len[i] > 3 else 0
         sum_tr_values += get_expectation_value(modes[i], types[i], terms_len[i], lpms[lpms_idx][0], N, K_exp_vals, means_vector) * terms[i]
-    """     trace_values.append(get_expectation_value(modes[i], types[i], terms_len[i], lpms[lpms_idx][0], N, K_exp_vals, means_vector))
-        # else:
-        #     trace_values.append(0)
-    exp_val = []
-    for (coef, term) in zip(trace_values, terms):
-        # term.subs(dict(zip(term.free_symbols, [1 for i in range(len(term.free_symbols))])))
-        exp_val.append(coef * term)
-    return exp_val """
     return sum_tr_values
 
 @njit
-def compute_exp_val_loop(nb_unnorm, nb_norm, modes, types, unnorm_terms_len, modes_norm, types_norm, norm_terms_len, lpms, D, G, K_exp_vals, means_vector):
+def compute_exp_val_loop(unnorm_terms, norm_terms, modes, types, unnorm_terms_len, modes_norm, types_norm, norm_terms_len, lpms, D, G, K_exp_vals, means_vector):
     #t1 = time.time()
     N = len(G) // 2
-    unnorm_terms = nb.typed.List([nb.typed.List(subs_in_trace_terms(nb_unnorm[outs], D, G)) for outs in range(len(modes))])
-    norm_terms = nb.typed.List(subs_in_trace_terms(nb_norm, D, G))
     #subs_time = time.time() - t1
 
     # For unnormalized exp val
     #t2 = time.time()
     unnorm = np.zeros((len(modes)), dtype='complex')
     for outs in prange(len(modes)):
-        #unnorm[outs] = expand(sum(subs_terms_in_trace(unnorm_terms[outs], modes[outs], types[outs], unnorm_terms_len[outs], lpms, N, K_exp_vals, means_vector)))
         # TODO: Take care with this condition just made for 0 photon addition
         if len(modes[outs]) == 1:
             unnorm[outs] = subs_terms_in_trace([1], modes[outs], types[outs], unnorm_terms_len[outs], lpms, N, K_exp_vals, means_vector)
@@ -246,7 +235,6 @@ def compute_exp_val_loop(nb_unnorm, nb_norm, modes, types, unnorm_terms_len, mod
     if len(modes_norm[0]) == 1 and modes_norm[0][0] == -1:
         norm = 1
     else:
-        #norm = expand(sum(subs_terms_in_trace(norm_terms, modes_norm[0], types_norm[0], norm_terms_len[0], lpms, N, K_exp_vals, means_vector)))
         norm = subs_terms_in_trace(norm_terms, modes_norm[0], types_norm[0], norm_terms_len[0], lpms, N, K_exp_vals, means_vector)
     #norm_time = time.time() - t3
     norm_val = unnorm/norm
