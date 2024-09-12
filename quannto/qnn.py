@@ -231,10 +231,11 @@ class QNN:
         # 5. Compute the observables' normalized expectation value of the non-Gaussianity applied to the final Gaussian state
         # TODO: Generalize for multilayer
         nongauss_start = time.time()
+        d_r, d_i = create_displacements(self.D_concat, self.N, self.layers)
         norm_exp_val = compute_exp_val_loop(self.nb_unnorm, self.nb_norm,
                                             self.np_modes, self.np_types, self.lens_modes,
                                             self.np_modes_norm, self.np_types_norm, self.lens_modes_norm, 
-                                            self.np_lpms, self.D_concat, self.S_concat, K_exp_vals, self.mean_vector)
+                                            self.np_lpms, self.S_concat, d_r, d_i, K_exp_vals, self.mean_vector)
         self.qnn_profiling.nongauss_times.append(time.time() - nongauss_start)
         
         #compute_times(self)

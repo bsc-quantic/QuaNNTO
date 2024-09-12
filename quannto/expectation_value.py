@@ -185,17 +185,10 @@ def complete_trace_expression(N, layers, photon_additions, n_outputs, include_ob
     return expanded_expr
 
 @njit
-def subs_in_trace_terms(trace_terms, D, symp_mat):
+def subs_in_trace_terms(trace_terms, symp_mat, d_r, d_i):
     expr_terms = []
-    N = len(D)//2
-    d_r = np.zeros((N), dtype='complex64')
-    for i in range(N):
-        d_r[i] = D[i]+1j*D[N+i]
-    d_i = np.conjugate(d_r)
-    
     for term_idx in prange(len(trace_terms)):
         expr_terms.append(trace_terms[term_idx](symp_mat, d_r, d_i))
-        
     return expr_terms
 
 @njit
@@ -211,22 +204,23 @@ def subs_terms_in_trace(terms, modes, types, terms_len, lpms, N, K_exp_vals, mea
         # TODO: Better way to index the LPM according to length
         lpms_idx = terms_len[i] - 3 if terms_len[i] > 3 else 0
         sum_tr_values += get_expectation_value(modes[i], types[i], terms_len[i], lpms[lpms_idx][0], N, K_exp_vals, means_vector) * terms[i]
-    """     trace_values.append(get_expectation_value(modes[i], types[i], terms_len[i], lpms[lpms_idx][0], N, K_exp_vals, means_vector))
-        # else:
-        #     trace_values.append(0)
-    exp_val = []
-    for (coef, term) in zip(trace_values, terms):
-        # term.subs(dict(zip(term.free_symbols, [1 for i in range(len(term.free_symbols))])))
-        exp_val.append(coef * term)
-    return exp_val """
     return sum_tr_values
 
 @njit
-def compute_exp_val_loop(nb_unnorm, nb_norm, modes, types, unnorm_terms_len, modes_norm, types_norm, norm_terms_len, lpms, D, G, K_exp_vals, means_vector):
+def create_displacements(D_concat, N, layers):
+    d_r = np.zeros((layers * N), dtype='complex64')
+    for l in range(layers):
+        for i in range(N):
+            d_r[l*N + i] = D_concat[l*2*N + i]+1j*D_concat[l*2*N + N+i]
+    d_i = np.conjugate(d_r)
+    return d_r, d_i
+
+@njit
+def compute_exp_val_loop(nb_unnorm, nb_norm, modes, types, unnorm_terms_len, modes_norm, types_norm, norm_terms_len, lpms, G, d_r, d_i, K_exp_vals, means_vector):
     #t1 = time.time()
     N = len(G) // 2
-    unnorm_terms = nb.typed.List([nb.typed.List(subs_in_trace_terms(nb_unnorm[outs], D, G)) for outs in range(len(modes))])
-    norm_terms = nb.typed.List(subs_in_trace_terms(nb_norm, D, G))
+    unnorm_terms = nb.typed.List([nb.typed.List(subs_in_trace_terms(nb_unnorm[outs], G, d_r, d_i)) for outs in range(len(modes))])
+    norm_terms = nb.typed.List(subs_in_trace_terms(nb_norm, G, d_r, d_i))
     #subs_time = time.time() - t1
 
     # For unnormalized exp val
