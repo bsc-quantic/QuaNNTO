@@ -224,9 +224,10 @@ class QNN:
         # 5. Compute the observables' normalized expectation value of the non-Gaussianity applied to the final Gaussian state
         # TODO: Generalize for multilayer
         nongauss_start = time.time()
-        d_r = np.zeros((self.N), dtype='complex64')
-        for i in range(self.N):
-            d_r[i] = self.D_concat[i]+1j*self.D_concat[self.N+i]
+        d_r = np.zeros((self.layers * self.N), dtype='complex64')
+        for l in range(self.layers):
+            for i in range(self.N):
+                d_r[l*self.N + i] = self.D_concat[l*2*self.N + i]+1j*self.D_concat[l*2*self.N + self.N+i]
         d_i = np.conjugate(d_r)
         norm_terms = np.array([self.nb_num_norm[term_idx](self.S_concat, d_r, d_i) for term_idx in range(len(self.modes_norm[0]))])
         unnorm_terms = np.array([[self.nb_num_unnorm[outs][term_idx](self.S_concat, d_r, d_i) for term_idx in range(len(self.modes[0]))] for outs in range(len(self.modes))])

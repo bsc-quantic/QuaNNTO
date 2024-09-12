@@ -9,8 +9,8 @@ from .loss_functions import *
 
 # === HYPERPARAMETERS DEFINITION ===
 modes = [4]
-photon_additions = [[],[0],[0,1]]
-layers = [1,1,1]
+photon_additions = [[0],[0,1]]
+layers = [2,1]
 is_input_reupload = False
 n_inputs = 1
 n_outputs = 1
