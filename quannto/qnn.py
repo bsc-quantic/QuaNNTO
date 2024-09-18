@@ -62,6 +62,7 @@ class QNN:
         self.model_name = model_name
         self.N = N
         self.layers = layers
+        self.photon_add = photon_add
         self.n_in = n_in
         self.n_out = n_out
         self.in_preprocessors = in_preprocessors
