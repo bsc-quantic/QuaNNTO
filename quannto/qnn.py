@@ -62,6 +62,7 @@ class QNN:
         self.model_name = model_name
         self.N = N
         self.layers = layers
+        self.photon_add = photon_add
         self.n_in = n_in
         self.n_out = n_out
         self.in_preprocessors = in_preprocessors
@@ -371,7 +372,7 @@ def build_and_train_model(name, N, layers, n_inputs, n_outputs, photon_additions
     training_start = time.time()
     #result = opt.minimize(training_QNN, init_pars, method='L-BFGS-B', callback=callback)
     minimizer_kwargs = {"method": "L-BFGS-B", "callback": callback}
-    result = opt.basinhopping(training_QNN, init_pars, niter=1, minimizer_kwargs=minimizer_kwargs, callback=callback_hopping)
+    result = opt.basinhopping(training_QNN, init_pars, niter=2, minimizer_kwargs=minimizer_kwargs, callback=callback_hopping)
     print(f'Total training time: {time.time() - training_start} seconds')
     
     print(f'\nOPTIMIZATION ERROR FOR N={N}, L={layers}')
