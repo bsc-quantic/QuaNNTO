@@ -235,7 +235,7 @@ class QNN:
         norm_exp_val = compute_exp_val_loop(unnorm_terms, norm_terms,
                                             self.np_modes, self.np_types, self.lens_modes,
                                             self.np_modes_norm, self.np_types_norm, self.lens_modes_norm, 
-                                            self.np_lpms, self.D_concat, self.S_concat, K_exp_vals, self.mean_vector)
+                                            self.np_lpms, K_exp_vals, self.mean_vector)
         self.qnn_profiling.nongauss_times.append(time.time() - nongauss_start)
         
         #compute_times(self)

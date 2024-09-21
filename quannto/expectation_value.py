@@ -185,20 +185,6 @@ def complete_trace_expression(N, layers, photon_additions, n_outputs, include_ob
     return expanded_expr
 
 @njit
-def subs_in_trace_terms(trace_terms, D, symp_mat):
-    expr_terms = []
-    N = len(D)//2
-    d_r = np.zeros((N), dtype='complex64')
-    for i in range(N):
-        d_r[i] = D[i]+1j*D[N+i]
-    d_i = np.conjugate(d_r)
-    
-    for term_idx in prange(len(trace_terms)):
-        expr_terms.append(trace_terms[term_idx](symp_mat, d_r, d_i))
-
-    return expr_terms
-
-@njit
 def single_ladder_exp_val(term_mode, term_type, N, means_vector):
     return (1/np.sqrt(2)) * (means_vector[term_mode] + 1j*(-2*term_type + 1)*means_vector[N+term_mode])
 
@@ -214,11 +200,8 @@ def subs_terms_in_trace(terms, modes, types, terms_len, lpms, N, K_exp_vals, mea
     return sum_tr_values
 
 @njit
-def compute_exp_val_loop(unnorm_terms, norm_terms, modes, types, unnorm_terms_len, modes_norm, types_norm, norm_terms_len, lpms, D, G, K_exp_vals, means_vector):
-    #t1 = time.time()
-    N = len(G) // 2
-    #subs_time = time.time() - t1
-
+def compute_exp_val_loop(unnorm_terms, norm_terms, modes, types, unnorm_terms_len, modes_norm, types_norm, norm_terms_len, lpms, K_exp_vals, means_vector):
+    N = len(means_vector) // 2
     # For unnormalized exp val
     #t2 = time.time()
     unnorm = np.zeros((len(modes)), dtype='complex')
@@ -255,10 +238,10 @@ def get_expectation_value(term_modes, term_types, len_term, perf_matchs, N, K_ex
     elif len_term == 2: # CASE Tr[a#a#rho]
         return K_exp_vals[term_types[0] + 2*term_types[1], term_modes[0], term_modes[1]]
     else:
-        return ladder_exp_val(perf_matchs, term_modes, term_types, means_vector, K_exp_vals)
+        return ladder_exp_val(perf_matchs, term_modes, term_types, N, means_vector, K_exp_vals)
     
 @njit
-def ladder_exp_val(perf_matchings, ladder_modes, ladder_types, means_vector, cov_mat_identities):
+def ladder_exp_val(perf_matchings, ladder_modes, ladder_types, N, means_vector, cov_mat_identities):
     '''
     Computes the expected value of the energy when ladder operators are applied
     to a Gaussian state described by its covariance matrix. All perfect matchings
@@ -277,10 +260,10 @@ def ladder_exp_val(perf_matchings, ladder_modes, ladder_types, means_vector, cov
             # Determine which identity to pick depending on the pair of ladder ops and the modes
             if i1 == -1:
                 continue
-            elif i1!=i2:
+            elif i1 != i2:
                 trace_prod *= cov_mat_identities[ladder_types[i1] + 2*ladder_types[i2], ladder_modes[i1], ladder_modes[i2]]
             else:
-                trace_prod *= single_ladder_exp_val(ladder_modes[i1], ladder_types[i2], len(means_vector) // 2, means_vector)
+                trace_prod *= single_ladder_exp_val(ladder_modes[i1], ladder_types[i2], N, means_vector)
         trace_sum += trace_prod
     return trace_sum
 
