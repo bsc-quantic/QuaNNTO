@@ -8,6 +8,12 @@ def trigonometric_feature_expressivity(features, num_final_features):
             transf_feats[i,j] = (j+1)*np.sin((j+1)*np.pi*features[i])
     return transf_feats
 
+def replicate_inputs(inputs, num_repl):
+    repl_inputs = np.zeros((len(inputs), num_repl))
+    for inp_idx in range(len(inputs)):
+        repl_inputs[inp_idx, :] = inputs[inp_idx]
+    return repl_inputs
+
 def trigonometric_one_input(inputs):
     return np.sin(inputs)
 
