@@ -223,15 +223,20 @@ class QNN:
         self.qnn_profiling.K_exp_vals_times.append(time.time() - K_exp_vals_start)
 
         # 5. Compute the observables' normalized expectation value of the non-Gaussianity applied to the final Gaussian state
-        # TODO: Generalize for multilayer
         nongauss_start = time.time()
         d_r = np.zeros((self.layers * self.N), dtype='complex64')
         for l in range(self.layers):
             for i in range(self.N):
                 d_r[l*self.N + i] = self.D_concat[l*2*self.N + i]+1j*self.D_concat[l*2*self.N + self.N+i]
         d_i = np.conjugate(d_r)
-        norm_terms = np.array([self.nb_num_norm[term_idx](self.S_concat, d_r, d_i) for term_idx in range(len(self.modes_norm[0]))])
-        unnorm_terms = np.array([[self.nb_num_unnorm[outs][term_idx](self.S_concat, d_r, d_i) for term_idx in range(len(self.modes[0]))] for outs in range(len(self.modes))])
+        # TODO: Parallelize this function executions and modularize this part's calculations
+        norm_terms = np.zeros((len(self.nb_num_norm)), dtype='complex64')
+        for idx in range(len(self.modes_norm[0])):
+            norm_terms[idx] = self.nb_num_norm[idx](self.S_concat, d_r, d_i)
+        unnorm_terms = np.zeros((self.n_out, len(self.nb_num_unnorm[0])), dtype='complex64')
+        for out_idx in range(len(self.modes)):
+            for idx in range(len(self.modes[0])):
+                unnorm_terms[out_idx, idx] = self.nb_num_unnorm[out_idx][idx](self.S_concat, d_r, d_i)
         norm_exp_val = compute_exp_val_loop(unnorm_terms, norm_terms,
                                             self.np_modes, self.np_types, self.lens_modes,
                                             self.np_modes_norm, self.np_types_norm, self.lens_modes_norm, 
