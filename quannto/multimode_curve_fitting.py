@@ -1,5 +1,6 @@
 from functools import partial
 import matplotlib.pyplot as plt
+from matplotlib import colormaps
 import os.path
 
 from .qnn import test_model, build_and_train_model
@@ -31,17 +32,17 @@ real_function = generate_linear_dataset_of(target_function, n_inputs, n_outputs,
 output_range = get_range(real_function[1])
 
 # Generate a training dataset of the target function to be learned
-if os.path.isfile(f"datasets/sincos_trainsize{trainset_size}_inputs.npy"):
-    with open(f"datasets/sincos_trainsize{trainset_size}_inputs.npy", "rb") as f:
+if os.path.isfile(f"datasets/{target_function.__name__}_trainsize{trainset_size}_inputs.npy"):
+    with open(f"datasets/{target_function.__name__}_trainsize{trainset_size}_inputs.npy", "rb") as f:
         inputs = np.load(f)
-    with open(f"datasets/sincos_trainsize{trainset_size}_outputs.npy", "rb") as f:
+    with open(f"datasets/{target_function.__name__}_trainsize{trainset_size}_outputs.npy", "rb") as f:
         outputs = np.load(f)
     train_dataset = [inputs, outputs]
 else:
     train_dataset = generate_noisy_samples(trainset_size, target_function, input_range[0], input_range[1], noise)
-    with open(f"datasets/sincos_trainsize{trainset_size}_inputs.npy", "wb") as f:
+    with open(f"datasets/{target_function.__name__}_trainsize{trainset_size}_inputs.npy", "wb") as f:
         np.save(f, train_dataset[0])
-    with open(f"datasets/sincos_trainsize{trainset_size}_outputs.npy", "wb") as f:
+    with open(f"datasets/{target_function.__name__}_trainsize{trainset_size}_outputs.npy", "wb") as f:
         np.save(f, train_dataset[1])
 
 train_dataset = bubblesort(np.reshape(train_dataset[1], (trainset_size)), np.reshape(train_dataset[0], (trainset_size)))
@@ -69,7 +70,7 @@ test_dataset = generate_linear_dataset_of(target_function, n_inputs, n_outputs, 
 
 # === BUILD, TRAIN AND TEST QNN MODELS WITH DIFFERENT MODES ===
 #colors = plt.cm.rainbow(np.linspace(0, 1, len(modes)))
-colors = plt.cm.get_cmap('tab10')
+colors = colormaps['tab10']
 train_losses = []
 valid_losses = []
 qnn_loss = []
@@ -84,8 +85,6 @@ for N in modes:
             in_preprocessors = []
             #in_preprocessors.append(partial(trigonometric_feature_expressivity, num_final_features=N))
             #input_range = (-N, N)
-            #print("FEAT ENGINEERED INPUTS:")
-            #print(partial(trigonometric_feature_expressivity, num_final_features=N)(train_dataset[0]))
             in_preprocessors.append(partial(rescale_data, data_range=input_range, scale_data_range=in_norm_range))
 
             out_preprocessors = []
@@ -96,7 +95,7 @@ for N in modes:
 
             # Build the QNN and train it with the generated dataset
             qnn, train_loss, valid_loss = build_and_train_model(model_name, N, l, n_inputs, n_outputs, ph_add, observable, is_input_reupload,
-                                                                train_dataset, valid_dataset, loss_function, in_preprocessors, out_preprocessors, postprocessors)#, init_pars=np.ones((12)))
+                                                                train_dataset, valid_dataset, loss_function, in_preprocessors, out_preprocessors, postprocessors)
             qnns.append(qnn)
             train_losses.append(train_loss.copy())
             valid_losses.append(valid_loss.copy())
@@ -150,12 +149,4 @@ plt.legend()
 plt.savefig("figures/loss_"+model_name+"_N"+str(modes[0])+".png")
 plt.show()
 
-plt.plot(qnn_loss)
-plt.ylim(bottom=0.0)
-plt.xlabel('QNNs')
-plt.ylabel('Minimal loss achieved')
-plt.title(f'LOSS EVOLUTION')
-plt.grid(linestyle='--', linewidth=0.4)
-plt.legend()
-plt.savefig("figures/loss_evol_"+model_name+"_N"+str(modes[0])+".png")
-plt.show()
+print(f'MINIMAL LOSSES ACHIEVED: {qnn_loss}')
