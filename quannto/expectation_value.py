@@ -184,11 +184,10 @@ def complete_trace_expression(N, layers, photon_additions, n_outputs, include_ob
         expanded_expr = expand(sup_dag*sup)
     return expanded_expr
 
-@njit
 def subs_in_trace_terms(trace_terms, symp_mat, d_r, d_i):
-    expr_terms = []
+    expr_terms = np.zeros((len(trace_terms)), dtype='complex64')
     for term_idx in prange(len(trace_terms)):
-        expr_terms.append(trace_terms[term_idx](symp_mat, d_r, d_i))
+        expr_terms[term_idx] = trace_terms[term_idx](symp_mat, d_r, d_i)
     return expr_terms
 
 @njit
@@ -215,12 +214,15 @@ def create_displacements(D_concat, N, layers):
     d_i = np.conjugate(d_r)
     return d_r, d_i
 
-@njit
 def compute_exp_val_loop(nb_unnorm, nb_norm, modes, types, unnorm_terms_len, modes_norm, types_norm, norm_terms_len, lpms, G, d_r, d_i, K_exp_vals, means_vector):
     #t1 = time.time()
     N = len(G) // 2
-    unnorm_terms = nb.typed.List([nb.typed.List(subs_in_trace_terms(nb_unnorm[outs], G, d_r, d_i)) for outs in range(len(modes))])
-    norm_terms = nb.typed.List(subs_in_trace_terms(nb_norm, G, d_r, d_i))
+    #unnorm_terms = nb.typed.List([nb.typed.List(subs_in_trace_terms(nb_unnorm[outs], G, d_r, d_i)) for outs in range(len(modes))])
+    #norm_terms = nb.typed.List(subs_in_trace_terms(nb_norm, G, d_r, d_i))
+    unnorm_terms = np.zeros((len(nb_unnorm), len(nb_unnorm[0])), dtype='complex64')
+    for out in range(len(nb_unnorm)):
+        unnorm_terms[out] = subs_in_trace_terms(nb_unnorm[out], G, d_r, d_i)
+    norm_terms = subs_in_trace_terms(nb_norm, G, d_r, d_i)
     #subs_time = time.time() - t1
 
     # For unnormalized exp val

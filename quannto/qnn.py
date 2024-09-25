@@ -131,23 +131,23 @@ class QNN:
         dim = 2*N
         S = MatrixSymbol('S', dim, layers*dim)
         
-        num_unnorm = []
+        self.num_unnorm = []
         for outs in range(self.n_out):
-            num_unnorm.append([lambdify((S, d_r, d_i), unnorm_trm, modules='numpy') for unnorm_trm in self.unnorm_expr_terms_out[outs]])
-        num_norm = [lambdify((S, d_r, d_i), norm_trm, modules='numpy') for norm_trm in self.norm_subs_expr_terms]
-        self.nb_unnorm = nb.typed.List.empty_list(nb.types.ListType(nb.types.float64(nb.types.Array(nb.types.float64, 2, 'C'), nb.types.Array(nb.types.complex64, 1, 'C'), nb.types.Array(nb.types.complex64, 1, 'C')).as_type()))
-        self.nb_norm = nb.typed.List.empty_list(nb.types.float64(nb.types.Array(nb.types.float64, 2, 'C'), nb.types.Array(nb.types.complex64, 1, 'C'), nb.types.Array(nb.types.complex64, 1, 'C')).as_type())
-        nb_num_unnorm = []
+            self.num_unnorm.append([lambdify((S, d_r, d_i), unnorm_trm, modules='numpy') for unnorm_trm in self.unnorm_expr_terms_out[outs]])
+        self.num_norm = [lambdify((S, d_r, d_i), norm_trm, modules='numpy') for norm_trm in self.norm_subs_expr_terms]
+        """ self.nb_unnorm = nb.typed.List.empty_list(nb.types.ListType(nb.types.complex64(nb.types.Array(nb.types.float64, 2, 'C'), nb.types.Array(nb.types.complex64, 1, 'C'), nb.types.Array(nb.types.complex64, 1, 'C')).as_type()))
+        self.nb_norm = nb.typed.List.empty_list(nb.types.complex64(nb.types.Array(nb.types.float64, 2, 'C'), nb.types.Array(nb.types.complex64, 1, 'C'), nb.types.Array(nb.types.complex64, 1, 'C')).as_type())
+        self.nb_num_unnorm = []
         for outs in range(self.n_out):
-            nb_num_unnorm.append([nb.njit(f) for f in num_unnorm[outs]])
-        nb_num_norm = [nb.njit(f) for f in num_norm]
+            self.nb_num_unnorm.append([nb.njit(f) for f in self.num_unnorm[outs]])
+        self.nb_num_norm = [nb.njit(f) for f in self.num_norm]
         for outs in range(self.n_out):
-            nb_unnorm_out = nb.typed.List.empty_list(nb.types.float64(nb.types.Array(nb.types.float64, 2, 'C'), nb.types.Array(nb.types.complex64, 1, 'C'), nb.types.Array(nb.types.complex64, 1, 'C')).as_type())
-            for f in nb_num_unnorm[outs]:
+            nb_unnorm_out = nb.typed.List.empty_list(nb.types.complex64(nb.types.Array(nb.types.float64, 2, 'C'), nb.types.Array(nb.types.complex64, 1, 'C'), nb.types.Array(nb.types.complex64, 1, 'C')).as_type())
+            for f in self.nb_num_unnorm[outs]:
                 nb_unnorm_out.append(f)
             self.nb_unnorm.append(nb_unnorm_out)
-        for f in nb_num_norm:
-            self.nb_norm.append(f)
+        for f in self.nb_num_norm:
+            self.nb_norm.append(f) """
             
         self.u_bar = CanonicalLadderTransformations(N)
         self.qnn_profiling = ProfilingQNN(N, layers)
@@ -228,17 +228,17 @@ class QNN:
         K_exp_vals_start = time.time()
         K_exp_vals = compute_K_exp_vals(self.V, self.mean_vector)
         self.qnn_profiling.K_exp_vals_times.append(time.time() - K_exp_vals_start)
-
+        
         # 5. Compute the observables' normalized expectation value of the non-Gaussianity applied to the final Gaussian state
         # TODO: Generalize for multilayer
         nongauss_start = time.time()
         d_r, d_i = create_displacements(self.D_concat, self.N, self.layers)
-        norm_exp_val = compute_exp_val_loop(self.nb_unnorm, self.nb_norm,
+        norm_exp_val = compute_exp_val_loop(self.num_unnorm, self.num_norm,
                                             self.np_modes, self.np_types, self.lens_modes,
                                             self.np_modes_norm, self.np_types_norm, self.lens_modes_norm, 
                                             self.np_lpms, self.S_concat, d_r, d_i, K_exp_vals, self.mean_vector)
         self.qnn_profiling.nongauss_times.append(time.time() - nongauss_start)
-        
+
         #compute_times(self)
         #print(f"OUTCOME: {np.real_if_close(norm_exp_val, tol=1e6)}")
         return np.real_if_close(norm_exp_val, tol=1e6)
@@ -351,10 +351,10 @@ def build_and_train_model(name, N, layers, n_inputs, n_outputs, photon_additions
               photon_additions, observable, is_input_reupload, in_preprocs, out_prepocs, postprocs)
     train_inputs = reduce(lambda x, func: func(x), qnn.in_preprocessors, train_set[0])
     train_outputs = reduce(lambda x, func: func(x), qnn.out_preprocessors, train_set[1])
-    print("TRAIN DATASET:")
+    """ print("TRAIN DATASET:")
     for (inp, inp_prep, outp, outp_prep) in zip(train_set[0], train_inputs, train_set[1], train_outputs):
         print(inp, inp_prep, outp, outp_prep)
-    
+     """
     valid_inputs = reduce(lambda x, func: func(x), qnn.in_preprocessors, valid_set[0])
     valid_outputs = reduce(lambda x, func: func(x), qnn.out_preprocessors, valid_set[1])
     

@@ -1,5 +1,6 @@
 from functools import partial
 import matplotlib.pyplot as plt
+from matplotlib import colormaps
 import os.path
 
 from .qnn import test_model, build_and_train_model
@@ -9,7 +10,7 @@ from .data_processors import *
 from .loss_functions import *
 
 # === HYPERPARAMETERS DEFINITION ===
-modes = [3,4,5,6]
+modes = [2,3]
 photon_additions = [[0]]
 layers = [1]
 is_input_reupload = False
@@ -17,31 +18,31 @@ n_inputs = 1
 n_outputs = 1
 observable = 'position'
 in_norm_range = (0, 1)
-out_norm_range = (0.5, 3)
+out_norm_range = (0, 2)
 loss_function = mse
 noise = 0.3
 
 # === TARGET FUNCTION SETTINGS ===
-target_function = sin_cos_function
-trainset_size = 60
+target_function = sin_1in_1out
+trainset_size = 50
 testset_size = 200
 validset_size = 40
-input_range = (0, 1)
+input_range = (0, 7)
 real_function = generate_linear_dataset_of(target_function, n_inputs, n_outputs, trainset_size*100, input_range)
 output_range = get_range(real_function[1])
 
 # Generate a training dataset of the target function to be learned
-if os.path.isfile(f"datasets/sincos_trainsize{trainset_size}_inputs.npy"):
-    with open(f"datasets/sincos_trainsize{trainset_size}_inputs.npy", "rb") as f:
+if os.path.isfile(f"datasets/{target_function.__name__}_trainsize{trainset_size}_inputs.npy"):
+    with open(f"datasets/{target_function.__name__}_trainsize{trainset_size}_inputs.npy", "rb") as f:
         inputs = np.load(f)
-    with open(f"datasets/sincos_trainsize{trainset_size}_outputs.npy", "rb") as f:
+    with open(f"datasets/{target_function.__name__}_trainsize{trainset_size}_outputs.npy", "rb") as f:
         outputs = np.load(f)
     train_dataset = [inputs, outputs]
 else:
     train_dataset = generate_noisy_samples(trainset_size, target_function, input_range[0], input_range[1], noise)
-    with open(f"datasets/sincos_trainsize{trainset_size}_inputs.npy", "wb") as f:
+    with open(f"datasets/{target_function.__name__}_trainsize{trainset_size}_inputs.npy", "wb") as f:
         np.save(f, train_dataset[0])
-    with open(f"datasets/sincos_trainsize{trainset_size}_outputs.npy", "wb") as f:
+    with open(f"datasets/{target_function.__name__}_trainsize{trainset_size}_outputs.npy", "wb") as f:
         np.save(f, train_dataset[1])
 
 train_dataset = bubblesort(np.reshape(train_dataset[1], (trainset_size)), np.reshape(train_dataset[0], (trainset_size)))
@@ -69,7 +70,7 @@ test_dataset = generate_linear_dataset_of(target_function, n_inputs, n_outputs, 
 
 # === BUILD, TRAIN AND TEST QNN MODELS WITH DIFFERENT MODES ===
 #colors = plt.cm.rainbow(np.linspace(0, 1, len(modes)))
-colors = plt.cm.get_cmap('tab10')
+colors = colormaps['tab10']
 train_losses = []
 valid_losses = []
 qnn_loss = []
@@ -84,8 +85,6 @@ for N in modes:
             in_preprocessors = []
             #in_preprocessors.append(partial(trigonometric_feature_expressivity, num_final_features=N))
             #input_range = (-N, N)
-            #print("FEAT ENGINEERED INPUTS:")
-            #print(partial(trigonometric_feature_expressivity, num_final_features=N)(train_dataset[0]))
             in_preprocessors.append(partial(rescale_data, data_range=input_range, scale_data_range=in_norm_range))
 
             out_preprocessors = []
@@ -105,7 +104,7 @@ for N in modes:
             #print(qnn_test_outputs)
             qnn_outs.append(qnn_test_outputs.copy())
     
-plt.plot(test_dataset[0], test_dataset[1], 'go', label='Expected results')
+plt.plot(test_dataset[0], test_dataset[1], 'go', alpha=0.3, label='Expected results')
 c = 0
 for (qnn_test_outputs, qnn) in zip(qnn_outs, qnns):
     plt.plot(test_dataset[0], qnn_test_outputs, c=colors(c%10), linestyle='dashed', label=f'N={qnn.N}, L={qnn.layers}, {len(qnn.photon_add)} photons/layer')
@@ -150,12 +149,4 @@ plt.legend()
 plt.savefig("figures/loss_"+model_name+"_N"+str(modes[0])+".png")
 plt.show()
 
-plt.plot(qnn_loss)
-plt.ylim(bottom=0.0)
-plt.xlabel('QNNs')
-plt.ylabel('Minimal loss achieved')
-plt.title(f'LOSS EVOLUTION')
-plt.grid(linestyle='--', linewidth=0.4)
-plt.legend()
-plt.savefig("figures/loss_evol_"+model_name+"_N"+str(modes[0])+".png")
-plt.show()
+print(f'MINIMUM LOSSES ACHIEVED: {qnn_loss}')
