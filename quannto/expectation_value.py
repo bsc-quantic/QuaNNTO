@@ -126,7 +126,6 @@ def extract_ladder_expressions(trace_expr):
         ladder_types.append(tr_types)
     return ladder_modes, ladder_types
 
-# TODO: Generalize for multilayer
 def complete_trace_expression(N, layers, photon_additions, n_outputs, include_obs=False, obs='position'):
     '''
     Builds the non-Gaussian state expression of a multi-photon added
@@ -156,14 +155,13 @@ def complete_trace_expression(N, layers, photon_additions, n_outputs, include_ob
             expr_dag = d_i[l*N + photon_additions[i]]
             for j in range(N):
                 # Creation and annihilation terms with their symplectic coefficient
-                expr += S[photon_additions[i], l*dim + j]*a[j]
-                expr += S[photon_additions[i], l*dim + (N+j)]*c[j]
-                expr_dag += S[photon_additions[i], l*dim + (N+j)]*a[j]
-                expr_dag += S[photon_additions[i], l*dim + j]*c[j]
+                expr += S[photon_additions[i], l*dim + j]*c[j]
+                expr += S[photon_additions[i], l*dim + (N+j)]*a[j]
+                expr_dag += S[photon_additions[i], l*dim + j]*a[j]
+                expr_dag += S[photon_additions[i], l*dim + (N+j)]*c[j]
             sup *= expr
             sup_dag *= expr_dag
-    
-    # TODO: Generalize for number of outputs (different expanded expression of the expectation value)
+
     if include_obs:
         expanded_expr = []
         for i in range(n_outputs):
@@ -189,41 +187,37 @@ def single_ladder_exp_val(term_mode, term_type, N, means_vector):
     return (1/np.sqrt(2)) * (means_vector[term_mode] + 1j*(-2*term_type + 1)*means_vector[N+term_mode])
 
 @njit
-def subs_terms_in_trace(terms, modes, types, terms_len, lpms, N, K_exp_vals, means_vector):
-    #trace_values=[]
+def compute_terms_in_trace(terms, modes, types, terms_len, lpms, N, K_exp_vals, means_vector):
     sum_tr_values = 0.0 + 0.0*1j
     for i in prange(len(modes)):
-        # if terms[j] != 0:
-        # TODO: Better way to index the LPM according to length
         lpms_idx = terms_len[i] - 3 if terms_len[i] > 3 else 0
-        sum_tr_values += get_expectation_value(modes[i], types[i], terms_len[i], lpms[lpms_idx][0], N, K_exp_vals, means_vector) * terms[i]
+        sum_tr_values += terms[i] * get_expectation_value(modes[i], types[i], terms_len[i], lpms[lpms_idx][0], N, K_exp_vals, means_vector)
     return sum_tr_values
 
 @njit
 def compute_exp_val_loop(unnorm_terms, norm_terms, modes, types, unnorm_terms_len, modes_norm, types_norm, norm_terms_len, lpms, K_exp_vals, means_vector):
     N = len(means_vector) // 2
     # For unnormalized exp val
-    #t2 = time.time()
+    #t1 = time.time()
     unnorm = np.zeros((len(modes)), dtype='complex')
     for outs in prange(len(modes)):
         # TODO: Take care with this condition just made for 0 photon addition
         if len(modes[outs]) == 1:
-            unnorm[outs] = subs_terms_in_trace([1], modes[outs], types[outs], unnorm_terms_len[outs], lpms, N, K_exp_vals, means_vector)
+            unnorm[outs] = compute_terms_in_trace([1], modes[outs], types[outs], unnorm_terms_len[outs], lpms, N, K_exp_vals, means_vector)
         else:
-            unnorm[outs] = subs_terms_in_trace(unnorm_terms[outs], modes[outs], types[outs], unnorm_terms_len[outs], lpms, N, K_exp_vals, means_vector)
-    #unnorm_time = time.time() - t2
+            unnorm[outs] = compute_terms_in_trace(unnorm_terms[outs], modes[outs], types[outs], unnorm_terms_len[outs], lpms, N, K_exp_vals, means_vector)
+    #unnorm_time = time.time() - t1
     
     # For normalization factor
-    #t3 = time.time()
+    #t2 = time.time()
     if len(modes_norm[0]) == 1 and modes_norm[0][0] == -1:
         norm = 1
     else:
-        norm = subs_terms_in_trace(norm_terms, modes_norm[0], types_norm[0], norm_terms_len[0], lpms, N, K_exp_vals, means_vector)
-    #norm_time = time.time() - t3
+        norm = compute_terms_in_trace(norm_terms, modes_norm[0], types_norm[0], norm_terms_len[0], lpms, N, K_exp_vals, means_vector)
+    #norm_time = time.time() - t2
     norm_val = unnorm/norm
     
     #total_time = time.time() - t1
-    #print(f'Time expression subs: {np.round(subs_time, 3)} {np.round(100*subs_time/total_time, 3)}%')
     #print(f'Time unnorm expression: {np.round(unnorm_time, 3)} {np.round(100*unnorm_time/total_time, 3)}%')
     #print(f'Time norm expression: {np.round(norm_time, 3)} {np.round(100*norm_time/total_time, 3)}%')
     #print()
@@ -281,14 +275,6 @@ def loop_perfect_matchings(N):
     matchings = []
     backtrack([], nodes)
     return matchings
-    
-
-def complete_exp_val(modes, types, perf, N, K, means):
-    values = []
-    for i in range(len(modes)):
-        for j in range(len(modes[0])):
-            values.append(get_expectation_value(modes[i][j], types[i][j], perf, N, K, means))
-    return values
 
 def to_np_array(lists):
     lengths = np.full((len(lists), len(lists[0])), -1) if len(lists[0]) > 0 else np.array([[0]])
