@@ -27,7 +27,7 @@ class ProfilingQNN:
         self.input_prep_times = []
         self.gauss_times = []
         self.K_exp_vals_times = []
-        #self.ladder_superpos_times = []
+        self.ladder_superpos_times = []
         self.nongauss_times = []
 
     def avg_benchmark(self):
@@ -36,7 +36,7 @@ class ProfilingQNN:
         self.avg_times["Input prep"] = sum(self.input_prep_times)/len(self.input_prep_times)
         self.avg_times["Gaussian op"] = sum(self.gauss_times)/len(self.gauss_times)
         self.avg_times["Pairs exp-vals"] = sum(self.K_exp_vals_times)/len(self.K_exp_vals_times)
-        #self.avg_times["Non-gauss coefs"] = sum(self.ladder_superpos_times)/len(self.ladder_superpos_times)
+        self.avg_times["Non-gauss coefs"] = sum(self.ladder_superpos_times)/len(self.ladder_superpos_times)
         self.avg_times["Non-gaussianity"] = sum(self.nongauss_times)/len(self.nongauss_times)
         return self.avg_times
     
@@ -45,7 +45,7 @@ class ProfilingQNN:
         self.input_prep_times = []
         self.gauss_times = []
         self.K_exp_vals_times = []
-        #self.ladder_superpos_times = []
+        self.ladder_superpos_times = []
         self.nongauss_times = []
     
 
@@ -78,6 +78,9 @@ class QNN:
         self.S_concat = np.zeros((2*self.N, 2*self.layers*self.N))
         self.D_concat = np.zeros((2*self.layers*self.N))
         self.G = np.eye(2*self.N)
+        
+        self.u_bar = CanonicalLadderTransformations(N)
+        self.qnn_profiling = ProfilingQNN(N, layers)
         
         # Normalization expression related to a single photon addition on first mode for each QNN layer
         self.norm_trace_expr = complete_trace_expression(self.N, layers, photon_add, self.n_out, include_obs=False)
@@ -141,9 +144,6 @@ class QNN:
         self.nb_num_norm = [nb.njit(lambdify((S, d_r, d_i), norm_trm, modules='numpy')) for norm_trm in self.norm_subs_expr_terms]
         t3 = time.time()
         print(f"Time to lambdify normalization expressions: {t3-t2}")
-            
-        self.u_bar = CanonicalLadderTransformations(N)
-        self.qnn_profiling = ProfilingQNN(N, layers)
 
     def build_QNN(self, parameters):
         self.tunable_parameters = np.copy(parameters)
@@ -195,24 +195,44 @@ class QNN:
             self.mean_vector = self.S_l[l] @ self.mean_vector
             self.displacement_operator(self.D_l[l])
 
+    def build_displacements(self):
+        d = np.zeros((self.layers * self.N), dtype='complex64')
+        for l in range(self.layers):
+            for i in range(self.N):
+                d[l*self.N + i] = self.D_concat[l*2*self.N + i]+1j*self.D_concat[l*2*self.N + self.N+i]
+        return d
+    
+    def compute_coefficients(self):
+        # Build displacement complex vector & its conjugate
+        d_r = self.build_displacements()
+        d_i = np.conjugate(d_r)
+        
+        # Values of normalization terms
+        norm_vals = np.zeros((len(self.nb_num_norm)), dtype='complex64')
+        for idx in range(len(self.modes_norm[0])):
+            norm_vals[idx] = self.nb_num_norm[idx](self.S_concat, d_r, d_i)
+        
+        # Values of trace terms
+        trace_vals = np.zeros((self.n_out, len(self.nb_num_unnorm[0])), dtype='complex64')
+        for out_idx in range(len(self.modes)):
+            for idx in range(len(self.modes[0])):
+                trace_vals[out_idx, idx] = self.nb_num_unnorm[out_idx][idx](self.S_concat, d_r, d_i)
+        return trace_vals, norm_vals
+    
     def eval_QNN(self, input):
         # 1. Prepare initial state: initial vacuum state displaced according to the inputs
         input_prep_start = time.time()
         self.V = 0.5*np.eye(2*self.N)
         self.mean_vector = np.zeros(2*self.N)
         self.displacement_operator(input)
-        self.qnn_profiling.input_prep_times.append(time.time() - input_prep_start)
-        
-        # 1.1. When using input reuploading: build the symplectic coefficients for ladder operators' superposition
-        # TODO: Modify the profiling name
-        #ladder_superpos_start = time.time()
+        # 1.1. When using input reuploading: build displacement with inputs
         if self.is_input_reupload:
             for l in range(self.layers):
                 self.D_l[l][0:len(input)] = input
                 self.D_concat[l*2*self.N:l*2*self.N + len(input)] = input
-        #self.qnn_profiling.ladder_superpos_times.append(time.time() - ladder_superpos_start)
+        self.qnn_profiling.input_prep_times.append(time.time() - input_prep_start)
 
-        # 2. Apply the Gaussian transformation acting as weights matrix
+        # 2. Apply the Gaussian transformation acting as weights matrix and bias vector
         gauss_start = time.time()
         self.gaussian_transformation()
         self.qnn_profiling.gauss_times.append(time.time() - gauss_start)
@@ -222,22 +242,14 @@ class QNN:
         K_exp_vals = compute_K_exp_vals(self.V, self.mean_vector)
         self.qnn_profiling.K_exp_vals_times.append(time.time() - K_exp_vals_start)
 
-        # 5. Compute the observables' normalized expectation value of the non-Gaussianity applied to the final Gaussian state
+        # 4. Compute trace expression and normalization values
+        ladder_superpos_start = time.time()
+        trace_vals, norm_vals = self.compute_coefficients()
+        self.qnn_profiling.ladder_superpos_times.append(time.time() - ladder_superpos_start)
+
+        # 5. Compute the expectation values acting as outputs
         nongauss_start = time.time()
-        d_r = np.zeros((self.layers * self.N), dtype='complex64')
-        for l in range(self.layers):
-            for i in range(self.N):
-                d_r[l*self.N + i] = self.D_concat[l*2*self.N + i]+1j*self.D_concat[l*2*self.N + self.N+i]
-        d_i = np.conjugate(d_r)
-        # TODO: Parallelize this function executions and modularize this part's calculations
-        norm_terms = np.zeros((len(self.nb_num_norm)), dtype='complex64')
-        for idx in range(len(self.modes_norm[0])):
-            norm_terms[idx] = self.nb_num_norm[idx](self.S_concat, d_r, d_i)
-        unnorm_terms = np.zeros((self.n_out, len(self.nb_num_unnorm[0])), dtype='complex64')
-        for out_idx in range(len(self.modes)):
-            for idx in range(len(self.modes[0])):
-                unnorm_terms[out_idx, idx] = self.nb_num_unnorm[out_idx][idx](self.S_concat, d_r, d_i)
-        norm_exp_val = compute_exp_val_loop(unnorm_terms, norm_terms,
+        norm_exp_val = compute_exp_val_loop(trace_vals, norm_vals,
                                             self.np_modes, self.np_types, self.lens_modes,
                                             self.np_modes_norm, self.np_types_norm, self.lens_modes_norm, 
                                             self.np_lpms, K_exp_vals, self.mean_vector)
@@ -376,7 +388,7 @@ def build_and_train_model(name, N, layers, n_inputs, n_outputs, photon_additions
     training_start = time.time()
     #result = opt.minimize(training_QNN, init_pars, method='L-BFGS-B', callback=callback)
     minimizer_kwargs = {"method": "L-BFGS-B", "callback": callback}
-    result = opt.basinhopping(training_QNN, init_pars, niter=1, minimizer_kwargs=minimizer_kwargs, callback=callback_hopping)
+    result = opt.basinhopping(training_QNN, init_pars, niter=4, minimizer_kwargs=minimizer_kwargs, callback=callback_hopping)
     print(f'Total training time: {time.time() - training_start} seconds')
     
     print(f'\nOPTIMIZATION ERROR FOR N={N}, L={layers}')
