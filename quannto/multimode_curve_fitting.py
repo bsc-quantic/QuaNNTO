@@ -10,24 +10,24 @@ from .data_processors import *
 from .loss_functions import *
 
 # === HYPERPARAMETERS DEFINITION ===
-modes = [2,3,4,5]
+modes = [2,3,4]
 photon_additions = [[0]]
 layers = [1]
 is_input_reupload = False
 n_inputs = 1
 n_outputs = 1
-observable = 'position'
-in_norm_range = (-1, 1)
-out_norm_range = (-1, 1)
+observable = 'number'
+in_norm_range = (0, 3)
+out_norm_range = (1, 8)
 loss_function = mse
-noise = 0.3
+noise = 1.5
 
 # === TARGET FUNCTION SETTINGS ===
-target_function = sin_cos_function
+target_function = test_function_1in_1out
 trainset_size = 60
 testset_size = 200
 validset_size = 40
-input_range = (0, 1)
+input_range = (-3, 3)
 real_function = generate_linear_dataset_of(target_function, n_inputs, n_outputs, trainset_size*100, input_range)
 output_range = get_range(real_function[1])
 
@@ -104,7 +104,7 @@ for N in modes:
             #print(qnn_test_outputs)
             qnn_outs.append(qnn_test_outputs.copy())
     
-plt.plot(test_dataset[0], test_dataset[1], 'go', label='Expected results')
+plt.plot(test_dataset[0], test_dataset[1], 'o', markerfacecolor='g', markeredgecolor='none', alpha=0.25, label='Expected results')
 c = 0
 for (qnn_test_outputs, qnn) in zip(qnn_outs, qnns):
     plt.plot(test_dataset[0], qnn_test_outputs, c=colors(c%10), linestyle='dashed', label=f'N={qnn.N}, L={qnn.layers}, {len(qnn.photon_add)} photons/layer')
