@@ -148,32 +148,44 @@ class QNN:
     def build_QNN(self, parameters):
         self.tunable_parameters = np.copy(parameters)
         self.set_parameters(parameters)
-
+        
+    def build_quadratic_gaussian(self, parameters, current_par_idx):
+        # Build passive-optics Q1 and Q2 for the Gaussian transformation
+        H = hermitian_matrix(parameters[current_par_idx : current_par_idx + ((self.N**2 + self.N) // 2)], self.N)
+        #H = general_hermitian_matrix(parameters[current_par_idx : current_par_idx + self.N**2], self.N)
+        U = unitary_from_hermitian(H)
+        Q1 = np.real_if_close(self.u_bar.to_canonical_op(U))
+        current_par_idx += ((self.N**2 + self.N) // 2)
+        #current_par_idx += self.N**2
+        
+        H = hermitian_matrix(parameters[current_par_idx : current_par_idx + ((self.N**2 + self.N) // 2)], self.N)
+        #H = general_hermitian_matrix(parameters[current_par_idx : current_par_idx + self.N**2], self.N)
+        U = unitary_from_hermitian(H)
+        Q2 = np.real_if_close(self.u_bar.to_canonical_op(U))
+        current_par_idx += ((self.N**2 + self.N) // 2)
+        #current_par_idx += self.N**2
+        
+        # Build squeezing diagonal matrix Z
+        sqz_parameters = np.abs(parameters[current_par_idx : current_par_idx + self.N])
+        sqz_inv = 1.0/sqz_parameters
+        Z = np.diag(np.concatenate((sqz_parameters, sqz_inv)))
+        current_par_idx += self.N
+        
+        return Q1, Z, Q2, current_par_idx
+        
     def set_parameters(self, parameters):
         S_dim = 2*self.N
         self.G = np.eye(S_dim)
         current_par_idx = 0
+        
+        self.Q1_initial, self.Z_initial, self.Q2_initial, current_par_idx = self.build_quadratic_gaussian(parameters, current_par_idx)
+        self.G_initial = self.Q2_initial @ self.Z_initial @ self.Q1_initial
+        if not self.is_input_reupload:
+            self.D_initial = parameters[current_par_idx : current_par_idx + 2*self.N]
+            current_par_idx += 2*self.N
+            
         for l in range(self.layers-1, -1, -1):
-            # Build passive-optics Q1 and Q2 for the Gaussian transformation
-            H = hermitian_matrix(parameters[current_par_idx : current_par_idx + ((self.N**2 + self.N) // 2)], self.N)
-            #H = general_hermitian_matrix(parameters[current_par_idx : current_par_idx + self.N**2], self.N)
-            U = unitary_from_hermitian(H)
-            self.Q1_gauss[l] = np.real_if_close(self.u_bar.to_canonical_op(U))
-            current_par_idx += ((self.N**2 + self.N) // 2)
-            #current_par_idx += self.N**2
-            
-            H = hermitian_matrix(parameters[current_par_idx : current_par_idx + ((self.N**2 + self.N) // 2)], self.N)
-            #H = general_hermitian_matrix(parameters[current_par_idx : current_par_idx + self.N**2], self.N)
-            U = unitary_from_hermitian(H)
-            self.Q2_gauss[l] = np.real_if_close(self.u_bar.to_canonical_op(U))
-            current_par_idx += ((self.N**2 + self.N) // 2)
-            #current_par_idx += self.N**2
-            
-            # Build squeezing diagonal matrix Z
-            sqz_parameters = np.abs(parameters[current_par_idx : current_par_idx + self.N])
-            sqz_inv = 1.0/sqz_parameters
-            self.Z_gauss[l] = np.diag(np.concatenate((sqz_parameters, sqz_inv)))
-            current_par_idx += self.N
+            self.Q1_gauss[l], self.Z_gauss[l], self.Q2_gauss[l], current_par_idx = self.build_quadratic_gaussian(parameters, current_par_idx)
 
             # Build final Gaussian transformation
             self.S_l[l] = self.Q2_gauss[l] @ self.Z_gauss[l] @ self.Q1_gauss[l]
@@ -189,11 +201,14 @@ class QNN:
     def displacement_operator(self, factors):
         self.mean_vector[0:len(factors)] += factors
         
-    def gaussian_transformation(self):
-        for l in range(self.layers):
+    def gaussian_transformation(self, G, D):
+        """ for l in range(self.layers):
             self.V = self.S_l[l] @ self.V @ self.S_l[l].T
             self.mean_vector = self.S_l[l] @ self.mean_vector
-            self.displacement_operator(self.D_l[l])
+            self.displacement_operator(self.D_l[l]) """
+        self.V = G @ self.V @ G.T
+        self.mean_vector = G @ self.mean_vector
+        self.displacement_operator(D)
 
     def build_displacements(self):
         d = np.zeros((self.layers * self.N), dtype='complex64')
@@ -227,6 +242,7 @@ class QNN:
         self.displacement_operator(input)
         # 1.1. When using input reuploading: build displacement with inputs
         if self.is_input_reupload:
+            self.D_initial[0:len(input)] = input
             for l in range(self.layers):
                 self.D_l[l][0:len(input)] = input
                 self.D_concat[l*2*self.N:l*2*self.N + len(input)] = input
@@ -234,7 +250,7 @@ class QNN:
 
         # 2. Apply the Gaussian transformation acting as weights matrix and bias vector
         gauss_start = time.time()
-        self.gaussian_transformation()
+        self.gaussian_transformation(self.G_initial, self.D_initial)
         self.qnn_profiling.gauss_times.append(time.time() - gauss_start)
         
         # 3. Compute the expectation values of all possible ladder operators pairs over the final Gaussian state
@@ -256,6 +272,7 @@ class QNN:
         self.qnn_profiling.nongauss_times.append(time.time() - nongauss_start)
         
         #compute_times(self)
+        #print(f"OUTCOME: {norm_exp_val}")
         #print(f"OUTCOME: {np.real_if_close(norm_exp_val, tol=1e6)}")
         return np.real_if_close(norm_exp_val, tol=1e6)
 
@@ -271,6 +288,8 @@ class QNN:
         return loss_function(outputs_dataset, qnn_outputs)
     
     def print_qnn(self):
+        print(f"Initial quadratic Gaussian:\n{self.G_initial}")
+        print(f"Initial linear Gaussian (displacement):\n{self.D_initial}")
         for layer in range(self.layers):
             print(f"Layer {layer+1}:\nQ1 = {self.Q1_gauss[layer]}\nZ = {self.Z_gauss[layer]}\nQ2 = {self.Q2_gauss[layer]}")
             if not self.is_input_reupload:
@@ -327,15 +346,15 @@ def build_and_train_model(name, N, layers, n_inputs, n_outputs, photon_additions
     :return: Trained QNN model
     '''
     if type(init_pars) == type(None):
-        init_pars = np.random.rand(layers*(2*((N**2 + N) // 2) + N)) if is_input_reupload else np.random.rand(layers*(2*((N**2 + N) // 2) + N + 2*N))
-        #init_pars = np.random.rand(layers*(2*N**2 + N)) if is_input_reupload else np.random.rand(layers*(2*N**2 + 3*N))
+        init_pars = np.random.rand(2*((N**2 + N) //2) + 3*N + layers*(2*((N**2 + N) // 2) + N)) if is_input_reupload else np.random.rand(2*((N**2 + N) //2) + 3*N + layers*(2*((N**2 + N) // 2) + N + 2*N))
+        #init_pars = np.random.rand(2*N**2 + 3*N + layers*(2*N**2 + N)) if is_input_reupload else np.random.rand(2*N**2 + 3*N + layers*(2*N**2 + 3*N))
     else:
         if is_input_reupload:
-            assert len(init_pars) == layers*(2*((N**2 + N) // 2) + N)
-            #assert len(init_pars) == layers*(2*N**2 + N)
+            assert len(init_pars) == 2*((N**2 + N) //2) + N + layers*(2*((N**2 + N) // 2) + N)
+            #assert len(init_pars) == 2*N**2 + N + layers*(2*N**2 + N)
         else:
-            assert len(init_pars) == layers*(2*((N**2 + N) // 2) + N + 2*N)
-            #assert len(init_pars) == layers*(2*N**2 + 3*N)
+            assert len(init_pars) == 2*((N**2 + N) //2) + 3*N + layers*(2*((N**2 + N) // 2) + N + 2*N)
+            #assert len(init_pars) == 2*N**2 + 3*N + layers*(2*N**2 + 3*N)
     
     def callback(xk):
         '''
@@ -388,7 +407,7 @@ def build_and_train_model(name, N, layers, n_inputs, n_outputs, photon_additions
     training_start = time.time()
     #result = opt.minimize(training_QNN, init_pars, method='L-BFGS-B', callback=callback)
     minimizer_kwargs = {"method": "L-BFGS-B", "callback": callback}
-    result = opt.basinhopping(training_QNN, init_pars, niter=4, minimizer_kwargs=minimizer_kwargs, callback=callback_hopping)
+    result = opt.basinhopping(training_QNN, init_pars, niter=5, minimizer_kwargs=minimizer_kwargs, callback=callback_hopping)
     print(f'Total training time: {time.time() - training_start} seconds')
     
     print(f'\nOPTIMIZATION ERROR FOR N={N}, L={layers}')
