@@ -10,15 +10,15 @@ from .data_processors import *
 from .loss_functions import *
 
 # === HYPERPARAMETERS DEFINITION ===
-modes = [2,3,4]
-photon_additions = [[0]]
+modes = [2]
+photon_additions = [[], [0], [0,1]]
 layers = [1]
 is_input_reupload = False
 n_inputs = 1
 n_outputs = 1
-observable = 'number'
-in_norm_range = (0, 3)
-out_norm_range = (1, 8)
+observable = 'position'
+in_norm_range = (-1, 1)
+out_norm_range = (-2, 2)
 loss_function = mse
 noise = 1.5
 
@@ -26,7 +26,7 @@ noise = 1.5
 target_function = test_function_1in_1out
 trainset_size = 60
 testset_size = 200
-validset_size = 40
+validset_size = 50
 input_range = (-3, 3)
 real_function = generate_linear_dataset_of(target_function, n_inputs, n_outputs, trainset_size*100, input_range)
 output_range = get_range(real_function[1])
@@ -62,7 +62,7 @@ plt.xlim()
 plt.ylabel('Output')
 plt.grid(linestyle='--', linewidth=0.4)
 plt.legend()
-plt.savefig("figures/trainset_"+target_function.__name__+"_N"+str(modes[0])+".png")
+plt.savefig("figures/trainset_"+target_function.__name__+"_size"+str(trainset_size)+".png")
 plt.show()
 
 # Generate a linearly-spaced testing dataset of the target function and test the trained QNN
