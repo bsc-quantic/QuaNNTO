@@ -11,6 +11,8 @@ from .expectation_value import *
 from .results_utils import *
 from .loss_functions import mse
 
+np.random.seed(42)
+
 loss_values = []
 best_loss_values = [10]
 
@@ -77,6 +79,7 @@ class QNN:
         self.D_l = np.zeros((self.layers, 2*self.N))
         self.S_concat = np.zeros((2*self.N, 2*self.layers*self.N))
         self.D_concat = np.zeros((2*self.layers*self.N))
+        self.D_initial = np.zeros((2*self.N))
         self.G = np.eye(2*self.N)
         
         self.u_bar = CanonicalLadderTransformations(N)
@@ -151,19 +154,21 @@ class QNN:
         
     def build_quadratic_gaussian(self, parameters, current_par_idx):
         # Build passive-optics Q1 and Q2 for the Gaussian transformation
-        H = hermitian_matrix(parameters[current_par_idx : current_par_idx + ((self.N**2 + self.N) // 2)], self.N)
+        #H = hermitian_matrix(parameters[current_par_idx : current_par_idx + ((self.N**2 + self.N) // 2)], self.N)
         #H = general_hermitian_matrix(parameters[current_par_idx : current_par_idx + self.N**2], self.N)
-        U = unitary_from_hermitian(H)
+        #U = unitary_from_hermitian(H)
+        U = build_general_unitary(self.N, parameters[current_par_idx : current_par_idx + self.N**2])
         Q1 = np.real_if_close(self.u_bar.to_canonical_op(U))
-        current_par_idx += ((self.N**2 + self.N) // 2)
-        #current_par_idx += self.N**2
+        #current_par_idx += ((self.N**2 + self.N) // 2)
+        current_par_idx += self.N**2
         
-        H = hermitian_matrix(parameters[current_par_idx : current_par_idx + ((self.N**2 + self.N) // 2)], self.N)
+        #H = hermitian_matrix(parameters[current_par_idx : current_par_idx + ((self.N**2 + self.N) // 2)], self.N)
         #H = general_hermitian_matrix(parameters[current_par_idx : current_par_idx + self.N**2], self.N)
-        U = unitary_from_hermitian(H)
+        #U = unitary_from_hermitian(H)
+        U = build_general_unitary(self.N, parameters[current_par_idx : current_par_idx + self.N**2])
         Q2 = np.real_if_close(self.u_bar.to_canonical_op(U))
-        current_par_idx += ((self.N**2 + self.N) // 2)
-        #current_par_idx += self.N**2
+        #current_par_idx += ((self.N**2 + self.N) // 2)
+        current_par_idx += self.N**2
         
         # Build squeezing diagonal matrix Z
         sqz_parameters = np.abs(parameters[current_par_idx : current_par_idx + self.N])
@@ -172,6 +177,16 @@ class QNN:
         current_par_idx += self.N
         
         return Q1, Z, Q2, current_par_idx
+    
+    def build_displacements(self, parameters):
+        S_dim = 2*self.N
+        self.D_initial[0:len(parameters)] = parameters
+        for l in range(self.layers-1, -1, -1):
+            self.D_l[l, 0:len(parameters)] = parameters
+            if l == (self.layers - 1):
+                self.D_concat[l*S_dim:(l+1)*S_dim] = self.D_l[l].copy()
+            else:
+                self.D_concat[l*S_dim:(l+1)*S_dim] = self.D_l[l] + self.S_l[l] @ self.D_concat[(l+1)*S_dim:(l+2)*S_dim]
         
     def set_parameters(self, parameters):
         S_dim = 2*self.N
@@ -189,28 +204,33 @@ class QNN:
 
             # Build final Gaussian transformation
             self.S_l[l] = self.Q2_gauss[l] @ self.Z_gauss[l] @ self.Q1_gauss[l]
-            self.G = self.G @ self.S_l[l]
+            self.G = self.S_l[l] @ self.G
             self.S_concat[:, l*S_dim:(l+1)*S_dim] = self.G.copy()
             
             # Build displacements
             if not self.is_input_reupload:
                 self.D_l[l] = parameters[current_par_idx : current_par_idx + 2*self.N]
                 current_par_idx += 2*self.N
-                self.D_concat[l*S_dim:(l+1)*S_dim] = self.D_l[l]
+                if l == (self.layers - 1):
+                    self.D_concat[l*S_dim:(l+1)*S_dim] = self.D_l[l].copy()
+                else:
+                    self.D_concat[l*S_dim:(l+1)*S_dim] = self.D_l[l] + self.S_l[l] @ self.D_concat[(l+1)*S_dim:(l+2)*S_dim]
         
-    def displacement_operator(self, factors):
-        self.mean_vector[0:len(factors)] += factors
+    def apply_linear_gaussian(self, D):
+        self.mean_vector[0:len(D)] += D
         
-    def gaussian_transformation(self, G, D):
-        """ for l in range(self.layers):
-            self.V = self.S_l[l] @ self.V @ self.S_l[l].T
-            self.mean_vector = self.S_l[l] @ self.mean_vector
-            self.displacement_operator(self.D_l[l]) """
+    def apply_quadratic_gaussian(self, G):
         self.V = G @ self.V @ G.T
         self.mean_vector = G @ self.mean_vector
-        self.displacement_operator(D)
+        
+    def apply_gaussian_transformations(self):
+        self.apply_quadratic_gaussian(self.G_initial)
+        self.apply_linear_gaussian(self.D_initial)
+        for l in range(self.layers):
+            self.apply_quadratic_gaussian(self.S_l[l])
+            self.apply_linear_gaussian(self.D_l[l])
 
-    def build_displacements(self):
+    def build_disp_coefs(self):
         d = np.zeros((self.layers * self.N), dtype='complex64')
         for l in range(self.layers):
             for i in range(self.N):
@@ -219,7 +239,7 @@ class QNN:
     
     def compute_coefficients(self):
         # Build displacement complex vector & its conjugate
-        d_r = self.build_displacements()
+        d_r = self.build_disp_coefs()
         d_i = np.conjugate(d_r)
         
         # Values of normalization terms
@@ -239,18 +259,15 @@ class QNN:
         input_prep_start = time.time()
         self.V = 0.5*np.eye(2*self.N)
         self.mean_vector = np.zeros(2*self.N)
-        self.displacement_operator(input)
+        self.apply_linear_gaussian(input)
         # 1.1. When using input reuploading: build displacement with inputs
         if self.is_input_reupload:
-            self.D_initial[0:len(input)] = input
-            for l in range(self.layers):
-                self.D_l[l][0:len(input)] = input
-                self.D_concat[l*2*self.N:l*2*self.N + len(input)] = input
+            self.build_displacements(input)
         self.qnn_profiling.input_prep_times.append(time.time() - input_prep_start)
 
         # 2. Apply the Gaussian transformation acting as weights matrix and bias vector
         gauss_start = time.time()
-        self.gaussian_transformation(self.G_initial, self.D_initial)
+        self.apply_gaussian_transformations()
         self.qnn_profiling.gauss_times.append(time.time() - gauss_start)
         
         # 3. Compute the expectation values of all possible ladder operators pairs over the final Gaussian state
@@ -289,11 +306,16 @@ class QNN:
     
     def print_qnn(self):
         print(f"Initial quadratic Gaussian:\n{self.G_initial}")
-        print(f"Initial linear Gaussian (displacement):\n{self.D_initial}")
+        if not self.is_input_reupload:
+            print(f"Initial linear Gaussian (displacement):\n{self.D_initial}")
         for layer in range(self.layers):
-            print(f"Layer {layer+1}:\nQ1 = {self.Q1_gauss[layer]}\nZ = {self.Z_gauss[layer]}\nQ2 = {self.Q2_gauss[layer]}")
+            print(f"=== LAYER {layer+1} ===\nQ1 = {self.Q1_gauss[layer]}\nZ = {self.Z_gauss[layer]}\nQ2 = {self.Q2_gauss[layer]}")
+            print(f"Symplectic matrix:\n{self.S_l[layer]}")
             if not self.is_input_reupload:
-                print(f"D = {self.D_l[layer]}")
+                print(f"Displacement vector:\n{self.D_l[layer]}")
+            print(f"Symplectic coefficients:\n{self.S_concat[:,layer*2*self.N : (layer+1)*2*self.N]}")
+            if not self.is_input_reupload:
+                print(f"Displacement coefficients:\n{self.D_concat[layer*2*self.N : (layer+1)*2*self.N]}")
         
     def save_model(self, filename):
         f = open("models/"+filename, 'w')
@@ -346,15 +368,15 @@ def build_and_train_model(name, N, layers, n_inputs, n_outputs, photon_additions
     :return: Trained QNN model
     '''
     if type(init_pars) == type(None):
-        init_pars = np.random.rand(2*((N**2 + N) //2) + 3*N + layers*(2*((N**2 + N) // 2) + N)) if is_input_reupload else np.random.rand(2*((N**2 + N) //2) + 3*N + layers*(2*((N**2 + N) // 2) + N + 2*N))
-        #init_pars = np.random.rand(2*N**2 + 3*N + layers*(2*N**2 + N)) if is_input_reupload else np.random.rand(2*N**2 + 3*N + layers*(2*N**2 + 3*N))
+        #init_pars = np.random.rand(2*((N**2 + N) //2) + 3*N + layers*(2*((N**2 + N) // 2) + N)) if is_input_reupload else np.random.rand(2*((N**2 + N) //2) + 3*N + layers*(2*((N**2 + N) // 2) + N + 2*N))
+        init_pars = np.random.rand(2*N**2 + 3*N + layers*(2*N**2 + N)) if is_input_reupload else np.random.rand(2*N**2 + 3*N + layers*(2*N**2 + 3*N))
     else:
         if is_input_reupload:
-            assert len(init_pars) == 2*((N**2 + N) //2) + N + layers*(2*((N**2 + N) // 2) + N)
-            #assert len(init_pars) == 2*N**2 + N + layers*(2*N**2 + N)
+            #assert len(init_pars) == 2*((N**2 + N) //2) + N + layers*(2*((N**2 + N) // 2) + N)
+            assert len(init_pars) == 2*N**2 + N + layers*(2*N**2 + N)
         else:
-            assert len(init_pars) == 2*((N**2 + N) //2) + 3*N + layers*(2*((N**2 + N) // 2) + N + 2*N)
-            #assert len(init_pars) == 2*N**2 + 3*N + layers*(2*N**2 + 3*N)
+            #assert len(init_pars) == 2*((N**2 + N) //2) + 3*N + layers*(2*((N**2 + N) // 2) + N + 2*N)
+            assert len(init_pars) == 2*N**2 + 3*N + layers*(2*N**2 + 3*N)
     
     def callback(xk):
         '''
@@ -407,7 +429,7 @@ def build_and_train_model(name, N, layers, n_inputs, n_outputs, photon_additions
     training_start = time.time()
     #result = opt.minimize(training_QNN, init_pars, method='L-BFGS-B', callback=callback)
     minimizer_kwargs = {"method": "L-BFGS-B", "callback": callback}
-    result = opt.basinhopping(training_QNN, init_pars, niter=5, minimizer_kwargs=minimizer_kwargs, callback=callback_hopping)
+    result = opt.basinhopping(training_QNN, init_pars, niter=9, minimizer_kwargs=minimizer_kwargs, callback=callback_hopping)
     print(f'Total training time: {time.time() - training_start} seconds')
     
     print(f'\nOPTIMIZATION ERROR FOR N={N}, L={layers}')
