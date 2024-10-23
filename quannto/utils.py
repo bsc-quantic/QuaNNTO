@@ -43,6 +43,33 @@ def general_hermitian_matrix(pars, N):
                 c += 1
     return mat
 
+def givens_rotation(N, i, j, theta, phi):
+    """Construct a Givens rotation matrix."""
+    G = np.eye(N, dtype=complex)
+    G[i, i] = np.cos(theta) * np.exp(1j * phi)
+    G[j, j] = np.cos(theta)
+    G[i, j] = -np.sin(theta)
+    G[j, i] = np.sin(theta) * np.exp(1j * phi)
+    return G
+
+def build_general_unitary(N, params):
+    """Build an NxN unitary matrix using Givens rotations and phase shifts."""
+    assert len(params) == N**2, f"Expected {N**2} parameters, got {len(params)}."
+    U = np.eye(N, dtype=complex)
+    idx = 0
+    # Apply Givens rotations
+    for i in range(N):
+        for j in range(i + 1, N):
+            theta = params[idx]
+            phi = params[idx + 1]
+            G = givens_rotation(N, i, j, theta, phi)
+            U = G @ U  # Multiply on the left
+            idx += 2
+    # Apply phase shifts on the diagonal
+    phases = np.exp(1j * params[idx:idx + N])
+    U = U @ np.diag(phases)
+    return U
+
 def unitary_from_hermitian(H):
     '''
     Creates a unitary matrix from a hermitian one by complex exponentiation.
