@@ -31,6 +31,8 @@ def plot_qnn_train_results(qnn, inputs, exp_outputs, qnn_outputs, loss_values):
     
 def compute_times(qnn):
     qnn_times = qnn.qnn_profiling.avg_benchmark()
+    print('\nAverage time per stage per iteration:')
+    print(qnn_times)
     print('\nAverage time usage per stage:')
     total_time = sum(list(qnn_times.values()))
     for part_time in qnn_times:

@@ -13,18 +13,18 @@ from .loss_functions import *
 
 # === HYPERPARAMETERS DEFINITION ===
 N = 5
-photon_additions = [0,1]
+photon_additions = [0]
 layers = 1
 is_input_reupload = False
-n_inputs = 2
-n_outputs = 5
-observable = 'number'
-in_norm_range = (0.05, 1)
-out_norm_range = (0.5, 3)
+n_inputs = 1
+n_outputs = 3
+observable = 'position'
+in_norm_range = (-1, 1)
+out_norm_range = (1, 6)
 loss_function = cross_entropy
 
 # === DATASET SETTINGS ===
-categories = [0, 1, 2, 3, 4]
+categories = [0, 1, 2]
 num_cats = len(categories)
 dataset_size = 30*num_cats
 validset_size = 80

@@ -6,6 +6,8 @@ import time
 
 from .utils import *
 
+nb.set_num_threads(6)
+
 def exp_val_ladder_jk(j, k, V, means, N):
     '''
     Computes the expectation value of two annihilation operators (in mode j and k) of a Gaussian state based 
@@ -183,58 +185,6 @@ def complete_trace_expression(N, layers, photon_additions, n_outputs, include_ob
     return expanded_expr
 
 @njit
-def single_ladder_exp_val(term_mode, term_type, N, means_vector):
-    return (1/np.sqrt(2)) * (means_vector[term_mode] + 1j*(-2*term_type + 1)*means_vector[N+term_mode])
-
-@njit
-def compute_terms_in_trace(terms, modes, types, terms_len, lpms, N, K_exp_vals, means_vector):
-    sum_tr_values = 0.0 + 0.0*1j
-    for i in prange(len(modes)):
-        lpms_idx = terms_len[i] - 3 if terms_len[i] > 3 else 0
-        sum_tr_values += terms[i] * get_expectation_value(modes[i], types[i], terms_len[i], lpms[lpms_idx][0], N, K_exp_vals, means_vector)
-    return sum_tr_values
-
-@njit
-def compute_exp_val_loop(unnorm_terms, norm_terms, modes, types, unnorm_terms_len, modes_norm, types_norm, norm_terms_len, lpms, K_exp_vals, means_vector):
-    N = len(means_vector) // 2
-    # For unnormalized exp val
-    #t1 = time.time()
-    unnorm = np.zeros((len(modes)), dtype='complex')
-    for outs in prange(len(modes)):
-        # TODO: Take care with this condition just made for 0 photon addition
-        if len(modes[outs]) == 1:
-            unnorm[outs] = compute_terms_in_trace([1], modes[outs], types[outs], unnorm_terms_len[outs], lpms, N, K_exp_vals, means_vector)
-        else:
-            unnorm[outs] = compute_terms_in_trace(unnorm_terms[outs], modes[outs], types[outs], unnorm_terms_len[outs], lpms, N, K_exp_vals, means_vector)
-    #unnorm_time = time.time() - t1
-    
-    # For normalization factor
-    #t2 = time.time()
-    if len(modes_norm[0]) == 1 and modes_norm[0][0] == -1:
-        norm = 1
-    else:
-        norm = compute_terms_in_trace(norm_terms, modes_norm[0], types_norm[0], norm_terms_len[0], lpms, N, K_exp_vals, means_vector)
-    #norm_time = time.time() - t2
-    norm_val = unnorm/norm
-    
-    #total_time = time.time() - t1
-    #print(f'Time unnorm expression: {np.round(unnorm_time, 3)} {np.round(100*unnorm_time/total_time, 3)}%')
-    #print(f'Time norm expression: {np.round(norm_time, 3)} {np.round(100*norm_time/total_time, 3)}%')
-    #print()
-    return norm_val
-
-@njit
-def get_expectation_value(term_modes, term_types, len_term, perf_matchs, N, K_exp_vals, means_vector):
-    if len_term == 0: # CASE Tr[rho]
-        return 1
-    elif len_term == 1: # CASE Tr[a#rho]
-        return single_ladder_exp_val(term_modes[0], term_types[0], N, means_vector)
-    elif len_term == 2: # CASE Tr[a#a#rho]
-        return K_exp_vals[term_types[0] + 2*term_types[1], term_modes[0], term_modes[1]]
-    else:
-        return ladder_exp_val(perf_matchs, term_modes, term_types, N, means_vector, K_exp_vals)
-    
-@njit
 def ladder_exp_val(perf_matchings, ladder_modes, ladder_types, N, means_vector, cov_mat_identities):
     '''
     Computes the expected value of the energy when ladder operators are applied
@@ -261,6 +211,71 @@ def ladder_exp_val(perf_matchings, ladder_modes, ladder_types, N, means_vector, 
         trace_sum += trace_prod
     return trace_sum
 
+@njit
+def single_ladder_exp_val(term_mode, term_type, N, means_vector):
+    return (1/np.sqrt(2)) * (means_vector[term_mode] + 1j*(-2*term_type + 1)*means_vector[N+term_mode])
+
+@njit
+def get_expectation_value(term_modes, term_types, len_term, perf_matchs, N, K_exp_vals, means_vector):
+    if len_term == 0: # CASE Tr[rho]
+        return 1
+    elif len_term == 1: # CASE Tr[a#rho]
+        return single_ladder_exp_val(term_modes[0], term_types[0], N, means_vector)
+    elif len_term == 2: # CASE Tr[a#a#rho]
+        return K_exp_vals[term_types[0] + 2*term_types[1], term_modes[0], term_modes[1]]
+    else:
+        return ladder_exp_val(perf_matchs, term_modes, term_types, N, means_vector, K_exp_vals)
+
+@njit(parallel=True)
+def compute_terms_in_trace(terms, modes, types, terms_len, lpms, N, K_exp_vals, means_vector):
+    sum_tr_values = 0.0 + 0.0*1j
+    for i in prange(len(modes)):
+        lpms_idx = terms_len[i] - 3 if terms_len[i] > 3 else 0
+        sum_tr_values += terms[i] * get_expectation_value(modes[i], types[i], terms_len[i], lpms[lpms_idx][0], N, K_exp_vals, means_vector)
+    return sum_tr_values
+
+@njit
+def compute_exp_val_loop(unnorm_terms, norm_terms, modes, types, unnorm_terms_len, modes_norm, types_norm, norm_terms_len, lpms, K_exp_vals, means_vector):
+    N = len(means_vector) // 2
+    # For unnormalized exp val
+    unnorm = np.zeros((len(modes)), dtype='complex')
+    for outs in prange(len(modes)):
+        # TODO: Take care with this condition just made for 0 photon addition
+        if len(modes[outs]) == 1:
+            unnorm[outs] = compute_terms_in_trace([1], modes[outs], types[outs], unnorm_terms_len[outs], lpms, N, K_exp_vals, means_vector)
+        else:
+            unnorm[outs] = compute_terms_in_trace(unnorm_terms[outs], modes[outs], types[outs], unnorm_terms_len[outs], lpms, N, K_exp_vals, means_vector)
+    
+    # For normalization factor
+    if len(modes_norm[0]) == 1 and modes_norm[0][0] == -1:
+        norm = 1
+    else:
+        norm = compute_terms_in_trace(norm_terms, modes_norm[0], types_norm[0], norm_terms_len[0], lpms, N, K_exp_vals, means_vector)
+    norm_val = unnorm/norm
+
+    return norm_val
+
+@njit
+def compute_coefficients_njit(N, layers, n_out, D_concat, S_concat, nb_num_norm, nb_num_unnorm):
+    # Build displacement complex vector & its conjugate
+    d_r = np.zeros((layers * N), dtype='complex64')
+    for l in range(layers):
+        for i in range(N):
+            d_r[l*N + i] = D_concat[l*2*N + i]+1j*D_concat[l*2*N + N+i]
+    d_i = np.conjugate(d_r)
+    
+    # Values of normalization terms
+    norm_vals = np.zeros((len(nb_num_norm)), dtype='complex64')
+    for idx in range(len(nb_num_norm)):
+        norm_vals[idx] = nb_num_norm[idx](S_concat, d_r, d_i)
+    
+    # Values of trace terms
+    trace_vals = np.zeros((n_out, len(nb_num_unnorm[0])), dtype='complex64')
+    for out_idx in range(n_out):
+        for idx in range(len(nb_num_unnorm[0])):
+            trace_vals[out_idx, idx] = nb_num_unnorm[out_idx][idx](S_concat, d_r, d_i)
+    return trace_vals, norm_vals
+    
 def loop_perfect_matchings(N):
     # This function generates all perfect matchings of a complete graph with loops
     def backtrack(current_matching, remaining_nodes):

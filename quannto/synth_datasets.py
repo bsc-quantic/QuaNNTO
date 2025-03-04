@@ -4,8 +4,11 @@ import pandas as pd
 def test_linear_1in_1out(inputs):
     return 5*inputs[0] + 2
 
-def test_function_1in_1out(inputs):
-    return 0.7*inputs[0]**3 + 1.7*inputs[0]**2 + 2.4*inputs[0] + 5
+def five_function_1in_1out(inputs):
+    return 0.25*inputs[0]**5 + 0.4*inputs[0]**4 + 0.7*inputs[0]**3 + 1.7*inputs[0]**2 + 2.4*inputs[0] + 5
+
+def three_function_1in_1out(inputs):
+    return 0.5*inputs[0]**3 + 1.3*inputs[0]**2 + 1.8*inputs[0] + 3
     
 def test_function_2in_1out(inputs):
     return 2.5*inputs[0]**2 + 1.2*inputs[1]**2 + 0.5*inputs[0]*inputs[1] + 3

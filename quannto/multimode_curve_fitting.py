@@ -9,22 +9,24 @@ from .results_utils import *
 from .data_processors import *
 from .loss_functions import *
 
+#np.random.seed(27)
+
 # === HYPERPARAMETERS DEFINITION ===
-modes = [2]
-photon_additions = [[], [0], [0,1]]
+modes = [3]
+photon_additions = [[0],[0,1]]
 layers = [1]
 is_input_reupload = False
 n_inputs = 1
 n_outputs = 1
 observable = 'position'
-in_norm_range = (-1, 1)
-out_norm_range = (-2, 2)
+in_norm_range = (-2, 2)
+out_norm_range = (1, 5)
 loss_function = mse
-noise = 1.5
+noise = 4
 
 # === TARGET FUNCTION SETTINGS ===
-target_function = test_function_1in_1out
-trainset_size = 60
+target_function = five_function_1in_1out
+trainset_size = 100
 testset_size = 200
 validset_size = 50
 input_range = (-3, 3)
@@ -32,17 +34,17 @@ real_function = generate_linear_dataset_of(target_function, n_inputs, n_outputs,
 output_range = get_range(real_function[1])
 
 # Generate a training dataset of the target function to be learned
-if os.path.isfile(f"datasets/{target_function.__name__}_trainsize{trainset_size}_inputs.npy"):
-    with open(f"datasets/{target_function.__name__}_trainsize{trainset_size}_inputs.npy", "rb") as f:
+if os.path.isfile(f"datasets/{target_function.__name__}_trainsize{trainset_size}_noise{noise}_rng{input_range[0]}to{input_range[1]}_inputs.npy"):
+    with open(f"datasets/{target_function.__name__}_trainsize{trainset_size}_noise{noise}_rng{input_range[0]}to{input_range[1]}_inputs.npy", "rb") as f:
         inputs = np.load(f)
-    with open(f"datasets/{target_function.__name__}_trainsize{trainset_size}_outputs.npy", "rb") as f:
+    with open(f"datasets/{target_function.__name__}_trainsize{trainset_size}_noise{noise}_rng{input_range[0]}to{input_range[1]}_outputs.npy", "rb") as f:
         outputs = np.load(f)
     train_dataset = [inputs, outputs]
 else:
     train_dataset = generate_noisy_samples(trainset_size, target_function, input_range[0], input_range[1], noise)
-    with open(f"datasets/{target_function.__name__}_trainsize{trainset_size}_inputs.npy", "wb") as f:
+    with open(f"datasets/{target_function.__name__}_trainsize{trainset_size}_noise{noise}_rng{input_range[0]}to{input_range[1]}_inputs.npy", "wb") as f:
         np.save(f, train_dataset[0])
-    with open(f"datasets/{target_function.__name__}_trainsize{trainset_size}_outputs.npy", "wb") as f:
+    with open(f"datasets/{target_function.__name__}_trainsize{trainset_size}_noise{noise}_rng{input_range[0]}to{input_range[1]}_outputs.npy", "wb") as f:
         np.save(f, train_dataset[1])
 
 train_dataset = bubblesort(np.reshape(train_dataset[1], (trainset_size)), np.reshape(train_dataset[0], (trainset_size)))

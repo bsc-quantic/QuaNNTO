@@ -138,25 +138,24 @@ class CanonicalLadderTransformations:
 def check_symp_orth(SO):
     '''
     Verifies the symplectic and the orthogonal conditions on the input matrix.
-
     :param SO: Matrix to be verified
     '''
     N = int(len(SO)/2)
     X_prime = SO[0:N, 0:N]
     Y_prime = SO[0:N, N:]
     cond_1_prime = X_prime@Y_prime.T - Y_prime@X_prime.T
-    print(f'Symplecticity condition:')
+    print(f'Symplecticity condition: {cond_1_prime}')
     print(np.allclose(np.round(cond_1_prime, 4), np.zeros((N, N))))
-
+    
     cond_2_prime = X_prime@X_prime.T + Y_prime@Y_prime.T
-    print(f'Orthogonality condition:')
+    print(f'Orthogonality condition: {cond_2_prime}')
     print(np.allclose(np.round(cond_2_prime, 4), np.eye(N)))
     print()
     
 def check_det_and_positive(V):
     '''
     Checks if the input (covariance) matrix is positive and prints its determinant.
-
+    
     :param V: (Covariance) matrix to be verified
     '''
     print('Covariance matrix determinant:')
@@ -168,7 +167,7 @@ def check_uncertainty_pple(V):
     '''
     Checks if the input (covariance) matrix obeys the uncertainty principle printing 
     the eigenvalues of the uncertainty principle matrix.
-
+    
     :param V: (Covariance) matrix to be verified
     '''
     i_J = 1j*create_J(int(len(V)/2))

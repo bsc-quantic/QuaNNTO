@@ -11,8 +11,6 @@ from .expectation_value import *
 from .results_utils import *
 from .loss_functions import mse
 
-np.random.seed(42)
-
 loss_values = []
 best_loss_values = [10]
 
@@ -87,6 +85,7 @@ class QNN:
         
         # Normalization expression related to a single photon addition on first mode for each QNN layer
         self.norm_trace_expr = complete_trace_expression(self.N, layers, photon_add, self.n_out, include_obs=False)
+        print(self.norm_trace_expr)
 
         # Full trace expression including the photon additions and the observable to be measured
         self.trace_expr = complete_trace_expression(self.N, layers, photon_add, self.n_out, include_obs=True, obs=observable)
@@ -137,7 +136,6 @@ class QNN:
         dim = 2*N
         S = MatrixSymbol('S', dim, layers*dim)
         
-        # TODO: Improve this part which is taking so long to init
         t1 = time.time()
         self.nb_num_unnorm = []
         for outs in range(self.n_out):
@@ -147,6 +145,22 @@ class QNN:
         self.nb_num_norm = [nb.njit(lambdify((S, d_r, d_i), norm_trm, modules='numpy')) for norm_trm in self.norm_subs_expr_terms]
         t3 = time.time()
         print(f"Time to lambdify normalization expressions: {t3-t2}")
+        
+        # === EXPERIMENTAL!! === (Not working when passing these arguments to a function)
+        """ t4 = time.time()
+        self.nb_norm_list = nb.typed.List.empty_list(nb.core.types.complex64(nb.types.float64[:,:], nb.types.complex64[:], nb.types.complex64[:]).as_type())
+        for f in self.nb_num_norm:
+            self.nb_norm_list.append(f)
+        t5 = time.time()
+        print(f"Time to Numba-list normalization expressions: {t5-t4}")
+        self.nb_unnorm_list = nb.typed.List.empty_list(nb.types.ListType(nb.core.types.complex64(nb.types.float64[:,:], nb.types.complex64[:], nb.types.complex64[:]).as_type()))
+        for outs_f in self.nb_num_unnorm:
+            inner_list = nb.typed.List.empty_list(nb.core.types.complex64(nb.types.float64[:,:], nb.types.complex64[:], nb.types.complex64[:]).as_type())
+            for f in outs_f:
+                inner_list.append(f)
+            self.nb_unnorm_list.append(inner_list)
+        print(f"Time to Numba-list unnormalized expressions: {time.time()-t5}") """
+        # ======================
 
     def build_QNN(self, parameters):
         self.tunable_parameters = np.copy(parameters)
@@ -155,17 +169,17 @@ class QNN:
     def build_quadratic_gaussian(self, parameters, current_par_idx):
         # Build passive-optics Q1 and Q2 for the Gaussian transformation
         #H = hermitian_matrix(parameters[current_par_idx : current_par_idx + ((self.N**2 + self.N) // 2)], self.N)
-        #H = general_hermitian_matrix(parameters[current_par_idx : current_par_idx + self.N**2], self.N)
-        #U = unitary_from_hermitian(H)
-        U = build_general_unitary(self.N, parameters[current_par_idx : current_par_idx + self.N**2])
+        H = general_hermitian_matrix(parameters[current_par_idx : current_par_idx + self.N**2], self.N)
+        U = unitary_from_hermitian(H)
+        #U = build_general_unitary(self.N, parameters[current_par_idx : current_par_idx + self.N**2])
         Q1 = np.real_if_close(self.u_bar.to_canonical_op(U))
         #current_par_idx += ((self.N**2 + self.N) // 2)
         current_par_idx += self.N**2
         
         #H = hermitian_matrix(parameters[current_par_idx : current_par_idx + ((self.N**2 + self.N) // 2)], self.N)
-        #H = general_hermitian_matrix(parameters[current_par_idx : current_par_idx + self.N**2], self.N)
-        #U = unitary_from_hermitian(H)
-        U = build_general_unitary(self.N, parameters[current_par_idx : current_par_idx + self.N**2])
+        H = general_hermitian_matrix(parameters[current_par_idx : current_par_idx + self.N**2], self.N)
+        U = unitary_from_hermitian(H)
+        #U = build_general_unitary(self.N, parameters[current_par_idx : current_par_idx + self.N**2])
         Q2 = np.real_if_close(self.u_bar.to_canonical_op(U))
         #current_par_idx += ((self.N**2 + self.N) // 2)
         current_par_idx += self.N**2
@@ -180,7 +194,7 @@ class QNN:
     
     def build_displacements(self, parameters):
         S_dim = 2*self.N
-        self.D_initial[0:len(parameters)] = parameters
+        #self.D_initial[0:len(parameters)] = parameters
         for l in range(self.layers-1, -1, -1):
             self.D_l[l, 0:len(parameters)] = parameters
             if l == (self.layers - 1):
@@ -192,15 +206,17 @@ class QNN:
         S_dim = 2*self.N
         self.G = np.eye(S_dim)
         current_par_idx = 0
+        #print(f'TOTAL PARAMETERS: {len(parameters)}')
         
-        self.Q1_initial, self.Z_initial, self.Q2_initial, current_par_idx = self.build_quadratic_gaussian(parameters, current_par_idx)
-        self.G_initial = self.Q2_initial @ self.Z_initial @ self.Q1_initial
-        if not self.is_input_reupload:
-            self.D_initial = parameters[current_par_idx : current_par_idx + 2*self.N]
-            current_par_idx += 2*self.N
+        #self.Q1_initial, self.Z_initial, self.Q2_initial, current_par_idx = self.build_quadratic_gaussian(parameters, current_par_idx)
+        #self.G_initial = self.Q2_initial @ self.Z_initial @ self.Q1_initial
+        #if not self.is_input_reupload:
+        #    self.D_initial = parameters[current_par_idx : current_par_idx + 2*self.N]
+        #    current_par_idx += 2*self.N
             
         for l in range(self.layers-1, -1, -1):
             self.Q1_gauss[l], self.Z_gauss[l], self.Q2_gauss[l], current_par_idx = self.build_quadratic_gaussian(parameters, current_par_idx)
+            #print(f"LAYER {l+1} QUAD GAUSS:\n{current_par_idx}")
 
             # Build final Gaussian transformation
             self.S_l[l] = self.Q2_gauss[l] @ self.Z_gauss[l] @ self.Q1_gauss[l]
@@ -215,6 +231,7 @@ class QNN:
                     self.D_concat[l*S_dim:(l+1)*S_dim] = self.D_l[l].copy()
                 else:
                     self.D_concat[l*S_dim:(l+1)*S_dim] = self.D_l[l] + self.S_l[l] @ self.D_concat[(l+1)*S_dim:(l+2)*S_dim]
+            #print(f"LAYER {l+1} LINEAR GAUSS:\n{current_par_idx}")
         
     def apply_linear_gaussian(self, D):
         self.mean_vector[0:len(D)] += D
@@ -224,8 +241,8 @@ class QNN:
         self.mean_vector = G @ self.mean_vector
         
     def apply_gaussian_transformations(self):
-        self.apply_quadratic_gaussian(self.G_initial)
-        self.apply_linear_gaussian(self.D_initial)
+        #self.apply_quadratic_gaussian(self.G_initial)
+        #self.apply_linear_gaussian(self.D_initial)
         for l in range(self.layers):
             self.apply_quadratic_gaussian(self.S_l[l])
             self.apply_linear_gaussian(self.D_l[l])
@@ -278,6 +295,8 @@ class QNN:
         # 4. Compute trace expression and normalization values
         ladder_superpos_start = time.time()
         trace_vals, norm_vals = self.compute_coefficients()
+        # TODO: The njit version doesn't work -> Obtained values are wrong due to numba list of njitted function
+        #trace_vals, norm_vals = compute_coefficients_njit(self.N, self.layers, self.n_out, self.D_concat, self.S_concat, self.nb_norm_list, self.nb_unnorm_list)
         self.qnn_profiling.ladder_superpos_times.append(time.time() - ladder_superpos_start)
 
         # 5. Compute the expectation values acting as outputs
@@ -289,7 +308,6 @@ class QNN:
         self.qnn_profiling.nongauss_times.append(time.time() - nongauss_start)
         
         #compute_times(self)
-        #print(f"OUTCOME: {norm_exp_val}")
         #print(f"OUTCOME: {np.real_if_close(norm_exp_val, tol=1e6)}")
         return np.real_if_close(norm_exp_val, tol=1e6)
 
@@ -302,12 +320,13 @@ class QNN:
         qnn_outputs = np.full_like(outputs_dataset, 0)
         for dataset_idx in shuffle_indices:
             qnn_outputs[dataset_idx] = self.eval_QNN(inputs_dataset[dataset_idx])
+        #print(self.qnn_profiling.avg_benchmark())
         return loss_function(outputs_dataset, qnn_outputs)
     
     def print_qnn(self):
-        print(f"Initial quadratic Gaussian:\n{self.G_initial}")
-        if not self.is_input_reupload:
-            print(f"Initial linear Gaussian (displacement):\n{self.D_initial}")
+        #print(f"Initial quadratic Gaussian:\n{self.G_initial}")
+        #if not self.is_input_reupload:
+        #    print(f"Initial linear Gaussian (displacement):\n{self.D_initial}")
         for layer in range(self.layers):
             print(f"=== LAYER {layer+1} ===\nQ1 = {self.Q1_gauss[layer]}\nZ = {self.Z_gauss[layer]}\nQ2 = {self.Q2_gauss[layer]}")
             print(f"Symplectic matrix:\n{self.S_l[layer]}")
@@ -369,14 +388,16 @@ def build_and_train_model(name, N, layers, n_inputs, n_outputs, photon_additions
     '''
     if type(init_pars) == type(None):
         #init_pars = np.random.rand(2*((N**2 + N) //2) + 3*N + layers*(2*((N**2 + N) // 2) + N)) if is_input_reupload else np.random.rand(2*((N**2 + N) //2) + 3*N + layers*(2*((N**2 + N) // 2) + N + 2*N))
-        init_pars = np.random.rand(2*N**2 + 3*N + layers*(2*N**2 + N)) if is_input_reupload else np.random.rand(2*N**2 + 3*N + layers*(2*N**2 + 3*N))
+        #init_pars = np.random.rand(2*N**2 + 3*N + layers*(2*N**2 + N)) if is_input_reupload else np.random.rand(2*N**2 + 3*N + layers*(2*N**2 + 3*N))
+        init_pars = np.random.rand(layers*(2*N**2 + N)) if is_input_reupload else np.random.rand(layers*(2*N**2 + 3*N))
     else:
         if is_input_reupload:
             #assert len(init_pars) == 2*((N**2 + N) //2) + N + layers*(2*((N**2 + N) // 2) + N)
-            assert len(init_pars) == 2*N**2 + N + layers*(2*N**2 + N)
+            #assert len(init_pars) == 2*N**2 + N + layers*(2*N**2 + N)
+            assert len(init_pars) == layers*(2*N**2 + N)
         else:
             #assert len(init_pars) == 2*((N**2 + N) //2) + 3*N + layers*(2*((N**2 + N) // 2) + N + 2*N)
-            assert len(init_pars) == 2*N**2 + 3*N + layers*(2*N**2 + 3*N)
+            assert len(init_pars) == layers*(2*N**2 + 3*N)
     
     def callback(xk):
         '''
@@ -396,8 +417,8 @@ def build_and_train_model(name, N, layers, n_inputs, n_outputs, photon_additions
         global loss_values
         global best_validation_loss
         global validation_loss
-        print(f"Best basinhopping iteration error so far: {best_loss_values[-1]}\n")
-        print(f"Current basinhopping iteration error: {f}")
+        print(f"Best basinhopping iteration error so far: {best_loss_values[-1]}")
+        print(f"Current basinhopping iteration error: {f}\n==========\n")
         if best_validation_loss[-1] > validation_loss[-1]:# and best_loss_values[-1] > loss_values[-1]:
             best_loss_values = loss_values.copy()
             best_validation_loss = validation_loss.copy()
@@ -443,6 +464,7 @@ def build_and_train_model(name, N, layers, n_inputs, n_outputs, photon_additions
     """
     #show_times(qnn)
     qnn.print_qnn()
+    print(qnn.qnn_profiling.avg_benchmark())
     
     if save:
         qnn.qnn_profiling.clear_times()
