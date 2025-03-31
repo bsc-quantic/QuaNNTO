@@ -32,7 +32,7 @@ def general_hermitian_matrix(pars, N):
     offreal = pars[:offdiag_size]
     offim = pars[offdiag_size : 2*offdiag_size]
     diag = pars[2*offdiag_size : 2*offdiag_size + N]
-    mat = np.zeros((N,N), dtype='complex64')
+    mat = np.zeros((N,N), dtype='complex')
     for i in range(0,N):
         for j in range(i,N):
             if i==j:

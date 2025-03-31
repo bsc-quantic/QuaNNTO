@@ -16,6 +16,9 @@ def test_function_2in_1out(inputs):
 def test_function_3in_1out(inputs):
     return 0.45*inputs[2] + 2.5*inputs[0]**2 + 1.2*inputs[2]*inputs[1]**2 + 0.5*inputs[0]*inputs[1] + 3
 
+def step_function(inputs):
+    return 0 if inputs[0] < 0 else 1
+
 def test_function_2in_2out(inputs):
     return (0.25*inputs[1]**4 + 0.7*inputs[0]**3 + 1.7*inputs[1]**2 + 2.4*inputs[0] + 5, 
             0.2*inputs[0]**5 + 0.8*inputs[1]**3 + 1.1*inputs[0]**2 + 2)

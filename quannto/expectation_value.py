@@ -2,7 +2,6 @@ import numpy as np
 from sympy import symbols, expand, MatrixSymbol, Add
 from numba import njit, prange
 import numba as nb
-import time
 
 from .utils import *
 
@@ -11,11 +10,12 @@ nb.set_num_threads(6)
 def exp_val_ladder_jk(j, k, V, means, N):
     '''
     Computes the expectation value of two annihilation operators (in mode j and k) of a Gaussian state based 
-    on its covariance matrix. This corresponds to the first identity I1.
+    on the first two statistical moments of the state. This corresponds to the first identity I1.
 
     :param j: Mode of the first annihilation operator
     :param k: Mode of the second annihilation operator
     :param V: Covariance matrix of the Gaussian state
+    :param means: Means vector of the Gaussian state
     :param N: Number of modes of the quantum system
     :return: Expectation value of a pair of annihilation operators of a Gaussian state
     '''
@@ -26,11 +26,13 @@ def exp_val_ladder_jk(j, k, V, means, N):
 def exp_val_ladder_jdagger_k(j, k, V, means, N):
     '''
     Computes the expectation value of one annihilation and one creation operators (in mode j and k) 
-    of a Gaussian state based on its covariance matrix. This corresponds to the second identity I2.
+    of a Gaussian state based on the first two statistical moments of the state.
+    This corresponds to the second identity I2.
 
     :param j: Mode of the creation operator
     :param k: Mode of the annihilation operator
     :param V: Covariance matrix of the Gaussian state
+    :param means: Means vector of the Gaussian state
     :param N: Number of modes of the quantum system
     :return: Expectation value of one creation and one annihilation operators of a Gaussian state
     '''
@@ -42,11 +44,12 @@ def exp_val_ladder_jdagger_k(j, k, V, means, N):
 def exp_val_ladder_jdagger_kdagger(j, k, V, means, N):
     '''
     Computes the expectation value of two creation operators (in mode j and k) of a Gaussian state based 
-    on its covariance matrix. This corresponds to the fourth identity I4.
+    on the first two statistical moments of the state. This corresponds to the fourth identity I4.
 
     :param j: Mode of the first creation operator
     :param k: Mode of the second creation operator
     :param V: Covariance matrix of the Gaussian state
+    :param means: Means vector of the Gaussian state
     :param N: Number of modes of the quantum system
     :return: Expectation value of a pair of creation operators of a Gaussian state
     '''
@@ -57,9 +60,10 @@ def exp_val_ladder_jdagger_kdagger(j, k, V, means, N):
 def compute_K_exp_vals(V, means):
     '''
     Computes the expectation value of all combinations of ladder operators pairs of all existing modes
-    of a Gaussian state based on its covariance matrix V.
+    of a Gaussian state based on its covariance matrix and means vector.
     
     :param V: Covariance matrix of the Gaussian state
+    :param means: Means vector of the Gaussian state
     :return: All expectation values of the different configuration of a pair of ladder operators on all modes.
     '''
     N = len(V)//2
@@ -130,12 +134,16 @@ def extract_ladder_expressions(trace_expr):
 
 def complete_trace_expression(N, layers, photon_additions, n_outputs, include_obs=False, obs='position'):
     '''
-    Builds the non-Gaussian state expression of a multi-photon added
+    Builds the non-Gaussian state symbolic expression of a multi-photon added
     QNN based on superposition of ladder operators applied to the Gaussian state.
 
     :param N: Number of modes of the QNN
     :param layers: Number of layers of the QNN
-    :return: Pair of lists containing the different expression terms of the modes the ladder operators act onto and their type
+    :param photon_additions: Photon additions made over the modes at each layer
+    :param n_outputs: Number of QNN outputs
+    :param include_obs: Whether to build the trace expression with or without the observable (default=False)
+    :param obs: Observable to be measured (QNN output)
+    :return: Symbolic expressions of the different QNN outputs (or normalization factor)
     '''
     dim = 2*N
     # Displacement vector (complex number 'r' and its conjugate 'i') for each mode
@@ -166,117 +174,180 @@ def complete_trace_expression(N, layers, photon_additions, n_outputs, include_ob
 
     if include_obs:
         expanded_expr = []
-        for i in range(n_outputs):
-            if obs == 'position':
-                # Position operator
-                expr = (1/np.sqrt(2))*(sup_dag*a[i]*sup + sup_dag*c[i]*sup)
-            elif obs == 'momentum':
-                # Momentum operator
-                expr = (1j/np.sqrt(2))*(sup_dag*c[i]*sup - sup_dag*a[i]*sup)
-            elif obs == 'number':
-                # Number operator
-                if len(photon_additions) == 0:
-                    expr = sup_dag*c[i]*a[i]*sup + aux
-                else:
-                    expr = sup_dag*c[i]*a[i]*sup
-            expanded_expr.append(expand(expr))
+        if obs == 'witness':
+            if len(photon_additions) == 0:
+                #expanded_expr.append(expand(sup_dag*(a[0]*a[0]*c[0])*sup) + aux)
+                #expanded_expr.append(expand(sup_dag*(a[0]*c[0])*sup) + aux)
+                expanded_expr.append(expand(sup_dag*(c[0]*a[0]*c[1]*a[1])*sup + aux)) #〈N1N2〉
+                expanded_expr.append(expand(sup_dag*(c[0]*a[0])*sup + aux)) #〈N1〉
+                expanded_expr.append(expand(sup_dag*(c[1]*a[1])*sup + aux)) #〈N2〉
+            else:
+                expanded_expr.append(expand(sup_dag*(c[0]*a[0]*c[1]*a[1])*sup)) #〈N1N2〉
+                expanded_expr.append(expand(sup_dag*(c[0]*a[0])*sup)) #〈N1〉
+                expanded_expr.append(expand(sup_dag*(c[1]*a[1])*sup)) #〈N2〉
+        else:
+            for i in range(n_outputs):
+                if obs == 'position':
+                    # Position operator
+                    expr = (sup_dag*a[i]*sup + sup_dag*c[i]*sup)
+                elif obs == 'momentum':
+                    # Momentum operator
+                    expr = (sup_dag*c[i]*sup - sup_dag*a[i]*sup)
+                elif obs == 'number':
+                    # Number operator
+                    if len(photon_additions) == 0:
+                        expr = sup_dag*c[i]*a[i]*sup + aux
+                    else:
+                        expr = sup_dag*c[i]*a[i]*sup
+                expanded_expr.append(expand(expr))
     else:
         expanded_expr = expand(sup_dag*sup)
     return expanded_expr
 
 @njit
-def ladder_exp_val(perf_matchings, ladder_modes, ladder_types, N, means_vector, cov_mat_identities):
+def wick_expansion_expval(perf_matchings, ladder_modes, ladder_types, N, means_vector, cov_mat_identities):
     '''
-    Computes the expected value of the energy when ladder operators are applied
-    to a Gaussian state described by its covariance matrix. All perfect matchings
-    of the ladder operators sequence are needed.
+    Computes the expected value of the Wick-expanded trace expression terms 
+    (sum of product of pairs or singlets of ladder operators applied to a Gaussian state) 
+    using loop perfect matchings and the covariance matrix and means vector of the last Gaussian state.
     
-    :param perf_matchings: List containing the lists of all perfect matchings
+    :param perf_matchings: List containing the lists of all loop perfect matchings
     :param ladder_modes: List of modes of the expectation value equation (trace of ladder operators on a Gaussian state)
     :param ladder_types: List defining the type of each ladder operator of the expectation value equation matching the modes
-    :param cov_mat_identities: All possible expectation values of pairs of dagger operators acting on a Gaussian state
+    :param N: Total number of system's modes
+    :param means_vector: Expectation values of position and momentum of each mode (xxpp order)
+    :param cov_mat_identities: All possible expectation values of pairs of ladder operators acting on a Gaussian state
     :return: Corresponding expectation value of the energy
     '''
     trace_sum = np.complex128(0)
     for perf_match in perf_matchings:
-        trace_prod = np.complex128(1+0j)
+        trace_prod = np.complex128(1+0j)        
         for i1,i2 in zip(perf_match[0::2], perf_match[1::2]):
-            # Determine which identity to pick depending on the pair of ladder ops and the modes
+            q = 0
+            # When the pair is -1 -> No more perfect matchings for the term
             if i1 == -1:
-                continue
+                break
+            # Different elements in the pair -> Expected value of the pair using covariance matrix and cross relations
             elif i1 != i2:
-                trace_prod *= cov_mat_identities[ladder_types[i1] + 2*ladder_types[i2], ladder_modes[i1], ladder_modes[i2]]
+                cross_rels = 0.5 * (means_vector[ladder_modes[i1]] + 1j*(-2*ladder_types[i1] + 1)*means_vector[N+ladder_modes[i1]]) * (means_vector[ladder_modes[i2]] + 1j*(-2*ladder_types[i2] + 1)*means_vector[N+ladder_modes[i2]])
+                pair_vals = cov_mat_identities[ladder_types[i1] + 2*ladder_types[i2], ladder_modes[i1], ladder_modes[i2]]
+                q = pair_vals - cross_rels
+                trace_prod *= q
+            # Equal elements in the pair (loop) -> Expected value of the singlet using means vector
             else:
-                trace_prod *= single_ladder_exp_val(ladder_modes[i1], ladder_types[i2], N, means_vector)
+                q = single_ladder_exp_val(ladder_modes[i1], ladder_types[i2], N, means_vector)
+                trace_prod *= q
         trace_sum += trace_prod
     return trace_sum
 
 @njit
 def single_ladder_exp_val(term_mode, term_type, N, means_vector):
+    '''
+    Computes the expectation value of a single ladder operator over a certain mode based
+    on the means vector (position and momentum expectation values).
+    
+    :param term_mode: Mode over which the ladder operator is acting onto
+    :param term_type: Type of ladder operator (creation=1 or annihilation=0)
+    :param N: Total number of optical modes
+    :param means_vector: Expectation values of position and momentum of each mode (xxpp order)
+    :return: Normalized ladder operator expectation value
+    '''
     return (1/np.sqrt(2)) * (means_vector[term_mode] + 1j*(-2*term_type + 1)*means_vector[N+term_mode])
 
 @njit
 def get_expectation_value(term_modes, term_types, len_term, perf_matchs, N, K_exp_vals, means_vector):
-    if len_term == 0: # CASE Tr[rho]
+    '''
+    Dispatches the expectation value calculation method based on the number of
+    terms. Cases: no operators (pure states - return 1), one operator (use means vector), 
+    two operators (use covariance matrix and means vector identities) and 
+    three or more operators (Wick's expansion based on loop perfect matchings).
+    
+    :param term_modes: Modes of the terms appearing in the expectation value to be computed
+    :param term_types: Ladder operator type of the terms
+    :param len_term: Total number of terms
+    :param perf_matchs: Data structure with needed loop perfect matchings
+    :param N: Total number of modes
+    :param K_exp_vals: Expectation values of all combinations of ladder operators pairs over system's modes
+    :param means_vector: Position and momentum expectation values of all modes (xxpp order)
+    :return: Expectation value of the provided expression
+    '''
+    if len_term == 0: # CASE Tr[rho] (Pure state)
         return 1
-    elif len_term == 1: # CASE Tr[a#rho]
+    elif len_term == 1: # CASE Tr[a#rho] (Means vector)
         return single_ladder_exp_val(term_modes[0], term_types[0], N, means_vector)
-    elif len_term == 2: # CASE Tr[a#a#rho]
-        return K_exp_vals[term_types[0] + 2*term_types[1], term_modes[0], term_modes[1]]
-    else:
-        return ladder_exp_val(perf_matchs, term_modes, term_types, N, means_vector, K_exp_vals)
+    elif len_term == 2: # CASE Tr[a#a#rho] (Means vector + Covariance matrix)
+        #cross_rels = 0.5 * (means_vector[term_modes[0]] + 1j*(-2*term_types[0] + 1)*means_vector[N+term_modes[0]]) * (means_vector[term_modes[1]] + 1j*(-2*term_types[1] + 1)*means_vector[N+term_modes[1]])
+        return K_exp_vals[term_types[0] + 2*term_types[1], term_modes[0], term_modes[1]]# - cross_rels
+    else: # CASE More than two ladder operators in the trace term -> Wick's expansion
+        return wick_expansion_expval(perf_matchs, term_modes, term_types, N, means_vector, K_exp_vals)
 
 @njit(parallel=True)
-def compute_terms_in_trace(terms, modes, types, terms_len, lpms, N, K_exp_vals, means_vector):
+def compute_terms_in_trace(coefs, modes, types, terms_len, lpms, N, K_exp_vals, means_vector):
+    '''
+    Computes each term in the trace by calculating the term expression's expectation value
+    and multiplying it by its corresponding coefficient.
+    
+    :param coefs: Terms' coefficients
+    :param modes: Array containing the modes of the terms to be computed
+    :param types: Array containing the ladder types of the terms (creation or annihilation)
+    :param terms_len: Lengths of the terms in the trace
+    :param lpms: List of loop perfect matchings regarding the number of operators
+    :param N: Total number of system modes
+    :param K_exp_vals: Expectation values of all combinations of ladder operators pairs over system's modes
+    :param means_vector: Position and momentum expectation values of all modes (xxpp order)
+    :return: Final expectation value of the output
+    '''
     sum_tr_values = 0.0 + 0.0*1j
     for i in prange(len(modes)):
         lpms_idx = terms_len[i] - 3 if terms_len[i] > 3 else 0
-        sum_tr_values += terms[i] * get_expectation_value(modes[i], types[i], terms_len[i], lpms[lpms_idx][0], N, K_exp_vals, means_vector)
+        exp_val = get_expectation_value(modes[i], types[i], terms_len[i], lpms[lpms_idx][0], N, K_exp_vals, means_vector)
+        sum_tr_values += coefs[i] * exp_val
     return sum_tr_values
 
 @njit
-def compute_exp_val_loop(unnorm_terms, norm_terms, modes, types, unnorm_terms_len, modes_norm, types_norm, norm_terms_len, lpms, K_exp_vals, means_vector):
-    N = len(means_vector) // 2
+def compute_exp_val_loop(N, terms_coefs, norm_coefs, modes, types, unnorm_terms_len, modes_norm, types_norm, norm_terms_len, lpms, K_exp_vals, means_vector):
+    '''
+    Computes the expectation value of the expression (trace) that defines the QNN operations.
+    
+    :param N: Total number of system's modes
+    :param terms_coefs: Coefficients of the unnormalized terms of the trace expression
+    :param norm_coefs: Coefficients of the normalization trace expression
+    :param modes: Modes of each term in the trace expression
+    :param types: Types of ladder operators of each term in the trace expression
+    :param unnorm_terms_len: Lengths of trace expression each term
+    :param modes_norm: Modes of each term in the normalization trace expression
+    :param types_norm: Types of ladder operators of each term in the normalization expression
+    :param norm_terms_len: Lengths of each term in the normalization trace expression
+    :param lpms: List of loop perfect matchings regarding the number of operators
+    :param K_exp_vals: Expectation values of all combinations of ladder operators pairs over system's modes
+    :param means_vector: Position and momentum expectation values of all modes (xxpp order)
+    :return: Normalized expectation value of each output of the QNN
+    '''
     # For unnormalized exp val
     unnorm = np.zeros((len(modes)), dtype='complex')
     for outs in prange(len(modes)):
-        # TODO: Take care with this condition just made for 0 photon addition
+        # TODO: Take care with this condition just made for 0 photon addition and N operator
         if len(modes[outs]) == 1:
             unnorm[outs] = compute_terms_in_trace([1], modes[outs], types[outs], unnorm_terms_len[outs], lpms, N, K_exp_vals, means_vector)
         else:
-            unnorm[outs] = compute_terms_in_trace(unnorm_terms[outs], modes[outs], types[outs], unnorm_terms_len[outs], lpms, N, K_exp_vals, means_vector)
+            unnorm[outs] = compute_terms_in_trace(terms_coefs[outs], modes[outs], types[outs], unnorm_terms_len[outs], lpms, N, K_exp_vals, means_vector)
     
     # For normalization factor
     if len(modes_norm[0]) == 1 and modes_norm[0][0] == -1:
         norm = 1
     else:
-        norm = compute_terms_in_trace(norm_terms, modes_norm[0], types_norm[0], norm_terms_len[0], lpms, N, K_exp_vals, means_vector)
+        norm = compute_terms_in_trace(norm_coefs, modes_norm[0], types_norm[0], norm_terms_len[0], lpms, N, K_exp_vals, means_vector)
     norm_val = unnorm/norm
-
+    
     return norm_val
 
-@njit
-def compute_coefficients_njit(N, layers, n_out, D_concat, S_concat, nb_num_norm, nb_num_unnorm):
-    # Build displacement complex vector & its conjugate
-    d_r = np.zeros((layers * N), dtype='complex64')
-    for l in range(layers):
-        for i in range(N):
-            d_r[l*N + i] = D_concat[l*2*N + i]+1j*D_concat[l*2*N + N+i]
-    d_i = np.conjugate(d_r)
-    
-    # Values of normalization terms
-    norm_vals = np.zeros((len(nb_num_norm)), dtype='complex64')
-    for idx in range(len(nb_num_norm)):
-        norm_vals[idx] = nb_num_norm[idx](S_concat, d_r, d_i)
-    
-    # Values of trace terms
-    trace_vals = np.zeros((n_out, len(nb_num_unnorm[0])), dtype='complex64')
-    for out_idx in range(n_out):
-        for idx in range(len(nb_num_unnorm[0])):
-            trace_vals[out_idx, idx] = nb_num_unnorm[out_idx][idx](S_concat, d_r, d_i)
-    return trace_vals, norm_vals
-    
 def loop_perfect_matchings(N):
+    '''
+    Generates all perfect matchings of a complete graph with loops where
+    nodes are labelled from 0 to N-1.
+    
+    :param N: Number of nodes (number of ladder operators of a given trace term)
+    '''
     # This function generates all perfect matchings of a complete graph with loops
     def backtrack(current_matching, remaining_nodes):
         if not remaining_nodes:
@@ -292,6 +363,14 @@ def loop_perfect_matchings(N):
     return matchings
 
 def to_np_array(lists):
+    '''
+    Creates NumPy arrays of fixed length from nested lists of dynamic sizes
+    along with another array containing each list's actual dimensions.
+    
+    :param lists: Nested list
+    :return: Tuple of NumPy array containing the nested lists and the actual
+    dimension of the elements inside the lists.
+    '''
     lengths = np.full((len(lists), len(lists[0])), -1) if len(lists[0]) > 0 else np.array([[0]])
     for out_idx in range(len(lists)):
         for term_idx in range(len(lists[out_idx])):

@@ -12,16 +12,17 @@ from .data_processors import *
 from .loss_functions import *
 
 # === HYPERPARAMETERS DEFINITION ===
-N = 5
-photon_additions = [0]
+N = 3
+photon_additions = [0,0]
 layers = 1
 is_input_reupload = False
-n_inputs = 1
+n_inputs = 2
 n_outputs = 3
 observable = 'position'
-in_norm_range = (-1, 1)
-out_norm_range = (1, 6)
+in_norm_range = (-2, 2)
+out_norm_range = (1, 5)
 loss_function = cross_entropy
+basinhopping_iters = 0
 
 # === DATASET SETTINGS ===
 categories = [0, 1, 2]
@@ -83,7 +84,7 @@ test_outputs_cats = dataset[1][dataset_size+validset_size:]
 test_outputs_cats = test_outputs_cats.reshape((len(test_outputs_cats)))
 # Build the QNN and train it with the generated dataset
 qnn, train_loss, valid_loss = build_and_train_model(model_name, N, layers, n_inputs, n_outputs, photon_additions, observable, is_input_reupload, 
-                                                    train_dataset, valid_dataset, loss_function, in_preprocessors, out_preprocessors, postprocessors)
+                                                    train_dataset, valid_dataset, loss_function, basinhopping_iters, in_preprocessors, out_preprocessors, postprocessors)
 
 plt.plot(np.log(np.array(train_loss)+1), c='red', label=f'Train loss N={N}')
 plt.plot(np.log(np.array(valid_loss)+1), c='red', linestyle='dashed', label=f'Validation loss N={N}')

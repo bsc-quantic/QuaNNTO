@@ -12,8 +12,8 @@ from .loss_functions import *
 #np.random.seed(27)
 
 # === HYPERPARAMETERS DEFINITION ===
-modes = [3]
-photon_additions = [[0],[0,1]]
+modes = [2]
+photon_additions = [[],[0]]
 layers = [1]
 is_input_reupload = False
 n_inputs = 1
@@ -22,14 +22,15 @@ observable = 'position'
 in_norm_range = (-2, 2)
 out_norm_range = (1, 5)
 loss_function = mse
-noise = 4
+basinhopping_iters = 1
+noise = 10
 
 # === TARGET FUNCTION SETTINGS ===
 target_function = five_function_1in_1out
-trainset_size = 100
+trainset_size = 60
 testset_size = 200
 validset_size = 50
-input_range = (-3, 3)
+input_range = (-4, 4)
 real_function = generate_linear_dataset_of(target_function, n_inputs, n_outputs, trainset_size*100, input_range)
 output_range = get_range(real_function[1])
 
@@ -81,8 +82,6 @@ qnns = []
 for N in modes:
     for l in layers:
         for ph_add in photon_additions:
-            model_name = target_function.__name__
-            
             # Initialize the desired data processors for pre/post-processing
             in_preprocessors = []
             #in_preprocessors.append(partial(trigonometric_feature_expressivity, num_final_features=N))
@@ -95,9 +94,11 @@ for N in modes:
             postprocessors = []
             postprocessors.append(partial(rescale_data, data_range=out_norm_range, scale_data_range=output_range))
 
+            model_name = target_function.__name__
             # Build the QNN and train it with the generated dataset
             qnn, train_loss, valid_loss = build_and_train_model(model_name, N, l, n_inputs, n_outputs, ph_add, observable, is_input_reupload,
-                                                                train_dataset, valid_dataset, loss_function, in_preprocessors, out_preprocessors, postprocessors)
+                                                                train_dataset, valid_dataset, loss_function, basinhopping_iters,
+                                                                in_preprocessors, out_preprocessors, postprocessors)
             qnns.append(qnn)
             train_losses.append(train_loss.copy())
             valid_losses.append(valid_loss.copy())
@@ -109,7 +110,7 @@ for N in modes:
 plt.plot(test_dataset[0], test_dataset[1], 'o', markerfacecolor='g', markeredgecolor='none', alpha=0.25, label='Expected results')
 c = 0
 for (qnn_test_outputs, qnn) in zip(qnn_outs, qnns):
-    plt.plot(test_dataset[0], qnn_test_outputs, c=colors(c%10), linestyle='dashed', label=f'N={qnn.N}, L={qnn.layers}, {len(qnn.photon_add)} photons/layer')
+    plt.plot(test_dataset[0], qnn_test_outputs, c=colors(c+3%10), linestyle='dashed', label=f'N={qnn.N}, L={qnn.layers}, {len(qnn.photon_add)} photons/layer')
     c+=1
 plt.title(f'TESTING SET')
 plt.xlabel('Input')
@@ -123,8 +124,8 @@ plt.show()
 c=0
 for (train_loss, valid_loss, qnn) in zip(train_losses, valid_losses, qnns):
     x_log = np.log(np.array(range(1,len(train_loss)+1)))
-    plt.plot(x_log, np.log(np.array(train_loss)+1), c=colors(c%10), label=f'Train loss N={qnn.N}, L={qnn.layers}, {len(qnn.photon_add)} photons/layer')
-    plt.plot(x_log, np.log(np.array(valid_loss)+1), c=colors(c%10), linestyle='dashed', label=f'Validation loss N={qnn.N}, L={qnn.layers}, {len(qnn.photon_add)} photons/layer')
+    plt.plot(x_log, np.log(np.array(train_loss)+1), c=colors(c+3%10), label=f'Train loss N={qnn.N}, L={qnn.layers}, {len(qnn.photon_add)} photons/layer')
+    plt.plot(x_log, np.log(np.array(valid_loss)+1), c=colors(c+3%10), linestyle='dashed', label=f'Validation loss N={qnn.N}, L={qnn.layers}, {len(qnn.photon_add)} photons/layer')
     c+=1
 
 plt.ylim(bottom=0.0)
