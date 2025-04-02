@@ -214,7 +214,7 @@ class QNN:
             # Build final quadratic Gaussian transformation
             self.S_l[l] = self.Q2_gauss[l] @ self.Z_gauss[l] @ self.Q1_gauss[l]
             self.G = self.S_l[l] @ self.G
-            self.S_concat[:, l*S_dim:(l+1)*S_dim] = self.G.copy()
+            self.S_concat[:, l*S_dim:(l+1)*S_dim] = self.u_bar.to_ladder_op(self.G)
             
             # Build displacements (linear Gaussian)
             if not self.is_input_reupload:
@@ -290,7 +290,7 @@ class QNN:
         d_r = self.build_disp_coefs()
         d_i = np.conjugate(d_r)
         # Transform symplectic matrix to ladder basis & compute its conjugate
-        S_r = self.u_bar.to_ladder_op(self.S_concat)
+        S_r = self.S_concat
         S_i = np.conjugate(S_r)
         
         # Values of normalization terms
