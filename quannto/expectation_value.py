@@ -19,9 +19,7 @@ def exp_val_ladder_jk(j, k, V, means, N):
     :param N: Number of modes of the quantum system
     :return: Expectation value of a pair of annihilation operators of a Gaussian state
     '''
-    return 0.5*(V[j,k] + means[j]*means[k] - 
-                (V[N+j, N+k] + means[N+j]*means[N+k]) + 
-                1j*(V[j, N+k] + means[j]*means[N+k] + V[N+j, k] + means[N+j]*means[k]))
+    return 0.5*(V[j,k] - V[N+j, N+k] + 1j*(V[j, N+k] + V[N+j, k]))
 
 def exp_val_ladder_jdagger_k(j, k, V, means, N):
     '''
@@ -36,10 +34,7 @@ def exp_val_ladder_jdagger_k(j, k, V, means, N):
     :param N: Number of modes of the quantum system
     :return: Expectation value of one creation and one annihilation operators of a Gaussian state
     '''
-    return 0.5*(V[j,k] + means[j]*means[k] + 
-                V[N+j, N+k] + means[N+j]*means[N+k] + 
-                1j*(V[j, N+k] + means[j]*means[N+k] - (V[N+j, k] + means[N+j]*means[k])) - 
-                (1 if j==k else 0))
+    return 0.5*(V[j,k] + V[N+j, N+k] + 1j*(V[j, N+k] - V[N+j, k]) - (1 if j==k else 0))
 
 def exp_val_ladder_jdagger_kdagger(j, k, V, means, N):
     '''
@@ -53,9 +48,7 @@ def exp_val_ladder_jdagger_kdagger(j, k, V, means, N):
     :param N: Number of modes of the quantum system
     :return: Expectation value of a pair of creation operators of a Gaussian state
     '''
-    return 0.5*(V[j,k] + means[j]*means[k] - 
-               (V[N+j, N+k] + means[N+j]*means[N+k]) - 
-               1j*(V[j, N+k] + means[j]*means[N+k] + V[N+j, k] + means[N+j]*means[k]))
+    return 0.5*(V[j,k] - V[N+j, N+k] - 1j*(V[j, N+k] + V[N+j, k]))
 
 def compute_K_exp_vals(V, means):
     '''
@@ -224,20 +217,17 @@ def wick_expansion_expval(perf_matchings, ladder_modes, ladder_types, N, means_v
     for perf_match in perf_matchings:
         trace_prod = np.complex128(1+0j)        
         for i1,i2 in zip(perf_match[0::2], perf_match[1::2]):
-            q = 0
+            term_expval = 0
             # When the pair is -1 -> No more perfect matchings for the term
             if i1 == -1:
                 break
             # Different elements in the pair -> Expected value of the pair using covariance matrix and cross relations
             elif i1 != i2:
-                cross_rels = 0.5 * (means_vector[ladder_modes[i1]] + 1j*(-2*ladder_types[i1] + 1)*means_vector[N+ladder_modes[i1]]) * (means_vector[ladder_modes[i2]] + 1j*(-2*ladder_types[i2] + 1)*means_vector[N+ladder_modes[i2]])
-                pair_vals = cov_mat_identities[ladder_types[i1] + 2*ladder_types[i2], ladder_modes[i1], ladder_modes[i2]]
-                q = pair_vals - cross_rels
-                trace_prod *= q
+                term_expval = cov_mat_identities[ladder_types[i1] + 2*ladder_types[i2], ladder_modes[i1], ladder_modes[i2]]
             # Equal elements in the pair (loop) -> Expected value of the singlet using means vector
             else:
-                q = single_ladder_exp_val(ladder_modes[i1], ladder_types[i2], N, means_vector)
-                trace_prod *= q
+                term_expval = single_ladder_exp_val(ladder_modes[i1], ladder_types[i2], N, means_vector)
+            trace_prod *= term_expval
         trace_sum += trace_prod
     return trace_sum
 
@@ -260,8 +250,7 @@ def get_expectation_value(term_modes, term_types, len_term, perf_matchs, N, K_ex
     '''
     Dispatches the expectation value calculation method based on the number of
     terms. Cases: no operators (pure states - return 1), one operator (use means vector), 
-    two operators (use covariance matrix and means vector identities) and 
-    three or more operators (Wick's expansion based on loop perfect matchings).
+    two or more operators (Wick's expansion based on loop perfect matchings).
     
     :param term_modes: Modes of the terms appearing in the expectation value to be computed
     :param term_types: Ladder operator type of the terms
@@ -276,10 +265,7 @@ def get_expectation_value(term_modes, term_types, len_term, perf_matchs, N, K_ex
         return 1
     elif len_term == 1: # CASE Tr[a#rho] (Means vector)
         return single_ladder_exp_val(term_modes[0], term_types[0], N, means_vector)
-    elif len_term == 2: # CASE Tr[a#a#rho] (Means vector + Covariance matrix)
-        #cross_rels = 0.5 * (means_vector[term_modes[0]] + 1j*(-2*term_types[0] + 1)*means_vector[N+term_modes[0]]) * (means_vector[term_modes[1]] + 1j*(-2*term_types[1] + 1)*means_vector[N+term_modes[1]])
-        return K_exp_vals[term_types[0] + 2*term_types[1], term_modes[0], term_modes[1]]# - cross_rels
-    else: # CASE More than two ladder operators in the trace term -> Wick's expansion
+    else: # CASE Tr[a#a#...rho] -> Wick's expansion
         return wick_expansion_expval(perf_matchs, term_modes, term_types, N, means_vector, K_exp_vals)
 
 @njit(parallel=True)
@@ -300,7 +286,7 @@ def compute_terms_in_trace(coefs, modes, types, terms_len, lpms, N, K_exp_vals, 
     '''
     sum_tr_values = 0.0 + 0.0*1j
     for i in prange(len(modes)):
-        lpms_idx = terms_len[i] - 3 if terms_len[i] > 3 else 0
+        lpms_idx = terms_len[i] - 2 if terms_len[i] > 2 else 0
         exp_val = get_expectation_value(modes[i], types[i], terms_len[i], lpms[lpms_idx][0], N, K_exp_vals, means_vector)
         sum_tr_values += coefs[i] * exp_val
     return sum_tr_values

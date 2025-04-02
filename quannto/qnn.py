@@ -115,9 +115,9 @@ class QNN:
         
         # Compute all needed loop perfect matchings for the Wick's expansion of the trace expression
         max_lpms = np.max(self.lens_modes)
-        self.lpms = [to_np_array([loop_perfect_matchings(lens)]) for lens in range(3, max_lpms+1)]
+        self.lpms = [to_np_array([loop_perfect_matchings(lens)]) for lens in range(2, max_lpms+1)]
         if len(self.lpms) == 0:
-            self.lpms = [to_np_array([loop_perfect_matchings(3)])]
+            self.lpms = [to_np_array([loop_perfect_matchings(2)])]
         self.np_lpms = nb.typed.List([lpms for (lpms, _) in self.lpms])
         self.lens_lpms = nb.typed.List([lens for (_, lens) in self.lpms])
         
