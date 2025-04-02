@@ -79,7 +79,7 @@ class QNN:
         self.Q2_gauss = np.zeros((self.layers, 2*self.N, 2*self.N))
         self.Z_gauss = np.zeros((self.layers, 2*self.N, 2*self.N))
         # Concatenation of symplectic matrix and displacement vectors of each layer
-        self.S_concat = np.zeros((2*self.N, 2*self.layers*self.N))
+        self.S_concat = np.zeros((2*self.N, 2*self.layers*self.N), dtype='complex')
         self.D_concat = np.zeros((2*self.layers*self.N))
         # Final Gaussian transformation when commuting with photon additions (product of all Gaussians)
         self.G = np.eye(2*self.N)
