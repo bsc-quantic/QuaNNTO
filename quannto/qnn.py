@@ -147,16 +147,17 @@ class QNN:
         d = symbols(f'r0:{layers*N}', commutative=True)
         d_conj = symbols(f'i0:{layers*N}', commutative=True)
         dim = 2*N
-        S = MatrixSymbol('S', dim, layers*dim)
+        S_r = MatrixSymbol('S_r', dim, layers*dim)
+        S_i = MatrixSymbol('S_i', dim, layers*dim)
         
         # Compile trace expression terms with respect to symplectic and displacement parameters
         t1 = time.time()
         self.nb_num_unnorm = []
         for outs in range(len(self.unnorm_expr_terms_out)):
-            self.nb_num_unnorm.append([nb.njit(lambdify((S, d, d_conj), unnorm_trm, modules='numpy')) for unnorm_trm in self.unnorm_expr_terms_out[outs]])
+            self.nb_num_unnorm.append([nb.njit(lambdify((S_r, S_i, d, d_conj), unnorm_trm, modules='numpy')) for unnorm_trm in self.unnorm_expr_terms_out[outs]])
         t2 = time.time()
         print(f"Time to lambdify unnormalized terms: {t2-t1}")
-        self.nb_num_norm = [nb.njit(lambdify((S, d, d_conj), norm_trm, modules='numpy')) for norm_trm in self.norm_subs_expr_terms]
+        self.nb_num_norm = [nb.njit(lambdify((S_r, S_i, d, d_conj), norm_trm, modules='numpy')) for norm_trm in self.norm_subs_expr_terms]
         t3 = time.time()
         print(f"Time to lambdify normalization terms: {t3-t2}")
         
@@ -288,17 +289,20 @@ class QNN:
         # Build displacement complex vector & its conjugate
         d_r = self.build_disp_coefs()
         d_i = np.conjugate(d_r)
+        # Transform symplectic matrix to ladder basis & compute its conjugate
+        S_r = self.u_bar.to_ladder_op(self.S_concat)
+        S_i = np.conjugate(S_r)
         
         # Values of normalization terms
         norm_vals = np.zeros((len(self.nb_num_norm)), dtype='complex')
         for idx in range(len(self.modes_norm[0])):
-            norm_vals[idx] = self.nb_num_norm[idx](self.S_concat, d_r, d_i)
+            norm_vals[idx] = self.nb_num_norm[idx](S_r, S_i, d_r, d_i)
         
         # Values of trace terms
         trace_vals = np.zeros((len(self.nb_num_unnorm), len(self.nb_num_unnorm[0])), dtype='complex')
         for out_idx in range(len(self.modes)):
             for idx in range(len(self.modes[out_idx])):
-                trace_vals[out_idx, idx] = self.nb_num_unnorm[out_idx][idx](self.S_concat, d_r, d_i)
+                trace_vals[out_idx, idx] = self.nb_num_unnorm[out_idx][idx](S_r, S_i, d_r, d_i)
         return trace_vals, norm_vals
     
     def eval_QNN(self, input):

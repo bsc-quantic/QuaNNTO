@@ -150,7 +150,8 @@ def complete_trace_expression(N, layers, photon_additions, n_outputs, include_ob
     d_r = symbols(f'r0:{layers*N}', commutative=True)
     d_i = symbols(f'i0:{layers*N}', commutative=True)
     # Symplectic matrix 2Nx2N
-    S = MatrixSymbol('S', dim, layers*dim)
+    S_r = MatrixSymbol('S_r', dim, layers*dim)
+    S_i = MatrixSymbol('S_i', dim, layers*dim)
     # Creation (c) and annihilation (a) operators for each mode
     c = symbols(f'c0:{N}', commutative=False)
     a = symbols(f'a0:{N}', commutative=False)
@@ -165,10 +166,10 @@ def complete_trace_expression(N, layers, photon_additions, n_outputs, include_ob
             expr_dag = d_i[l*N + photon_additions[i]]
             for j in range(N):
                 # Creation and annihilation terms with their symplectic coefficient
-                expr += S[photon_additions[i], l*dim + j]*c[j]
-                expr += S[photon_additions[i], l*dim + (N+j)]*a[j]
-                expr_dag += S[photon_additions[i], l*dim + j]*a[j]
-                expr_dag += S[photon_additions[i], l*dim + (N+j)]*c[j]
+                expr += S_r[photon_additions[i], l*dim + j]*c[j]
+                expr += S_r[photon_additions[i], l*dim + (N+j)]*a[j]
+                expr_dag += S_i[photon_additions[i], l*dim + j]*a[j]
+                expr_dag += S_i[photon_additions[i], l*dim + (N+j)]*c[j]
             sup *= expr
             sup_dag *= expr_dag
 
