@@ -214,6 +214,7 @@ class QNN:
             # Build final quadratic Gaussian transformation
             self.S_l[l] = self.Q2_gauss[l] @ self.Z_gauss[l] @ self.Q1_gauss[l]
             self.G = self.S_l[l] @ self.G
+            # Build concatenated symplectic matrices in Fock space for trace expressions' coefficients
             self.S_concat[:, l*S_dim:(l+1)*S_dim] = self.u_bar.to_ladder_op(self.G)
             
             # Build displacements (linear Gaussian)
@@ -289,7 +290,7 @@ class QNN:
         # Build displacement complex vector & its conjugate
         d_r = self.build_disp_coefs()
         d_i = np.conjugate(d_r)
-        # Transform symplectic matrix to ladder basis & compute its conjugate
+        # Transform symplectic matrix to ladder basis & compute its transpose conjugate
         S_r = self.S_concat
         S_i = np.conjugate(S_r)
         
@@ -367,6 +368,14 @@ class QNN:
         for dataset_idx in shuffle_indices:
             qnn_outputs[dataset_idx] = self.eval_QNN(inputs_dataset[dataset_idx])
         return loss_function(outputs_dataset, qnn_outputs)
+    
+    def train_ent_witness(self, parameters):
+        build_start = time.time()
+        input_disp = parameters[0:self.N] # TODO: Consider parameterize momentum too
+        self.build_QNN(parameters[self.N:])
+        self.qnn_profiling.build_qnn_times.append(time.time() - build_start)
+        
+        return self.eval_QNN(input_disp)
     
     def print_qnn(self):
         '''
@@ -450,7 +459,7 @@ def build_and_train_model(name, N, layers, n_inputs, n_outputs, photon_additions
         #init_pars = np.random.rand(2*((N**2 + N) //2) + 3*N + layers*(2*((N**2 + N) // 2) + N)) if is_input_reupload else np.random.rand(2*((N**2 + N) //2) + 3*N + layers*(2*((N**2 + N) // 2) + N + 2*N))
         #init_pars = np.random.rand(2*N**2 + 3*N + layers*(2*N**2 + N)) if is_input_reupload else np.random.rand(2*N**2 + 3*N + layers*(2*N**2 + 3*N))
         n_pars = layers*(2*N**2 + N) if is_input_reupload else layers*(2*N**2 + 3*N)
-        init_pars = np.random.rand(n_pars) if observable!='witness' else np.random.rand(n_pars + 1)
+        init_pars = np.random.rand(n_pars) if observable!='witness' else np.random.rand(n_pars + N + 1) # TODO: Consider parameterize momentum too
     else:
         aux_pars = 0 if observable!='witness' else 1
         if is_input_reupload:
@@ -537,3 +546,64 @@ def build_and_train_model(name, N, layers, n_inputs, n_outputs, photon_additions
         best_validation_loss = best_validation_loss[1:]
     
     return qnn, best_loss_values, best_validation_loss
+
+def train_entanglement_witness(name, N, layers, n_inputs, n_outputs, photon_additions, observable, hopping_iters=2, in_preprocs=[], out_prepocs=[], postprocs=[], init_pars=None, save=True):
+    n_pars = layers*(2*N**2 + 3*N)
+    init_pars = np.random.rand(n_pars + N + 1) # TODO: Consider parameterize momentum too
+    
+    qnn = QNN("model_N" + str(N) + "_L" + str(layers) + "_" + name, N, layers, n_inputs, n_outputs, photon_additions, observable)
+    
+    def callback(xk):
+        '''
+        Prints and stores the MSE error value for each QNN training epoch.
+        
+        :param xk: QONN tunable parameters
+        '''
+        e = train_witness(xk)
+        print(f'Witness expected value: {e}')
+        loss_values.append(e)
+        
+    def callback_hopping(x,f,accept):
+        '''
+        Prints the best Basinhopping error achieved so far and the current one. 
+        If the current error is less than the best one so far, it substitutes the best loss values.
+        
+        :param x: QONN tunable parameters
+        :param f: Current Basinhopping error achieved
+        :param accept: Determines whether the current error achieved is accepted (stopping iterations)
+        '''
+        global best_loss_values
+        global loss_values
+        print(f"Best basinhopping iteration value: {best_loss_values[-1]}")
+        print(f"Current basinhopping iteration value: {f}\n==========\n")
+        if best_loss_values[-1] > loss_values[-1]:# and best_loss_values[-1] > loss_values[-1]:
+            best_loss_values = loss_values.copy()
+        loss_values = [9999]
+    
+    global best_loss_values
+    best_loss_values = [9999]
+    global loss_values
+    loss_values = [9999]
+    
+    train_witness = partial(qnn.train_ent_witness)
+    
+    training_start = time.time()
+    minimizer_kwargs = {"method": "L-BFGS-B", "callback": callback}
+    result = opt.basinhopping(train_witness, init_pars, niter=hopping_iters, minimizer_kwargs=minimizer_kwargs, callback=callback_hopping)
+    print(f'Total training time: {time.time() - training_start} seconds')
+    
+    print(f'\nOPTIMIZED ENTANGLEMENT WITNESS VALUE FOR N={N}, L={layers}')
+    print(result.fun)
+    
+    qnn.build_QNN(result.x)
+    qnn.print_qnn()
+    print(qnn.qnn_profiling.avg_benchmark())
+    
+    if save:
+        qnn.qnn_profiling.clear_times()
+        qnn.save_model(qnn.model_name + ".txt")
+        
+    if best_loss_values[0] == 9999:
+        best_loss_values = best_loss_values[1:]
+    
+    return qnn, best_loss_values
