@@ -4,8 +4,8 @@ from .data_processors import softmax_discretization
 def mse(expected, obtained):
     return ((expected - obtained)**2).sum() / len(obtained)
 
-def nll(expected, obtained):
-    return
+def exp_val(obtained):
+    return obtained
 
 def cross_entropy(true_labels, obtained_outputs):
     obtained_probs = softmax_discretization(obtained_outputs)
@@ -14,7 +14,7 @@ def cross_entropy(true_labels, obtained_outputs):
 def retrieve_loss_function(loss_name):
     if loss_name == 'mse':
         return mse
-    elif loss_name == 'nll':
-        return nll
+    elif loss_name == 'exp_val':
+        return exp_val
     elif loss_name == 'cross_entropy':
         return cross_entropy
