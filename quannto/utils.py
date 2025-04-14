@@ -170,9 +170,9 @@ def check_uncertainty_pple(V):
     
     :param V: (Covariance) matrix to be verified
     '''
-    i_J = 1j*create_J(int(len(V)/2))
+    i_J = 0.5j*create_J(int(len(V)/2)) # Normalized symplectic form in xxpp
     uncert_eigvals = LA.eigvals(V + i_J)
     print('V + iJ >= 0: ')
     print(np.all(np.around(uncert_eigvals, decimals=4) >= 0))
     print('Eigenvalues:')
-    print(uncert_eigvals)
+    print(np.around(uncert_eigvals, decimals=4))
