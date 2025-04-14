@@ -70,7 +70,7 @@ def compute_K_exp_vals(V, means):
         for k in range(N):
             K_exp_vals[1,j,k] = exp_val_ladder_jdagger_k(j,k,V,means,N)
     # Expectation values of first annihilation and then creation operators for all modes
-    K_exp_vals[2] = np.copy(K_exp_vals[1])
+    K_exp_vals[2] = np.copy(K_exp_vals[1].T)
     for j in range(N):
         K_exp_vals[2,j,j] += 1
     # Expectation values of two annihilation operators for all modes
@@ -155,14 +155,14 @@ def complete_trace_expression(N, layers, photon_additions, n_outputs, include_ob
     for l in range(layers):
         for i in range(len(photon_additions)):
             # Displacement terms
-            expr = d_r[l*N + photon_additions[i]]
-            expr_dag = d_i[l*N + photon_additions[i]]
+            expr = d_i[l*N + photon_additions[i]]
+            expr_dag = d_r[l*N + photon_additions[i]]
             for j in range(N):
                 # Creation and annihilation terms with their symplectic coefficient
-                expr += S_r[photon_additions[i], l*dim + j]*c[j]
-                expr += S_r[photon_additions[i], l*dim + (N+j)]*a[j]
-                expr_dag += S_i[photon_additions[i], l*dim + j]*a[j]
-                expr_dag += S_i[photon_additions[i], l*dim + (N+j)]*c[j]
+                expr += S_r[N+photon_additions[i], l*dim + j]*a[j]
+                expr += S_r[N+photon_additions[i], l*dim + (N+j)]*c[j]
+                expr_dag += S_i[N+photon_additions[i], l*dim + j]*c[j]
+                expr_dag += S_i[N+photon_additions[i], l*dim + (N+j)]*a[j]
             sup *= expr
             sup_dag *= expr_dag
 
@@ -170,11 +170,15 @@ def complete_trace_expression(N, layers, photon_additions, n_outputs, include_ob
         expanded_expr = []
         if obs == 'witness':
             if len(photon_additions) == 0:
-                #expanded_expr.append(expand(sup_dag*(a[0]*a[0]*c[0])*sup) + aux)
-                #expanded_expr.append(expand(sup_dag*(a[0]*c[0])*sup) + aux)
                 expanded_expr.append(expand(sup_dag*(c[0]*a[0]*c[1]*a[1])*sup + aux)) #〈N1N2〉
                 expanded_expr.append(expand(sup_dag*(c[0]*a[0])*sup + aux)) #〈N1〉
                 expanded_expr.append(expand(sup_dag*(c[1]*a[1])*sup + aux)) #〈N2〉
+                #expanded_expr.append(expand(sup_dag*(a[0]*c[0]*a[0]*c[0])*sup + aux)) #〈aN1a+〉
+                #expanded_expr.append(expand(sup_dag*(a[0]*c[0])*sup + aux)) #〈aa+〉
+                #expanded_expr.append(expand(sup_dag*(a[0]*a[0]*c[0]*a[0]*c[0]*c[0])*sup + aux)) #〈aaN1a+a+〉
+                #expanded_expr.append(expand(sup_dag*(a[0]*a[0]*c[0]*c[0])*sup + aux)) #〈aaa+a+〉
+                #expanded_expr.append(expand(sup_dag*(c[0]*c[0]*a[0]*a[0])*sup + aux)) #〈a+N1a〉
+                #expanded_expr.append(expand(sup_dag*(c[0]*a[0])*sup + aux)) #〈a+a〉
             else:
                 expanded_expr.append(expand(sup_dag*(c[0]*a[0]*c[1]*a[1])*sup)) #〈N1N2〉
                 expanded_expr.append(expand(sup_dag*(c[0]*a[0])*sup)) #〈N1〉
