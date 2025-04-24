@@ -5,19 +5,19 @@ import seaborn as sns
 from sklearn.metrics import confusion_matrix
 import os.path
 
-from .qnn import test_model, build_and_train_model
+from .qnn_trainers import build_and_train_model
 from .synth_datasets import *
 from .results_utils import *
 from .data_processors import *
 from .loss_functions import *
 
 # === HYPERPARAMETERS DEFINITION ===
-N = 3
-photon_additions = [0,0]
+N = 4
+photon_additions = [0]
 layers = 1
 is_input_reupload = False
 n_inputs = 2
-n_outputs = 3
+n_outputs = 4
 observable = 'position'
 in_norm_range = (-2, 2)
 out_norm_range = (1, 5)
@@ -25,7 +25,7 @@ loss_function = cross_entropy
 basinhopping_iters = 0
 
 # === DATASET SETTINGS ===
-categories = [0, 1, 2]
+categories = [0, 1, 2, 3]
 num_cats = len(categories)
 dataset_size = 30*num_cats
 validset_size = 80
@@ -96,7 +96,7 @@ plt.legend()
 plt.show()
 
 # Generate a linearly-spaced testing dataset of the target function and test the trained QNN
-qnn_test_outputs = test_model(qnn, test_dataset, loss_function)
+qnn_test_outputs = qnn.test_model(test_dataset, loss_function)
 qnn_test_prob_outs = softmax_discretization(qnn_test_outputs)
 qnn_test_cat_outs = greatest_probability(qnn_test_prob_outs)
 qnn_test_cat_outs = qnn_test_cat_outs.reshape((len(qnn_test_cat_outs)))

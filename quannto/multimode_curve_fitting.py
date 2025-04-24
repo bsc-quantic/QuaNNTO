@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 from matplotlib import colormaps
 import os.path
 
-from .qnn import test_model, build_and_train_model
+from .qnn_trainers import build_and_train_model
 from .synth_datasets import *
 from .results_utils import *
 from .data_processors import *
@@ -13,8 +13,8 @@ from .loss_functions import *
 
 # === HYPERPARAMETERS DEFINITION ===
 modes = [2]
-photon_additions = [[],[0]]
-layers = [1]
+photon_additions = [[0]]
+layers = [2]
 is_input_reupload = False
 n_inputs = 1
 n_outputs = 1
@@ -23,14 +23,14 @@ in_norm_range = (-2, 2)
 out_norm_range = (1, 5)
 loss_function = mse
 basinhopping_iters = 1
-noise = 10
+noise = 0.1
 
 # === TARGET FUNCTION SETTINGS ===
-target_function = five_function_1in_1out
-trainset_size = 60
+target_function = sin_1in_1out
+trainset_size = 100
 testset_size = 200
 validset_size = 50
-input_range = (-4, 4)
+input_range = (0, 6.3)
 real_function = generate_linear_dataset_of(target_function, n_inputs, n_outputs, trainset_size*100, input_range)
 output_range = get_range(real_function[1])
 
@@ -103,7 +103,7 @@ for N in modes:
             train_losses.append(train_loss.copy())
             valid_losses.append(valid_loss.copy())
             qnn_loss.append(train_loss[-1])
-            qnn_test_outputs = test_model(qnn, test_dataset, loss_function)
+            qnn_test_outputs = qnn.test_model(test_dataset, loss_function)
             #print(qnn_test_outputs)
             qnn_outs.append(qnn_test_outputs.copy())
     

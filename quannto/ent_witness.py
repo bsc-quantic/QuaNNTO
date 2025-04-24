@@ -1,9 +1,8 @@
-from functools import partial
 import matplotlib.pyplot as plt
 from matplotlib import colormaps
 import os.path
 
-from .qnn import train_entanglement_witness
+from .qnn_trainers import train_entanglement_witness
 from .synth_datasets import *
 from .results_utils import *
 from .data_processors import *
@@ -13,7 +12,7 @@ from .loss_functions import *
 
 # === HYPERPARAMETERS DEFINITION ===
 modes = [2]
-photon_additions = [[]]
+photon_additions = [[0]]
 layers = [1]
 is_input_reupload = False
 n_inputs = 1
@@ -22,13 +21,12 @@ observable = 'witness'
 in_norm_range = (-2, 2)
 out_norm_range = (1, 5)
 loss_function = exp_val
-basinhopping_iters = 1
+basinhopping_iters = 0 
 
 # === BUILD, TRAIN AND TEST QNN MODELS WITH DIFFERENT MODES ===
 #colors = plt.cm.rainbow(np.linspace(0, 1, len(modes)))
 colors = colormaps['tab10']
 train_losses = []
-valid_losses = []
 qnn_loss = []
 qnn_outs = []
 qnns = []
@@ -37,13 +35,13 @@ for N in modes:
         for ph_add in photon_additions:
             model_name = "ent_witness"
             # Build the QNN and train it with the generated dataset
-            qnn, train_loss, valid_loss = train_entanglement_witness(model_name, N, l, n_inputs, n_outputs, ph_add, observable)
+            qnn, train_loss = train_entanglement_witness(model_name, N, l, n_inputs, n_outputs, ph_add, observable)
             qnns.append(qnn)
             train_losses.append(train_loss.copy())
             qnn_loss.append(train_loss[-1])
 
 c=0
-for (train_loss, valid_loss, qnn) in zip(train_losses, valid_losses, qnns):
+for (train_loss, qnn) in zip(train_losses, qnns):
     plt.plot(np.array(train_loss), c=colors(c%10), label=f'N={qnn.N}, L={qnn.layers}, {len(qnn.photon_add)} photons/layer')
     c+=1
     
