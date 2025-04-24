@@ -2,14 +2,12 @@ import numpy as np
 import time
 import jsonpickle
 import time
-import scipy.optimize as opt
 from sympy import lambdify
-from functools import partial, reduce
+from functools import reduce
 
 from .utils import *
 from .expectation_value import *
 from .results_utils import *
-from .loss_functions import mse
 
 loss_values = []
 best_loss_values = [10]
@@ -47,7 +45,6 @@ class ProfilingQNN:
         self.ladder_superpos_times = []
         self.nongauss_times = []
     
-
 class QNN:
     '''
     Class for continuous variables quantum (optics) neural network building, training, evaluation and profiling.
@@ -226,7 +223,7 @@ class QNN:
                 else:
                     self.D_concat[l*S_dim:(l+1)*S_dim] = self.D_l[l] + self.S_l[l] @ self.D_concat[(l+1)*S_dim:(l+2)*S_dim]
         if self.observable == 'witness':
-            self.trace_const = parameters[current_par_idx]
+            self.trace_const = np.array([1, 1, parameters[current_par_idx]])
             current_par_idx += 1
     
     def build_reuploading_disp(self, inputs):
@@ -370,12 +367,25 @@ class QNN:
         return loss_function(outputs_dataset, qnn_outputs)
     
     def train_ent_witness(self, parameters):
+        '''
+        Tunes the QONN parameters in order to minimize an entanglement witness 
+        aiming for maximally entangled states.
+        
+        :param parameters: QONN tunable parameters
+        :return: Entanglement witness expectation value
+        '''
+        #input_disp = parameters[0:self.N] # TODO: Consider parameterize momentum too
+        
         build_start = time.time()
-        input_disp = parameters[0:self.N] # TODO: Consider parameterize momentum too
-        self.build_QNN(parameters[self.N:])
+        self.build_QNN(parameters)
         self.qnn_profiling.build_qnn_times.append(time.time() - build_start)
         
-        return self.eval_QNN(input_disp)
+        witness_vals = self.eval_QNN(parameters[-self.N:])
+        #print("VAL")
+        #print(witness_vals[0] - witness_vals[1]*witness_vals[2])
+        #self.print_qnn()
+        
+        return -(witness_vals[0] - witness_vals[1]*witness_vals[2])
     
     def print_qnn(self):
         '''
@@ -391,219 +401,42 @@ class QNN:
             if not self.is_input_reupload:
                 print(f"Displacement coefficients:\n{self.D_concat[layer*2*self.N : (layer+1)*2*self.N]}")
         
+    def test_model(self, testing_dataset, loss_function):
+        '''
+        Makes predictions of the given QNN using the input testing dataset.
+        
+        :param qnn: QNN to be tested
+        :param testing_dataset: List of inputs and outputs to be tested
+        :param loss_function: Loss function to compute the testing set losses
+        :return: QNN predictions of the testing set
+        '''
+        test_inputs = reduce(lambda x, func: func(x), self.in_preprocessors, testing_dataset[0])
+        test_outputs = reduce(lambda x, func: func(x), self.out_preprocessors, testing_dataset[1])
+        
+        #error = np.zeros((len(testing_dataset[1]), len(testing_dataset[1][0])))
+        qnn_outputs = np.full_like(test_outputs, 0)
+        
+        # Evaluate all testing set
+        for k in range(len(test_inputs)):
+            qnn_outputs[k] = self.eval_QNN(test_inputs[k])
+        mean_error = loss_function(test_outputs, qnn_outputs)
+        print(f"LOSS VALUE FOR TESTING SET: {mean_error}")
+        
+        return reduce(lambda x, func: func(x), self.postprocessors, qnn_outputs)
+    
     def save_model(self, filename):
         f = open("models/"+filename, 'w')
         f.write(jsonpickle.encode(self))
         f.close()
 
-def load_model(filename):
-    '''
-    Loads a QONN model from a JSON pickle file.
-    
-    :param filename: Path to the QONN model file
-    :return: QONN model
-    '''
-    with open(filename, 'r') as f:
-        qnn_str = jsonpickle.decode(f.read())
-    return qnn_str
-    
-def test_model(qnn, testing_dataset, loss_function):
-    '''
-    Makes predictions of the given QNN using the input testing dataset.
-    
-    :param qnn: QNN to be tested
-    :param testing_dataset: List of inputs and outputs to be tested
-    :param loss_function: Loss function to compute the testing set losses
-    :return: QNN predictions of the testing set
-    '''
-    test_inputs = reduce(lambda x, func: func(x), qnn.in_preprocessors, testing_dataset[0])
-    test_outputs = reduce(lambda x, func: func(x), qnn.out_preprocessors, testing_dataset[1])
-    
-    #error = np.zeros((len(testing_dataset[1]), len(testing_dataset[1][0])))
-    qnn_outputs = np.full_like(test_outputs, 0)
-    
-    # Evaluate all testing set
-    for k in range(len(test_inputs)):
-        qnn_outputs[k] = qnn.eval_QNN(test_inputs[k])
-    mean_error = loss_function(test_outputs, qnn_outputs)
-    print(f"LOSS VALUE FOR TESTING SET: {mean_error}")
-    
-    return reduce(lambda x, func: func(x), qnn.postprocessors, qnn_outputs)
-    
-def build_and_train_model(name, N, layers, n_inputs, n_outputs, photon_additions, observable, is_input_reupload, 
-                          train_set, valid_set, loss_function=mse, hopping_iters=2, in_preprocs=[], out_prepocs=[], postprocs=[], init_pars=None, save=True):
-    '''
-    Creates and trains a QNN model with the given hyperparameters and dataset by optimizing the 
-    tunable parameters of the QNN.
-    
-    :param name: Name of the model
-    :param N: Number of neurons per layer (modes of the quantum system)
-    :param layers: Number of layers
-    :param n_inputs: Number of QONN inputs
-    :param n_outputs: Number of QONN outputs
-    :param photon_additions: Photon additions over system modes' that are desired (per layer)
-    :param observable: Name of the observable to be measured ('position', 'momentum', 'number' or 'witness')
-    :param is_input_reupload: Boolean variable telling whether the QONN has to have input-reuploading or not
-    :param train_set: List of inputs and outputs to be learned
-    :param valid_set: Validation set to be evaluated every epoch testing the generalization of the QONN
-    :param loss_function: Function that computes the loss between the predicted and the expected value (default 'mse')
-    :param hopping_iters: Number of Basinhopping iterations
-    :param in_preprocs: List of preprocessors for the dataset inputs
-    :param out_preprocs: List of preprocessors for the dataset outputs
-    :param postprocs: List of postprocessors (postprocessing of QONN yielded data)
-    :param init_pars: Initialization parameters for the QNN
-    :param save: Boolean determining whether to save the model (default=True)
-    :return: Trained QNN model
-    '''
-    if type(init_pars) == type(None):
-        #init_pars = np.random.rand(2*((N**2 + N) //2) + 3*N + layers*(2*((N**2 + N) // 2) + N)) if is_input_reupload else np.random.rand(2*((N**2 + N) //2) + 3*N + layers*(2*((N**2 + N) // 2) + N + 2*N))
-        #init_pars = np.random.rand(2*N**2 + 3*N + layers*(2*N**2 + N)) if is_input_reupload else np.random.rand(2*N**2 + 3*N + layers*(2*N**2 + 3*N))
-        n_pars = layers*(2*N**2 + N) if is_input_reupload else layers*(2*N**2 + 3*N)
-        init_pars = np.random.rand(n_pars) if observable!='witness' else np.random.rand(n_pars + N + 1) # TODO: Consider parameterize momentum too
-    else:
-        aux_pars = 0 if observable!='witness' else 1
-        if is_input_reupload:
-            #assert len(init_pars) == 2*((N**2 + N) //2) + N + layers*(2*((N**2 + N) // 2) + N)
-            #assert len(init_pars) == 2*N**2 + N + layers*(2*N**2 + N)
-            assert len(init_pars) == layers*(2*N**2 + N) + aux_pars
-        else:
-            #assert len(init_pars) == 2*((N**2 + N) //2) + 3*N + layers*(2*((N**2 + N) // 2) + N + 2*N)
-            assert len(init_pars) == layers*(2*N**2 + 3*N) + aux_pars
-    
-    def callback(xk):
+    def load_model(filename):
         '''
-        Prints and stores the MSE error value for each QNN training epoch.
+        Loads a QONN model from a JSON pickle file.
         
-        :param xk: QONN tunable parameters
+        :param filename: Path to the QONN model file
+        :return: QONN model
         '''
-        e = training_QNN(xk)
-        print(f'Training loss: {e}')
-        val_e = validate_QNN(xk)
-        print(f'Validation loss: {val_e}')
-        loss_values.append(e)
-        validation_loss.append(val_e)
-        
-    def callback_hopping(x,f,accept):
-        '''
-        Prints the best Basinhopping error achieved so far and the current one. 
-        If the current error is less than the best one so far, it substitutes the best loss values.
-        
-        :param x: QONN tunable parameters
-        :param f: Current Basinhopping error achieved
-        :param accept: Determines whether the current error achieved is accepted (stopping iterations)
-        '''
-        global best_loss_values
-        global loss_values
-        global best_validation_loss
-        global validation_loss
-        print(f"Best basinhopping iteration error so far: {best_loss_values[-1]}")
-        print(f"Current basinhopping iteration error: {f}\n==========\n")
-        if best_validation_loss[-1] > validation_loss[-1]:# and best_loss_values[-1] > loss_values[-1]:
-            best_loss_values = loss_values.copy()
-            best_validation_loss = validation_loss.copy()
-        loss_values = [9999]
-        validation_loss = [9999]
+        with open(filename, 'r') as f:
+            qnn_str = jsonpickle.decode(f.read())
+        return qnn_str
     
-    qnn = QNN("model_N" + str(N) + "_L" + str(layers) + "_" + name, N, layers, n_inputs, n_outputs,
-              photon_additions, observable, is_input_reupload, in_preprocs, out_prepocs, postprocs)
-    train_inputs = reduce(lambda x, func: func(x), qnn.in_preprocessors, train_set[0])
-    train_outputs = reduce(lambda x, func: func(x), qnn.out_preprocessors, train_set[1])
-    
-    valid_inputs = reduce(lambda x, func: func(x), qnn.in_preprocessors, valid_set[0])
-    valid_outputs = reduce(lambda x, func: func(x), qnn.out_preprocessors, valid_set[1])
-    
-    global best_loss_values
-    best_loss_values = [9999]
-    global loss_values
-    loss_values = [9999]
-    global best_validation_loss
-    best_validation_loss = [9999]
-    global validation_loss
-    validation_loss = [9999]
-    
-    training_QNN = partial(qnn.train_QNN, inputs_dataset=train_inputs, outputs_dataset=train_outputs, loss_function=loss_function)
-    validate_QNN = partial(qnn.train_QNN, inputs_dataset=valid_inputs, outputs_dataset=valid_outputs, loss_function=loss_function)
-    
-    training_start = time.time()
-    minimizer_kwargs = {"method": "L-BFGS-B", "callback": callback}
-    result = opt.basinhopping(training_QNN, init_pars, niter=hopping_iters, minimizer_kwargs=minimizer_kwargs, callback=callback_hopping)
-    print(f'Total training time: {time.time() - training_start} seconds')
-    
-    print(f'\nOPTIMIZATION ERROR FOR N={N}, L={layers}')
-    print(result.fun)
-    
-    qnn.build_QNN(result.x)
-
-    qnn.print_qnn()
-    print(qnn.qnn_profiling.avg_benchmark())
-    
-    if save:
-        qnn.qnn_profiling.clear_times()
-        qnn.save_model(qnn.model_name + ".txt")
-        
-    if best_loss_values[0] == 9999:
-        best_loss_values = best_loss_values[1:]
-        best_validation_loss = best_validation_loss[1:]
-    
-    return qnn, best_loss_values, best_validation_loss
-
-def train_entanglement_witness(name, N, layers, n_inputs, n_outputs, photon_additions, observable, hopping_iters=2, in_preprocs=[], out_prepocs=[], postprocs=[], init_pars=None, save=True):
-    n_pars = layers*(2*N**2 + 3*N)
-    init_pars = np.random.rand(n_pars + N + 1) # TODO: Consider parameterize momentum too
-    
-    qnn = QNN("model_N" + str(N) + "_L" + str(layers) + "_" + name, N, layers, n_inputs, n_outputs, photon_additions, observable)
-    
-    def callback(xk):
-        '''
-        Prints and stores the MSE error value for each QNN training epoch.
-        
-        :param xk: QONN tunable parameters
-        '''
-        e = train_witness(xk)
-        print(f'Witness expected value: {e}')
-        loss_values.append(e)
-        
-    def callback_hopping(x,f,accept):
-        '''
-        Prints the best Basinhopping error achieved so far and the current one. 
-        If the current error is less than the best one so far, it substitutes the best loss values.
-        
-        :param x: QONN tunable parameters
-        :param f: Current Basinhopping error achieved
-        :param accept: Determines whether the current error achieved is accepted (stopping iterations)
-        '''
-        global best_loss_values
-        global loss_values
-        print(f"Best basinhopping iteration value: {best_loss_values[-1]}")
-        print(f"Current basinhopping iteration value: {f}\n==========\n")
-        if best_loss_values[-1] > loss_values[-1]:# and best_loss_values[-1] > loss_values[-1]:
-            best_loss_values = loss_values.copy()
-        loss_values = [9999]
-    
-    global best_loss_values
-    best_loss_values = [9999]
-    global loss_values
-    loss_values = [9999]
-    
-    train_witness = partial(qnn.train_ent_witness)
-    
-    training_start = time.time()
-    minimizer_kwargs = {"method": "L-BFGS-B", "callback": callback}
-    result = opt.basinhopping(train_witness, init_pars, niter=hopping_iters, minimizer_kwargs=minimizer_kwargs, callback=callback_hopping)
-    print(f'Total training time: {time.time() - training_start} seconds')
-    
-    print(f'\nOPTIMIZED ENTANGLEMENT WITNESS VALUE FOR N={N}, L={layers}')
-    print(result.fun)
-    
-    qnn.build_QNN(result.x)
-    qnn.print_qnn()
-    print(qnn.qnn_profiling.avg_benchmark())
-    
-    if save:
-        qnn.qnn_profiling.clear_times()
-        qnn.save_model(qnn.model_name + ".txt")
-        
-    if best_loss_values[0] == 9999:
-        best_loss_values = best_loss_values[1:]
-    
-    return qnn, best_loss_values
