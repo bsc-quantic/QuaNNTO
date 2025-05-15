@@ -48,7 +48,7 @@ def build_and_train_model(name, N, layers, n_inputs, n_outputs, photon_additions
             assert len(init_pars) == layers*(2*N**2 + 3*N) + aux_pars
     
     passive_bounds = (None, None)
-    sqz_bounds = (np.log(0.2), np.log(5))
+    sqz_bounds = (np.log(0.1), np.log(10))
     disp_bounds = (-2/np.sqrt(2), 2/np.sqrt(2))
     bounds = []
     for _ in range(layers):
