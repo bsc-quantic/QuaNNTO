@@ -17,8 +17,58 @@ def hermitian_matrix(m, N):
             mat[j,i] = mat[i,j] = m[c]
             c+=1
     return mat
-            
+
+def general_hermitian_matrix(pars, N):
+    '''
+    Builds a general NxN complex hermitian matrix based on 
+    the input N² parameters.
     
+    :param pars: Vector of N² parameters
+    :param N: Matrix dimension
+    :return: Hermitian matrix
+    '''
+    c = 0
+    offdiag_size = int((N-1)*N/2)
+    offreal = pars[:offdiag_size]
+    offim = pars[offdiag_size : 2*offdiag_size]
+    diag = pars[2*offdiag_size : 2*offdiag_size + N]
+    mat = np.zeros((N,N), dtype='complex')
+    for i in range(0,N):
+        for j in range(i,N):
+            if i==j:
+                mat[i,i] = diag[i]
+            else:
+                mat[i,j] = offreal[c] + 1j*offim[c]
+                mat[j,i] = offreal[c] - 1j*offim[c]
+                c += 1
+    return mat
+
+def givens_rotation(N, i, j, theta, phi):
+    """Construct a Givens rotation matrix."""
+    G = np.eye(N, dtype=complex)
+    G[i, i] = np.cos(theta) * np.exp(1j * phi)
+    G[j, j] = np.cos(theta)
+    G[i, j] = -np.sin(theta)
+    G[j, i] = np.sin(theta) * np.exp(1j * phi)
+    return G
+
+def build_general_unitary(N, params):
+    """Build an NxN unitary matrix using Givens rotations and phase shifts."""
+    assert len(params) == N**2, f"Expected {N**2} parameters, got {len(params)}."
+    U = np.eye(N, dtype=complex)
+    idx = 0
+    # Apply Givens rotations
+    for i in range(N):
+        for j in range(i + 1, N):
+            theta = params[idx]
+            phi = params[idx + 1]
+            G = givens_rotation(N, i, j, theta, phi)
+            U = G @ U  # Multiply on the left
+            idx += 2
+    # Apply phase shifts on the diagonal
+    phases = np.exp(1j * params[idx:idx + N])
+    U = U @ np.diag(phases)
+    return U
 
 def unitary_from_hermitian(H):
     '''
@@ -88,25 +138,24 @@ class CanonicalLadderTransformations:
 def check_symp_orth(SO):
     '''
     Verifies the symplectic and the orthogonal conditions on the input matrix.
-
     :param SO: Matrix to be verified
     '''
     N = int(len(SO)/2)
     X_prime = SO[0:N, 0:N]
     Y_prime = SO[0:N, N:]
     cond_1_prime = X_prime@Y_prime.T - Y_prime@X_prime.T
-    print(f'Symplecticity condition:')
-    print(np.allclose(cond_1_prime, np.zeros((N, N))))
-
+    print(f'Symplecticity condition: {cond_1_prime}')
+    print(np.allclose(np.round(cond_1_prime, 4), np.zeros((N, N))))
+    
     cond_2_prime = X_prime@X_prime.T + Y_prime@Y_prime.T
-    print(f'Orthogonality condition:')
-    print(np.allclose(cond_2_prime, np.eye(N)))
+    print(f'Orthogonality condition: {cond_2_prime}')
+    print(np.allclose(np.round(cond_2_prime, 4), np.eye(N)))
     print()
     
 def check_det_and_positive(V):
     '''
     Checks if the input (covariance) matrix is positive and prints its determinant.
-
+    
     :param V: (Covariance) matrix to be verified
     '''
     print('Covariance matrix determinant:')
@@ -118,12 +167,12 @@ def check_uncertainty_pple(V):
     '''
     Checks if the input (covariance) matrix obeys the uncertainty principle printing 
     the eigenvalues of the uncertainty principle matrix.
-
+    
     :param V: (Covariance) matrix to be verified
     '''
-    i_J = 1j*create_J(int(len(V)/2))
+    i_J = 0.5j*create_J(int(len(V)/2)) # Normalized symplectic form in xxpp
     uncert_eigvals = LA.eigvals(V + i_J)
     print('V + iJ >= 0: ')
     print(np.all(np.around(uncert_eigvals, decimals=4) >= 0))
     print('Eigenvalues:')
-    print(uncert_eigvals)
+    print(np.around(uncert_eigvals, decimals=4))

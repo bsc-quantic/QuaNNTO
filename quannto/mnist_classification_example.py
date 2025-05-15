@@ -1,64 +1,130 @@
 from functools import partial
+import matplotlib.pyplot as plt
+import numpy as np
+import seaborn as sns
+from sklearn.metrics import confusion_matrix
+import os.path
 
-from .qnn import test_model, build_and_train_model
+from .qnn_trainers import build_and_train_model
 from .synth_datasets import *
 from .results_utils import *
 from .data_processors import *
+from .loss_functions import *
 
 # === HYPERPARAMETERS DEFINITION ===
-N = 6
+N = 4
+photon_additions = [0]
 layers = 1
-observable_modes = [[0,0]]
-observable_types = [[1,0]]
-is_input_reupload = True
-n_inputs = 6
-n_outputs = 1
+is_input_reupload = False
+n_inputs = 2
+n_outputs = 4
+observable = 'position'
+in_norm_range = (-2, 2)
+out_norm_range = (1, 5)
+loss_function = cross_entropy
+basinhopping_iters = 0
 
-num_categories = 10
-dataset_size = 150
-output_range = (0, 9)
-in_norm_range = (0.15, 6)
-out_norm_range = (1, 10)
+# === DATASET SETTINGS ===
+categories = [0, 1, 2, 3]
+num_cats = len(categories)
+dataset_size = 30*num_cats
+validset_size = 80
+testset_size = 80
+model_name = f"mnist_encoded_{N}modes_{n_inputs}lat_{num_cats}cats_{observable}_ph{len(photon_additions)}"
 
-model_name = "mnist_encoded"
-testing_set_size = 100
-dataset = autoencoder_mnist(N)
+if os.path.isfile(f"datasets/mnist_encoding_{N}modes_{n_inputs}lat_{num_cats}cats_inputs.npy"):
+    with open(f"datasets/mnist_encoding_{N}modes_{n_inputs}lat_{num_cats}cats_inputs.npy", "rb") as f:
+        inputs = np.load(f)
+    with open(f"datasets/mnist_encoding_{N}modes_{n_inputs}lat_{num_cats}cats_outputs.npy", "rb") as f:
+        outputs = np.load(f)
+    dataset = [inputs, outputs]
+    data_ranges = np.array([(np.min(dataset[0][:,col]), np.max(dataset[0][:,col])) for col in range(len(dataset[0][0]))])
+else:
+    while True:
+        dataset = autoencoder_mnist(n_inputs, categories)
+        data_ranges = np.array([(np.min(dataset[0][:,col]), np.max(dataset[0][:,col])) for col in range(len(dataset[0][0]))])
+        if np.all(data_ranges[:,-1] > 0):
+            break
+    with open(f"datasets/mnist_encoding_{N}modes_{n_inputs}lat_{num_cats}cats_inputs.npy", "wb") as f:
+        np.save(f, dataset[0])
+    with open(f"datasets/mnist_encoding_{N}modes_{n_inputs}lat_{num_cats}cats_outputs.npy", "wb") as f:
+        np.save(f, dataset[1])
+    
+print("ENCODED INPUTS RANGE:")
+print(data_ranges)
+print(dataset)
+output_range = (0, 1)
+colors = ['red', 'fuchsia', 'blue', 'purple']
+for (cat, color) in zip(categories, colors):
+    subset = filter_dataset_categories(dataset[0], dataset[1], [cat])
+    print(f"SUBSET OF {cat}")
+    print(subset)
+    plt.plot(subset[0][0,:], subset[0][1,:], c=color, linestyle='dotted', label=cat)
+plt.grid(linestyle='--', linewidth=0.4)
+plt.legend()
+plt.show()
+#output_range = get_range(dataset[1])
+#print("LABELS RANGE:")
+#print(output_range)
 
 # === PREPROCESSORS AND POSTPROCESSORS ===
 in_preprocessors = []
-data_ranges = [(np.min(dataset[0][:,col]), np.max(dataset[0][:,col])) for col in range(len(dataset[0][0]))]
-print(data_ranges)
 in_preprocessors.append(partial(rescale_set_with_ranges, data_ranges=data_ranges, rescale_range=in_norm_range))
 
 out_preprocessors = []
 out_preprocessors.append(partial(rescale_data, data_range=output_range, scale_data_range=out_norm_range))
 
 postprocessors = []
-#postprocessors.append(partial(rescale_data, data_range=out_norm_range, scale_data_range=output_range))
-#postprocessors.append(partial(binning, data_range=out_norm_range, num_categories=num_categories))
-postprocessors.append(partial(np.round))
-postprocessors.append(partial(lambda x: x-1))
-#postprocessors.append(partial(np.floor))
 
 # === BUILD, TRAIN AND TEST QNN ===
-train_dataset = (dataset[0][:dataset_size], dataset[1][:dataset_size])
-
+train_dataset = (dataset[0][:dataset_size], one_hot_encoding(dataset[1][:dataset_size], num_cats))
+valid_dataset = (dataset[0][dataset_size : dataset_size+validset_size], one_hot_encoding(dataset[1][dataset_size : dataset_size+validset_size], num_cats))
+test_dataset = (dataset[0][dataset_size+validset_size:], one_hot_encoding(dataset[1][dataset_size+validset_size:], num_cats))
+test_outputs_cats = dataset[1][dataset_size+validset_size:]
+test_outputs_cats = test_outputs_cats.reshape((len(test_outputs_cats)))
 # Build the QNN and train it with the generated dataset
-qnn, loss = build_and_train_model(model_name, N, layers, n_inputs, n_outputs, observable_modes, observable_types, 
-                            is_input_reupload, train_dataset, in_preprocessors, out_preprocessors, postprocessors)
+qnn, train_loss, valid_loss = build_and_train_model(model_name, N, layers, n_inputs, n_outputs, photon_additions, observable, is_input_reupload, 
+                                                    train_dataset, valid_dataset, loss_function, basinhopping_iters, in_preprocessors, out_preprocessors, postprocessors)
 
-plt.plot(np.log(np.array(loss)+1), label=f'N={N}')
+plt.plot(np.log(np.array(train_loss)+1), c='red', label=f'Train loss N={N}')
+plt.plot(np.log(np.array(valid_loss)+1), c='red', linestyle='dashed', label=f'Validation loss N={N}')
 plt.ylim(bottom=0.0)
 plt.xlabel('Epochs')
 plt.ylabel('Logarithmic loss value')
 plt.title(f'LOGARITHMIC LOSS FUNCTIONS')
 plt.legend()
 plt.show()
+
 # Generate a linearly-spaced testing dataset of the target function and test the trained QNN
-test_dataset = (dataset[0][dataset_size : dataset_size+testing_set_size], dataset[1][dataset_size : dataset_size+testing_set_size])
-qnn_test_outputs = test_model(qnn, test_dataset)
-for (i,j) in zip(test_dataset[1], qnn_test_outputs):
-    print(f"Expected: {i} Obtained: {j}")
-accuracy = ((qnn_test_outputs - 1) == test_dataset[1]).sum()
-print(f"Accuracy: {accuracy}/{len(qnn_test_outputs)} = {accuracy/len(qnn_test_outputs)}")
-plot_qnn_testing(qnn, test_dataset[1], qnn_test_outputs)
+qnn_test_outputs = qnn.test_model(test_dataset, loss_function)
+qnn_test_prob_outs = softmax_discretization(qnn_test_outputs)
+qnn_test_cat_outs = greatest_probability(qnn_test_prob_outs)
+qnn_test_cat_outs = qnn_test_cat_outs.reshape((len(qnn_test_cat_outs)))
+
+accuracy = np.equal(qnn_test_cat_outs, test_outputs_cats).sum()
+print(f"Accuracy: {accuracy}/{len(qnn_test_cat_outs)} = {accuracy/len(qnn_test_cat_outs)}")
+plot_qnn_testing(qnn, test_outputs_cats, qnn_test_cat_outs)
+
+# Generate the confusion matrix
+cm = confusion_matrix(test_outputs_cats, qnn_test_cat_outs)
+
+# Normalize the confusion matrix
+cm_normalized = cm.astype('float') / cm.sum(axis=1)[:, np.newaxis]
+cm_total = cm.astype('float') / cm.sum()
+
+# Plotting the confusion matrix as a green heatmap with variable opacity
+plt.figure(figsize=(8, 6))
+sns.heatmap(cm_normalized, annot=True, fmt='.2f', cmap='Greens', alpha=cm_normalized)
+
+plt.title('Confusion Matrix')
+plt.xlabel('Predicted Label')
+plt.ylabel('True Label')
+plt.show()
+
+plt.figure(figsize=(8, 6))
+sns.heatmap(cm_total, annot=True, fmt='.2f', cmap='Greens', alpha=cm_normalized)
+
+plt.title('Confusion Matrix')
+plt.xlabel('Predicted Label')
+plt.ylabel('True Label')
+plt.show()

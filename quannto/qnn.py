@@ -1,10 +1,9 @@
 import numpy as np
 import time
 import jsonpickle
-from numba import njit, prange
 import time
-import scipy.optimize as opt
-from functools import partial, reduce
+from sympy import lambdify
+from functools import reduce
 
 from .utils import *
 from .expectation_value import *
@@ -18,10 +17,9 @@ class ProfilingQNN:
     Data structure containing the times for each part of the training process 
     of a QNN with a particular number of modes and layers.
     '''
-    def __init__(self, N, layers):#, num_observables):
+    def __init__(self, N, layers):
         self.N = N
         self.layers = layers
-        #self.num_observables = num_observables
         self.build_qnn_times = []
         self.input_prep_times = []
         self.gauss_times = []
@@ -29,7 +27,7 @@ class ProfilingQNN:
         self.ladder_superpos_times = []
         self.nongauss_times = []
 
-    def avg_times(self):
+    def avg_benchmark(self):
         self.avg_times = {}
         self.avg_times["Build QNN"] = sum(self.build_qnn_times)/len(self.build_qnn_times)
         self.avg_times["Input prep"] = sum(self.input_prep_times)/len(self.input_prep_times)
@@ -47,299 +45,398 @@ class ProfilingQNN:
         self.ladder_superpos_times = []
         self.nongauss_times = []
     
-
 class QNN:
     '''
     Class for continuous variables quantum (optics) neural network building, training, evaluation and profiling.
     '''
-    def __init__(self, model_name, N, layers, n_in, n_out, observable_modes, observable_types,
-                 is_input_reupload=False, in_preprocessors=[], out_preprocessors=[], postprocessors=[]):
-        # The number of modes N must be greater or equal to the number of inputs
+    def __init__(self, model_name, N, layers, n_in, n_out, photon_add=[0], observable='position', is_input_reupload=False,
+                 in_preprocessors=[], out_preprocessors=[], postprocessors=[]):
+        # The number of modes N must be greater or equal to the number of inputs and outputs
         assert N >= n_in
-        # The number of observables must be the same as the number of outputs
-        assert len(observable_modes) == len(observable_types) == n_out
+        assert N >= n_out
         
+        # QONN's architecture hyperparameters
         self.model_name = model_name
         self.N = N
         self.layers = layers
+        self.photon_add = photon_add
         self.n_in = n_in
         self.n_out = n_out
+        self.observable = observable
         self.in_preprocessors = in_preprocessors
         self.out_preprocessors = out_preprocessors
         self.postprocessors = postprocessors
         self.is_input_reupload = is_input_reupload
         
-        # Normalization expression related to a single photon addition on first mode for each QNN layer
-        self.ladder_modes_norm, self.ladder_types_norm = ladder_ops_trace_expression(N, layers)
-        self.perf_matchings_norm = np.array(perfect_matchings(len(self.ladder_modes_norm[0][0])), dtype='int')
-        
-        # Full trace expression including the photon additions and the observable to be measured
-        self.ladder_modes, self.ladder_types = include_observable(self.ladder_modes_norm[0], self.ladder_types_norm[0], observable_modes, observable_types)
-        self.perf_matchings = np.array(perfect_matchings(len(self.ladder_modes[0][0])), dtype='int')
-        
-        self.ladder_modes_norm, self.ladder_types_norm = np.array(self.ladder_modes_norm, dtype='int'), np.array(self.ladder_types_norm, dtype='int')
-        self.ladder_modes, self.ladder_types = np.array(self.ladder_modes, dtype='int'), np.array(self.ladder_types, dtype='int')
-        
-        self.u_bar = CanonicalLadderTransformations(N)
-        self.qnn_profiling = ProfilingQNN(N, layers)
-
-    def build_QNN(self, parameters):
-        self.tunable_parameters = np.copy(parameters)
-        self.set_parameters(parameters)
-        if not(self.is_input_reupload):
-            self.trace_coefs = self.non_gauss_symplectic_coefs()
-
-    def set_parameters(self, parameters):
+        # Symplectic matrix and displacement vectors for each layer
+        self.S_l = np.zeros((self.layers, 2*self.N, 2*self.N))
+        self.D_l = np.zeros((self.layers, 2*self.N))
+        # Bloch-Messiah decomposition of the symplectic matrix for each layer
         self.Q1_gauss = np.zeros((self.layers, 2*self.N, 2*self.N))
         self.Q2_gauss = np.zeros((self.layers, 2*self.N, 2*self.N))
         self.Z_gauss = np.zeros((self.layers, 2*self.N, 2*self.N))
-        self.G_l = np.zeros((self.layers, 2*self.N, 2*self.N))
+        # Concatenation of symplectic matrix and displacement vectors of each layer
+        self.S_concat = np.zeros((2*self.N, 2*self.layers*self.N), dtype='complex')
+        self.D_concat = np.zeros((2*self.layers*self.N))
+        # Final Gaussian transformation when commuting with photon additions (product of all Gaussians)
         self.G = np.eye(2*self.N)
         
+        # Quadratures - Fock space transformation utils
+        self.u_bar = CanonicalLadderTransformations(N)
+        
+        # Benchmarking utils for QONN training
+        self.qnn_profiling = ProfilingQNN(N, layers)
+        
+        # Observable constant coefficient
+        self.trace_const = 1 if observable=='number' else (1/np.sqrt(2)) if observable=='position' else (1j/np.sqrt(2)) if observable=='momentum' else 0
+        
+        # Full expectation value expression of the wavefunction (photon additions + observable to be measured)
+        self.trace_expr = complete_trace_expression(self.N, layers, photon_add, self.n_out, include_obs=True, obs=observable)
+        # Normalization expression of the wavefunction related to photon additions
+        self.norm_trace_expr = complete_trace_expression(self.N, layers, photon_add, self.n_out, include_obs=False)
+        
+        # Extract ladder operators terms from expectation value expression
+        self.modes, self.types = [], []
+        for outs in range(len(self.trace_expr)):
+            modes, types = extract_ladder_expressions(self.trace_expr[outs])
+            self.modes.append(modes)
+            self.types.append(types)
+        self.np_modes, self.lens_modes = to_np_array(self.modes)
+        self.np_types, self.lens_types = to_np_array(self.types)
+        
+        # Extract ladder operators terms from normalization expression
+        modes_norm, types_norm = extract_ladder_expressions(self.norm_trace_expr)
+        self.modes_norm, self.types_norm = [modes_norm], [types_norm]
+        self.np_modes_norm, self.lens_modes_norm = to_np_array(self.modes_norm)
+        self.np_types_norm, self.lens_types_norm = to_np_array(self.types_norm)
+        
+        # Compute all needed loop perfect matchings for the Wick's expansion of the trace expression
+        max_lpms = np.max(self.lens_modes)
+        self.lpms = [to_np_array([loop_perfect_matchings(lens)]) for lens in range(2, max_lpms+1)]
+        if len(self.lpms) == 0:
+            self.lpms = [to_np_array([loop_perfect_matchings(2)])]
+        self.np_lpms = nb.typed.List([lpms for (lpms, _) in self.lpms])
+        self.lens_lpms = nb.typed.List([lens for (_, lens) in self.lpms])
+        
+        # Remove all ladder operators from symbolic expressions of the trace and normalization
+        a = symbols(f'a0:{N}', commutative=False)
+        c = symbols(f'c0:{N}', commutative=False)
+        ladder_subs = {c[i]: 1 for i in range(self.N)}
+        ladder_subs.update({a[i]: 1 for i in range(self.N)})
+        
+        self.unnorm_expr_terms_out = []
+        for outs in range(len(self.trace_expr)):
+            unnorm_expr_terms = list(self.trace_expr[outs].args) if (len(photon_add) > 0 or (observable!='number' and observable!='witness')) else list(self.trace_expr[outs].args[1:])
+            unnorm_subs_expr_terms = []
+            for term in unnorm_expr_terms:
+                new_term = term.subs(ladder_subs)
+                unnorm_subs_expr_terms.append(new_term)
+            self.unnorm_expr_terms_out.append(unnorm_subs_expr_terms)
+        print(f"Trace terms per output: {len(self.unnorm_expr_terms_out[0])}")
+        
+        norm_expr_terms = list(self.norm_trace_expr.args)
+        self.norm_subs_expr_terms = []
+        for norm_term in norm_expr_terms:
+            new_term = norm_term.subs(ladder_subs)
+            self.norm_subs_expr_terms.append(new_term)
+        print(f"Normalization factor terms: {len(self.norm_subs_expr_terms)}")
+        
+        d = symbols(f'r0:{layers*N}', commutative=True)
+        d_conj = symbols(f'i0:{layers*N}', commutative=True)
+        dim = 2*N
+        S_r = MatrixSymbol('S_r', dim, layers*dim)
+        S_i = MatrixSymbol('S_i', dim, layers*dim)
+        
+        # Compile trace expression terms with respect to symplectic and displacement parameters
+        t1 = time.time()
+        self.nb_num_unnorm = []
+        for outs in range(len(self.unnorm_expr_terms_out)):
+            self.nb_num_unnorm.append([nb.njit(lambdify((S_r, S_i, d, d_conj), unnorm_trm, modules='numpy')) for unnorm_trm in self.unnorm_expr_terms_out[outs]])
+        t2 = time.time()
+        print(f"Time to lambdify unnormalized terms: {t2-t1}")
+        self.nb_num_norm = [nb.njit(lambdify((S_r, S_i, d, d_conj), norm_trm, modules='numpy')) for norm_trm in self.norm_subs_expr_terms]
+        t3 = time.time()
+        print(f"Time to lambdify normalization terms: {t3-t2}")
+        
+    def build_symp_orth_mat(self, parameters):
+        '''
+        Creates a symplectic-orthogonal (unitary) matrix with the complex exponential 
+        of the most general Hermitian matrix built by N**2 parameters.
+        
+        :param parameters: Parameters to create the Hermitian matrix for the final SO matrix
+        :return: Symplectic-orthogonal matrix made to be applied over the quadratures of the system
+        '''
+        H = general_hermitian_matrix(parameters, self.N)
+        U = unitary_from_hermitian(H)
+        return np.real_if_close(self.u_bar.to_canonical_op(U))
+        
+    def build_quadratic_gaussians(self, parameters, current_par_idx):
+        '''
+        Builds the symplectic-orthogonal matrices, Q1 and Q2 (passive optics), 
+        and the diagonal symplectic matrix, Z (squeezing), of each QONN layer 
+        given the vector of tunable parameters.
+        
+        :param parameters: Vector of all QONN trainable parameters
+        :param current_par_idx: Index of the last unused parameter in the vector
+        :return: (Q1, Z, Q2, last unused parameter vector index)
+        '''
+        # Build passive-optics Q1 and Q2 for the Gaussian transformation
+        Q1 = self.build_symp_orth_mat(parameters[current_par_idx : current_par_idx + self.N**2])
+        current_par_idx += self.N**2        
+        Q2 = self.build_symp_orth_mat(parameters[current_par_idx : current_par_idx + self.N**2])
+        current_par_idx += self.N**2
+        
+        # Build squeezing diagonal matrix Z
+        sqz_parameters = np.e**np.abs(parameters[current_par_idx : current_par_idx + self.N])
+        sqz_inv = 1.0/sqz_parameters
+        Z = np.diag(np.concatenate((sqz_parameters, sqz_inv)))
+        current_par_idx += self.N
+        
+        return Q1, Z, Q2, current_par_idx
+
+    def build_QNN(self, parameters):
+        '''
+        Fills the QONN numerical components using the vector of tunable parameters.
+        
+        :param parameters: Vector of trainable parameters
+        '''
+        self.tunable_parameters = np.copy(parameters)
+        S_dim = 2*self.N
+        self.G = np.eye(S_dim)
         current_par_idx = 0
+        for l in range(self.layers-1, -1, -1):
+            # Build symplectic-orthogonal (unitary) matrices and diagonal symplectic matrix
+            self.Q1_gauss[l], self.Z_gauss[l], self.Q2_gauss[l], current_par_idx = self.build_quadratic_gaussians(parameters, current_par_idx)
+
+            # Build final quadratic Gaussian transformation
+            self.S_l[l] = self.Q2_gauss[l] @ self.Z_gauss[l] @ self.Q1_gauss[l]
+            self.G = self.S_l[l] @ self.G
+            # Build concatenated symplectic matrices in Fock space for trace expressions' coefficients
+            self.S_concat[:, l*S_dim:(l+1)*S_dim] = self.u_bar.to_ladder_op(self.G)
+            
+            # Build displacements (linear Gaussian)
+            if not self.is_input_reupload:
+                self.D_l[l] = np.sqrt(2) * parameters[current_par_idx : current_par_idx + 2*self.N]
+                current_par_idx += 2*self.N
+                if l == (self.layers - 1):
+                    self.D_concat[l*S_dim:(l+1)*S_dim] = self.D_l[l].copy()
+                else:
+                    self.D_concat[l*S_dim:(l+1)*S_dim] = self.D_l[l] + self.S_l[l] @ self.D_concat[(l+1)*S_dim:(l+2)*S_dim]
+        if self.observable == 'witness':
+            self.trace_const = np.array([1, 1, parameters[current_par_idx]])
+            current_par_idx += 1
+    
+    def build_reuploading_disp(self, inputs):
+        '''
+        Substitutes the displacement operators of all QONN layers by the input values
+        when the input reuploading is enabled in the QONN.
+        
+        :param inputs: Inputs to be re-uploaded in the displacement operators 
+        '''
+        S_dim = 2*self.N
+        for l in range(self.layers-1, -1, -1):
+            self.D_l[l, 0:len(inputs)] = np.sqrt(2) * inputs
+            if l == (self.layers - 1):
+                self.D_concat[l*S_dim:(l+1)*S_dim] = self.D_l[l].copy()
+            else:
+                self.D_concat[l*S_dim:(l+1)*S_dim] = self.D_l[l] + self.S_l[l] @ self.D_concat[(l+1)*S_dim:(l+2)*S_dim]
+        
+    def apply_linear_gaussian(self, D):
+        '''
+        Transforms the means vector of the Gaussian state by adding 
+        the corresponding linear gaussian to it.
+        
+        :param D: Vector of displacements of the system's quadratures
+        '''
+        self.mean_vector[0:len(D)] += D
+        
+    def apply_quadratic_gaussian(self, G):
+        '''
+        Transforms the means vector and the covariance matrix of the Gaussian state 
+        given a quadratic Gaussian operator.
+        
+        :param G: Symplectic matrix of a quadratic Gaussian operator to be applied
+        '''
+        self.V = G @ self.V @ G.T
+        self.mean_vector = G @ self.mean_vector
+        
+    def apply_gaussian_transformations(self):
+        '''
+        Applies all Gaussian transformations of the QONN to the initial quantum state.
+        '''
         for l in range(self.layers):
-            # Build passive-optics Q1 and Q2 for the Gaussian transformation
-            #H = hermitian_matrix(parameters[current_par_idx : current_par_idx + self.N**2].reshape((self.N, self.N)))
-            H = hermitian_matrix(parameters[current_par_idx : current_par_idx + ((self.N**2 + self.N) // 2)], self.N)
-            U = unitary_from_hermitian(H)
-            self.Q1_gauss[l] = np.real_if_close(self.u_bar.to_canonical_op(U))
-            #current_par_idx += self.N**2
-            current_par_idx += ((self.N**2 + self.N) // 2)
-            
-            #H = hermitian_matrix(parameters[current_par_idx : current_par_idx + self.N**2].reshape((self.N, self.N)))
-            H = hermitian_matrix(parameters[current_par_idx : current_par_idx + ((self.N**2 + self.N) // 2)], self.N)
-            U = unitary_from_hermitian(H)
-            self.Q2_gauss[l] = np.real_if_close(self.u_bar.to_canonical_op(U))
-            #current_par_idx += self.N**2
-            current_par_idx += ((self.N**2 + self.N) // 2)
-            
-            if not(self.is_input_reupload):
-                # Build squeezing diagonal matrix Z
-                sqz_parameters = np.abs(parameters[current_par_idx : current_par_idx + self.N])
-                sqz_inv = 1.0/sqz_parameters
-                self.Z_gauss[l] = np.diag(np.concatenate((sqz_parameters, sqz_inv)))
-                current_par_idx += self.N
+            self.apply_quadratic_gaussian(self.S_l[l])
+            self.apply_linear_gaussian(self.D_l[l])
 
-                # Build final Gaussian transformation
-                self.G_l[l] = self.Q2_gauss[l] @ self.Z_gauss[l] @ self.Q1_gauss[l]
-                self.G = self.G_l[l] @ self.G
-        
-    def squeezing_operator(self, input):
-        r = np.ones(self.N)
-        r[0:len(input)] = input
-        r_inv = 1.0/r
-        return np.diag(np.concatenate((r, r_inv)))
-
-    def gaussian_transformation(self):
-        self.final_gauss_state = self.G @ self.initial_gauss_state @ self.G.T
-        
-    def gaussian_transf_is_input_reupload(self, Z_input):
-        self.final_gauss_state = self.initial_gauss_state
+    def build_disp_coefs(self):
+        '''
+        Creates the complex vector of displacements of each mode from the displacement parameters.
+        '''
+        d = np.zeros((self.layers * self.N), dtype='complex')
         for l in range(self.layers):
-            self.G_l[l] = self.Q2_gauss[l] @ Z_input @ self.Q1_gauss[l]
-            self.final_gauss_state = self.G_l[l] @ self.final_gauss_state @ self.G_l[l].T
+            for i in range(self.N):
+                d[l*self.N + i] = self.D_concat[l*2*self.N + i] + 1j*self.D_concat[l*2*self.N + self.N+i]
+        return d
+    
+    def compute_coefficients(self):
+        '''
+        Calculates the coefficients related to each term in the trace and the normalization expressions
+        that appear after the commutation of the non-Gaussian operators 
+        using the displacement and the symplectic coefficients of the Gaussian operators.
+        '''
+        # Build displacement complex vector & its conjugate
+        d_r = self.build_disp_coefs()
+        d_i = np.conjugate(d_r)
+        # Transform symplectic matrix to ladder basis & compute its transpose conjugate
+        S_r = self.S_concat
+        S_i = np.conjugate(S_r)
         
-    def non_gauss_symplectic_coefs(self):
-        self.S_commutator = np.zeros((self.layers, 2*self.N, 2*self.N))
+        # Values of normalization terms
+        norm_vals = np.zeros((len(self.nb_num_norm)), dtype='complex')
+        for idx in range(len(self.modes_norm[0])):
+            norm_vals[idx] = self.nb_num_norm[idx](S_r, S_i, d_r, d_i)
         
-        self.S_commutator[self.layers - 1] = np.copy(self.G_l[self.layers - 1])
-        for l in range(self.layers-2, -1, -1):
-            self.S_commutator[l] = self.S_commutator[l + 1] @ self.G_l[l]
-            
-        return get_symplectic_coefs(self.N, self.S_commutator, self.ladder_modes_norm, self.ladder_types_norm)
-
-    @njit
-    def exp_val_non_gaussianity(ladder_modes, ladder_types, perf_matchings,
-                                ladder_modes_norm, ladder_types_norm, perf_matchings_norm, 
-                                trace_coefs, K_exp_vals):
-        # 1. Calculates the expectation value
-        unnorm_exp_val = np.zeros((len(ladder_modes)), dtype='complex')
-        for i in prange(len(ladder_modes)):
-            for j in prange(len(ladder_modes[i])):
-                # Always row 0 because the photon addition is on the first mode
-                unnorm_exp_val[i] += trace_coefs[0,j] * ladder_exp_val(
-                    perf_matchings, ladder_modes[i][j], ladder_types[i][j], K_exp_vals
-                )
-                
-        # 2. Calculates the normalization factor of the expectation value
-        if ladder_modes_norm.size == 0:
-            exp_val_norm = np.ones((len(ladder_modes)), dtype='complex')
-        else:
-            exp_val_norm = np.zeros((len(ladder_modes)), dtype='complex')
-            for i in prange(len(ladder_modes_norm)):
-                for j in prange(len(ladder_modes_norm[i])):
-                    exp_val_norm[i] += trace_coefs[0,j] * ladder_exp_val(
-                        perf_matchings_norm, ladder_modes_norm[i][j], ladder_types_norm[i][j], K_exp_vals
-                    )
-            for i in prange(len(ladder_modes)):
-                exp_val_norm[i] = exp_val_norm[0]
-                
-        return unnorm_exp_val/exp_val_norm
-
+        # Values of trace terms
+        trace_vals = np.zeros((len(self.nb_num_unnorm), len(self.nb_num_unnorm[0])), dtype='complex')
+        for out_idx in range(len(self.modes)):
+            for idx in range(len(self.modes[out_idx])):
+                trace_vals[out_idx, idx] = self.nb_num_unnorm[out_idx][idx](S_r, S_i, d_r, d_i)
+        return trace_vals, norm_vals
+    
     def eval_QNN(self, input):
-        # 1. Prepare initial state: build the squeezing operator used for input encoding
+        '''
+        Evaluates the QONN for a given input.
+        
+        :param input: Input to be predicted by the QONN
+        :return: EXpectation values of the observables related to QONN outputs
+        '''
+        # 1. Prepare initial state: initial vacuum state displaced according to the inputs
         input_prep_start = time.time()
-        Z_input = self.squeezing_operator(input)
-        self.initial_gauss_state = Z_input**2
+        self.V = 0.5*np.eye(2*self.N)
+        self.mean_vector = np.zeros(2*self.N)
+        self.apply_linear_gaussian(np.sqrt(2) * input)
+        # 1.1. When using input reuploading: build displacement with inputs
+        if self.is_input_reupload:
+            self.build_reuploading_disp(input)
         self.qnn_profiling.input_prep_times.append(time.time() - input_prep_start)
 
-        # 2. Apply the Gaussian transformation -> Weight matrix in ANN
+        # 2. Apply the Gaussian transformation acting as weights matrix and bias vector
         gauss_start = time.time()
-        self.gaussian_transf_is_input_reupload(Z_input) if self.is_input_reupload else self.gaussian_transformation()
+        self.apply_gaussian_transformations()
         self.qnn_profiling.gauss_times.append(time.time() - gauss_start)
         
         # 3. Compute the expectation values of all possible ladder operators pairs over the final Gaussian state
         K_exp_vals_start = time.time()
-        K_exp_vals = compute_K_exp_vals(self.final_gauss_state)
+        K_exp_vals = compute_K_exp_vals(self.V, self.mean_vector)
         self.qnn_profiling.K_exp_vals_times.append(time.time() - K_exp_vals_start)
 
-        # 4. When using input reuploading: build the symplectic coefficients for ladder operators' superposition
+        # 4. Compute coefficients for trace expression and normalization terms
         ladder_superpos_start = time.time()
-        if self.is_input_reupload:
-            self.trace_coefs = self.non_gauss_symplectic_coefs()
+        terms_coefs, norm_coefs = self.compute_coefficients()
         self.qnn_profiling.ladder_superpos_times.append(time.time() - ladder_superpos_start)
-
-        # 5. Compute the observables' normalized expectation value of the non-Gaussianity applied to the final Gaussian state
+        
+        # 5. Compute the expectation values acting as outputs
         nongauss_start = time.time()
-        norm_exp_val = QNN.exp_val_non_gaussianity(self.ladder_modes, self.ladder_types, self.perf_matchings, 
-                                                   self.ladder_modes_norm, self.ladder_types_norm, self.perf_matchings_norm,
-                                                   self.trace_coefs, K_exp_vals)
+        norm_exp_val = compute_exp_val_loop(self.N, terms_coefs, norm_coefs,
+                                            self.np_modes, self.np_types, self.lens_modes,
+                                            self.np_modes_norm, self.np_types_norm, self.lens_modes_norm, 
+                                            self.np_lpms, K_exp_vals, self.mean_vector)
         self.qnn_profiling.nongauss_times.append(time.time() - nongauss_start)
         
-        return np.real_if_close(norm_exp_val, tol=1e6)
+        return self.trace_const * np.real_if_close(norm_exp_val, tol=1e6)
 
-    def train_QNN(self, parameters, inputs_dataset, outputs_dataset):
+    def train_QNN(self, parameters, inputs_dataset, outputs_dataset, loss_function):
+        '''
+        Evaluates all dataset items with the QONN current state and computes the loss function 
+        values for each item. This function is the one to be minimized and refers to one epoch.
+        
+        :param parameters: QONN tunable parameters
+        :param inputs_dataset: Inputs of the dataset to be learned
+        :param outputs_dataset: Outputs to be learned
+        :param loss_function: Function to evaluate the loss of the QONN predictions
+        :return: Losses of the QONN predictions
+        '''
         build_start = time.time()
         self.build_QNN(parameters)
         self.qnn_profiling.build_qnn_times.append(time.time() - build_start)
         
         shuffle_indices = np.random.permutation(len(inputs_dataset))
-        mse = 0
+        qnn_outputs = np.full_like(outputs_dataset, 0)
         for dataset_idx in shuffle_indices:
-            qnn_outputs = self.eval_QNN(inputs_dataset[dataset_idx])
-            #qnn_outputs = reduce(lambda x, func: func(x), self.postprocessors, qnn_outputs)
-            mse += ((outputs_dataset[dataset_idx] - qnn_outputs)**2).sum()
-        """ for inputs, outputs in zip(inputs_dataset, outputs_dataset):
-            qnn_outputs = self.eval_QNN(inputs)
-            mse += ((outputs - qnn_outputs)**2).sum() """
-        return mse/len(inputs_dataset)
+            qnn_outputs[dataset_idx] = self.eval_QNN(inputs_dataset[dataset_idx])
+        return loss_function(outputs_dataset, qnn_outputs)
+    
+    def train_ent_witness(self, parameters):
+        '''
+        Tunes the QONN parameters in order to minimize an entanglement witness 
+        aiming for maximally entangled states.
+        
+        :param parameters: QONN tunable parameters
+        :return: Entanglement witness expectation value
+        '''
+        #input_disp = parameters[0:self.N] # TODO: Consider parameterize momentum too
+        
+        build_start = time.time()
+        self.build_QNN(parameters)
+        self.qnn_profiling.build_qnn_times.append(time.time() - build_start)
+        
+        witness_vals = self.eval_QNN(parameters[-self.N:])
+        #print("VAL")
+        #print(witness_vals[0] - witness_vals[1]*witness_vals[2])
+        #self.print_qnn()
+        
+        return -(witness_vals[0] - witness_vals[1]*witness_vals[2])
     
     def print_qnn(self):
+        '''
+        Prints all QONN items needed to physically build it.
+        '''
+        print(f"PARAMETERS:\n{self.tunable_parameters}")
         for layer in range(self.layers):
-            print(f"Layer {layer+1}:\nQ1 = {self.Q1_gauss[layer]}\nZ = {self.Z_gauss[layer] if not(self.is_input_reupload) else None}\nQ2 = {self.Q2_gauss[layer]}")
+            print(f"=== LAYER {layer+1} ===\nQ1 = {self.Q1_gauss[layer]}\nZ = {self.Z_gauss[layer]}\nQ2 = {self.Q2_gauss[layer]}")
+            print(f"Symplectic matrix:\n{self.S_l[layer]}")
+            if not self.is_input_reupload:
+                print(f"Displacement vector:\n{self.D_l[layer]}")
+            print(f"Symplectic coefficients:\n{self.S_concat[:,layer*2*self.N : (layer+1)*2*self.N]}")
+            if not self.is_input_reupload:
+                print(f"Displacement coefficients:\n{self.D_concat[layer*2*self.N : (layer+1)*2*self.N]}")
         
+    def test_model(self, testing_dataset, loss_function):
+        '''
+        Makes predictions of the given QNN using the input testing dataset.
+        
+        :param qnn: QNN to be tested
+        :param testing_dataset: List of inputs and outputs to be tested
+        :param loss_function: Loss function to compute the testing set losses
+        :return: QNN predictions of the testing set
+        '''
+        test_inputs = reduce(lambda x, func: func(x), self.in_preprocessors, testing_dataset[0])
+        test_outputs = reduce(lambda x, func: func(x), self.out_preprocessors, testing_dataset[1])
+        
+        #error = np.zeros((len(testing_dataset[1]), len(testing_dataset[1][0])))
+        qnn_outputs = np.full_like(test_outputs, 0)
+        
+        # Evaluate all testing set
+        for k in range(len(test_inputs)):
+            qnn_outputs[k] = self.eval_QNN(test_inputs[k])
+        mean_error = loss_function(test_outputs, qnn_outputs)
+        print(f"LOSS VALUE FOR TESTING SET: {mean_error}")
+        
+        return reduce(lambda x, func: func(x), self.postprocessors, qnn_outputs)
+    
     def save_model(self, filename):
         f = open("models/"+filename, 'w')
         f.write(jsonpickle.encode(self))
         f.close()
-    
-def load_model(filename):
-    with open(filename, 'r') as f:
-        qnn_str = jsonpickle.decode(f.read())
-    return qnn_str
-    
-def test_model(qnn, testing_dataset):
-    '''
-    Makes predictions of the given QNN using the input testing dataset.
-    
-    :param qnn: QNN to be tested
-    :param testing_dataset: List of inputs and outputs to be tested
-    :return: QNN predictions of the testing set
-    '''
-    test_inputs = reduce(lambda x, func: func(x), qnn.in_preprocessors, testing_dataset[0])
-    test_outputs = reduce(lambda x, func: func(x), qnn.out_preprocessors, testing_dataset[1])
-    
-    error = np.zeros((len(testing_dataset[1]), len(testing_dataset[1][0])))
-    qnn_outputs = np.zeros((len(testing_dataset[1]), len(testing_dataset[1][0])))
-    
-    # Evaluate all testing set
-    for k in range(len(test_inputs)):
-        qnn_outputs[k] = np.real_if_close(qnn.eval_QNN(test_inputs[k]))
-        error[k] = ((test_outputs[k] - qnn_outputs[k])**2).sum()
-    mean_error = error.sum()/(len(error)*len(test_outputs[0]))
-    print(f"MSE: {mean_error}")
-    """for (i,j) in zip(test_outputs, qnn_outputs):
-        print(f"Expected: {i} Obtained: {j}")"""
-    
-    return reduce(lambda x, func: func(x), qnn.postprocessors, qnn_outputs)
-    
-def build_and_train_model(name, N, layers, n_inputs, n_outputs, observable_modes, observable_types,
-                          is_input_reupload, dataset, in_preprocs=[], out_prepocs=[], postprocs=[], init_pars=None, save=True):
-    '''
-    Creates and trains a QNN model with the given hyperparameters and dataset by optimizing the 
-    tunable parameters of the QNN.
-    
-    :param name: Name of the model
-    :param N: Number of neurons per layer (modes of the quantum system)
-    :param layers: Number of layers
-    :param observable_modes: Observable operator modes
-    :param observable_types: Observable operator ladder types
-    :param is_input_reupload: Boolean determining whether the model has input reuploading
-    :param dataset: List of inputs and outputs to be learned
-    :param init_pars: Initialization parameters for the QNN
-    :param save: Boolean determining whether to save the model (default=True)
-    :return: Trained QNN model
-    '''
-    if init_pars == None:
-        #init_pars = np.random.rand(layers*(2*N**2)) if is_input_reupload else np.random.rand(layers*(2*N**2 + N))
-        init_pars = np.random.rand(layers*2*((N**2 + N) // 2)) if is_input_reupload else np.random.rand(layers*(2*((N**2 + N) // 2) + N))
-    else:
-        if is_input_reupload:
-            #assert len(init_pars) == layers*(2*N**2)
-            assert len(init_pars) == layers*2*((N**2 + N) // 2)
-        else:
-            #assert len(init_pars) == layers*(2*N**2 + N)
-            assert len(init_pars) == layers*(2*((N**2 + N) // 2) + N)
-    
-    def callback(xk):
-        '''
-        Callback function that prints and stores the MSE error value for each QNN training epoch.
-        
-        :param xk: QNN tunable parameters
-        '''
-        e = training_QNN(xk)
-        print(e)
-        loss_values.append(e)
-        
-    def callback_hopping(x,f,accept):
-        global best_loss_values
-        global loss_values
-        print(f"Error of basinhopping iteration: {f}")
-        print(f"Previous iteration error: {best_loss_values[-1]}\n")
-        if best_loss_values[-1] > f:
-            best_loss_values = loss_values.copy()
-        loss_values = []
-    
-    qnn = QNN("model_N" + str(N) + "_L" + str(layers) + "_" + name, N, layers, 
-              n_inputs, n_outputs, observable_modes, observable_types, is_input_reupload, in_preprocs, out_prepocs, postprocs)
-    train_inputs = reduce(lambda x, func: func(x), qnn.in_preprocessors, dataset[0])
-    train_outputs = reduce(lambda x, func: func(x), qnn.out_preprocessors, dataset[1])
-    
-    global best_loss_values
-    best_loss_values = [10]
-    global loss_values
-    loss_values = []
-    
-    training_QNN = partial(qnn.train_QNN, inputs_dataset=train_inputs, outputs_dataset=train_outputs)
-    training_start = time.time()
-    #result = opt.minimize(training_QNN, init_pars, method='L-BFGS-B', callback=callback)
-    minimizer_kwargs = {"method": "L-BFGS-B", "callback": callback}
-    result = opt.basinhopping(training_QNN, init_pars, niter=0, minimizer_kwargs=minimizer_kwargs, callback=callback_hopping)
-    print(f'Total training time: {time.time() - training_start} seconds')
-    
-    print(f'\nOPTIMIZATION ERROR FOR N={N}, L={layers}')
-    print(result.fun)
-    
-    qnn.build_QNN(result.x)
-    
-    qnn_outputs = test_model(qnn, dataset)
-    #plot_qnn_train_results(qnn, dataset[1], qnn_outputs, loss_values)
-    show_times(qnn)
-    qnn.print_qnn()
-    
-    if save:
-        qnn.qnn_profiling.clear_times()
-        qnn.save_model(qnn.model_name + ".txt")
-    
-    return qnn, best_loss_values
 
+    def load_model(filename):
+        '''
+        Loads a QONN model from a JSON pickle file.
+        
+        :param filename: Path to the QONN model file
+        :return: QONN model
+        '''
+        with open(filename, 'r') as f:
+            qnn_str = jsonpickle.decode(f.read())
+        return qnn_str
+    
