@@ -14,13 +14,13 @@ from .loss_functions import *
 # === HYPERPARAMETERS DEFINITION ===
 modes = [2]
 photon_additions = [[0]]
-layers = [2]
+layers = [1]
 is_input_reupload = False
 n_inputs = 1
 n_outputs = 1
 observable = 'position'
 in_norm_range = (-2, 2)
-out_norm_range = (1, 5)
+out_norm_range = (-2, 2)
 loss_function = mse
 basinhopping_iters = 1
 noise = 0.1
@@ -124,8 +124,8 @@ plt.show()
 c=0
 for (train_loss, valid_loss, qnn) in zip(train_losses, valid_losses, qnns):
     x_log = np.log(np.array(range(1,len(train_loss)+1)))
-    plt.plot(x_log, np.log(np.array(train_loss)+1), c=colors(c+3%10), label=f'Train loss N={qnn.N}, L={qnn.layers}, {len(qnn.photon_add)} photons/layer')
-    plt.plot(x_log, np.log(np.array(valid_loss)+1), c=colors(c+3%10), linestyle='dashed', label=f'Validation loss N={qnn.N}, L={qnn.layers}, {len(qnn.photon_add)} photons/layer')
+    plt.plot(np.log(np.array(train_loss)+1), c=colors(c+3%10), label=f'Train loss N={qnn.N}, L={qnn.layers}, {len(qnn.photon_add)} photons/layer')
+    plt.plot(np.log(np.array(valid_loss)+1), c=colors(c+3%10), linestyle='dashed', label=f'Validation loss N={qnn.N}, L={qnn.layers}, {len(qnn.photon_add)} photons/layer')
     c+=1
 
 plt.ylim(bottom=0.0)
