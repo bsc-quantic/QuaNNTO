@@ -70,7 +70,7 @@ class TestExpectationValue(unittest.TestCase):
                                [[0.125-1.j, 0.   +0.j], 
                                 [0.   +0.j, 0.125+1.j]]])
         expected_exp_val = 4.671875+0j
-        obtained_exp_val = ladder_exp_val(perf_matchings, ladder_modes, ladder_types, K_exp_vals)
+        obtained_exp_val = wick_expansion_expval(perf_matchings, ladder_modes, ladder_types, K_exp_vals)
         
         self.assertEqual(expected_exp_val, obtained_exp_val)
         
