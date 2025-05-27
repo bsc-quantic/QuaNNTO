@@ -88,7 +88,7 @@ class QNN:
         self.qnn_profiling = ProfilingQNN(N, layers)
         
         # Observable constant coefficient
-        self.trace_const = 1 if observable=='number' else (1/np.sqrt(2)) if observable=='position' else (1j/np.sqrt(2)) if observable=='momentum' else 0
+        self.trace_const = 1 if observable=='number' else (1/np.sqrt(2)) if observable=='position' else (-1j/np.sqrt(2)) if observable=='momentum' else 0
         
         # Full expectation value expression of the wavefunction (photon additions + observable to be measured)
         self.trace_expr = complete_trace_expression(self.N, layers, photon_add, self.n_out, include_obs=True, obs=observable)
@@ -334,15 +334,38 @@ class QNN:
         ladder_superpos_start = time.time()
         terms_coefs, norm_coefs = self.compute_coefficients()
         self.qnn_profiling.ladder_superpos_times.append(time.time() - ladder_superpos_start)
+        print(K_exp_vals)
         
         # 5. Compute the expectation values acting as outputs
         nongauss_start = time.time()
-        norm_exp_val = compute_exp_val_loop(self.N, terms_coefs, norm_coefs,
+        unnorm_val, norm_val, norm_exp_val = compute_exp_val_loop(self.N, terms_coefs, norm_coefs,
                                             self.np_modes, self.np_types, self.lens_modes,
                                             self.np_modes_norm, self.np_types_norm, self.lens_modes_norm, 
                                             self.np_lpms, K_exp_vals, self.mean_vector)
         self.qnn_profiling.nongauss_times.append(time.time() - nongauss_start)
         
+        print("NORMALIZED EXPECTATION VALUES:")
+        print(norm_exp_val)
+        
+        print("NORM")
+        print(norm_val)
+            
+        print("MEANS VECTOR AND COV MAT OF THE GAUSSIAN STATE:")
+        print(self.mean_vector)
+        print(np.round(self.V, 4))
+        check_uncertainty_pple(self.V)
+        symplectic_eigenvals(self.V)
+        print()
+        
+        s, V = reconstruct_stats(norm_exp_val, self.N)
+        #s, V = reconstruct_stats(norm_exp_val[1:]/norm_exp_val[0], self.N)
+        print("FINAL STATE MEANS AND COV MAT:")
+        print(s)
+        print(np.round(np.real_if_close(V), 4))
+        check_uncertainty_pple(V)
+        symplectic_eigenvals(V)
+        print(self.qnn_profiling.avg_benchmark())
+        input("ASDF")
         return self.trace_const * np.real_if_close(norm_exp_val, tol=1e6)
 
     def train_QNN(self, parameters, inputs_dataset, outputs_dataset, loss_function):
