@@ -148,7 +148,7 @@ def complete_trace_expression(N, layers, photon_additions, n_outputs, include_ob
     # Creation (c) and annihilation (a) operators for each mode
     c = symbols(f'c0:{N}', commutative=False)
     a = symbols(f'a0:{N}', commutative=False)
-    aux = symbols('aux')
+    aux = symbols('aux') if len(photon_additions) == 0 else 0
     
     sup = 1
     sup_dag = 1
@@ -157,6 +157,8 @@ def complete_trace_expression(N, layers, photon_additions, n_outputs, include_ob
             # Displacement terms
             expr = d_i[l*N + photon_additions[i]]
             expr_dag = d_r[l*N + photon_additions[i]]
+            #expr = c[photon_additions[i]] - d_i[l*N + photon_additions[i]]
+            #expr_dag = a[photon_additions[i]] - d_r[l*N + photon_additions[i]]
             for j in range(N):
                 # Creation and annihilation terms with their symplectic coefficient
                 expr += S_r[N+photon_additions[i], l*dim + j]*a[j]
@@ -169,20 +171,39 @@ def complete_trace_expression(N, layers, photon_additions, n_outputs, include_ob
     if include_obs:
         expanded_expr = []
         if obs == 'witness':
-            if len(photon_additions) == 0:
-                expanded_expr.append(expand(sup_dag*(c[0]*a[0]*c[1]*a[1])*sup + aux)) #〈N1N2〉
-                expanded_expr.append(expand(sup_dag*(c[0]*a[0])*sup + aux)) #〈N1〉
-                expanded_expr.append(expand(sup_dag*(c[1]*a[1])*sup + aux)) #〈N2〉
-                #expanded_expr.append(expand(sup_dag*(a[0]*c[0]*a[0]*c[0])*sup + aux)) #〈aN1a+〉
-                #expanded_expr.append(expand(sup_dag*(a[0]*c[0])*sup + aux)) #〈aa+〉
-                #expanded_expr.append(expand(sup_dag*(a[0]*a[0]*c[0]*a[0]*c[0]*c[0])*sup + aux)) #〈aaN1a+a+〉
-                #expanded_expr.append(expand(sup_dag*(a[0]*a[0]*c[0]*c[0])*sup + aux)) #〈aaa+a+〉
-                #expanded_expr.append(expand(sup_dag*(c[0]*c[0]*a[0]*a[0])*sup + aux)) #〈a+N1a〉
-                #expanded_expr.append(expand(sup_dag*(c[0]*a[0])*sup + aux)) #〈a+a〉
-            else:
-                expanded_expr.append(expand(sup_dag*(c[0]*a[0]*c[1]*a[1])*sup)) #〈N1N2〉
-                expanded_expr.append(expand(sup_dag*(c[0]*a[0])*sup)) #〈N1〉
-                expanded_expr.append(expand(sup_dag*(c[1]*a[1])*sup)) #〈N2〉
+            # NORM
+            #expanded_expr.append(expand(sup_dag*(a[0]*c[0])*sup + aux))
+            # First-order moments
+            for j in range(N):
+                #expanded_expr.append(expand(sup_dag*(a[0]*a[j]*c[0])*sup + aux))
+                expanded_expr.append(expand(sup_dag*(a[j])*sup + aux))
+            # Second-order moments
+            for j in range(N):
+                for k in range(j,N):
+                    #expanded_expr.append(expand(sup_dag*(a[0]*a[j]*a[k]*c[0])*sup + aux))
+                    expanded_expr.append(expand(sup_dag*(a[j]*a[k])*sup + aux))
+            for j in range(N):
+                for k in range(j,N):
+                    #expanded_expr.append(expand(sup_dag*(a[0]*c[j]*a[k]*c[0])*sup + aux))
+                    expanded_expr.append(expand(sup_dag*(c[j]*a[k])*sup + aux))
+            # Third-order moments
+            """ for j in range(N):
+                for k in range(N):
+                    for l in range(N):
+                        expanded_expr.append(expand(sup_dag*(a[j]*a[k]*a[l])*sup + aux))
+                        expanded_expr.append(expand(sup_dag*(c[j]*a[k]*a[l])*sup + aux))
+                        expanded_expr.append(expand(sup_dag*(c[j]*c[k]*a[l])*sup + aux))
+                        expanded_expr.append(expand(sup_dag*(c[j]*c[k]*c[l])*sup + aux)) """
+        elif obs == 'witness': # FIXME
+            expanded_expr.append(expand(sup_dag*(c[0]*a[0]*c[1]*a[1])*sup + aux)) #〈N1N2〉
+            expanded_expr.append(expand(sup_dag*(c[0]*a[0])*sup + aux)) #〈N1〉
+            expanded_expr.append(expand(sup_dag*(c[1]*a[1])*sup + aux)) #〈N2〉
+            #expanded_expr.append(expand(sup_dag*(a[0]*c[0]*a[0]*c[0])*sup + aux)) #〈aN1a+〉
+            #expanded_expr.append(expand(sup_dag*(a[0]*c[0])*sup + aux)) #〈aa+〉
+            #expanded_expr.append(expand(sup_dag*(a[0]*a[0]*c[0]*a[0]*c[0]*c[0])*sup + aux)) #〈aaN1a+a+〉
+            #expanded_expr.append(expand(sup_dag*(a[0]*a[0]*c[0]*c[0])*sup + aux)) #〈aaa+a+〉
+            #expanded_expr.append(expand(sup_dag*(c[0]*c[0]*a[0]*a[0])*sup + aux)) #〈a+N1a〉
+            #expanded_expr.append(expand(sup_dag*(c[0]*a[0])*sup + aux)) #〈a+a〉
         else:
             for i in range(n_outputs):
                 if obs == 'position':
@@ -190,13 +211,14 @@ def complete_trace_expression(N, layers, photon_additions, n_outputs, include_ob
                     expr = (sup_dag*a[i]*sup + sup_dag*c[i]*sup)
                 elif obs == 'momentum':
                     # Momentum operator
-                    expr = (sup_dag*c[i]*sup - sup_dag*a[i]*sup)
+                    expr = (sup_dag*a[i]*sup - sup_dag*c[i]*sup)
                 elif obs == 'number':
                     # Number operator
-                    if len(photon_additions) == 0:
+                    expr = sup_dag*c[i]*a[i]*sup + aux
+                    """ if len(photon_additions) == 0:
                         expr = sup_dag*c[i]*a[i]*sup + aux
                     else:
-                        expr = sup_dag*c[i]*a[i]*sup
+                        expr = sup_dag*c[i]*a[i]*sup """
                 expanded_expr.append(expand(expr))
     else:
         expanded_expr = expand(sup_dag*sup)
@@ -329,8 +351,8 @@ def compute_exp_val_loop(N, terms_coefs, norm_coefs, modes, types, unnorm_terms_
     else:
         norm = compute_terms_in_trace(norm_coefs, modes_norm[0], types_norm[0], norm_terms_len[0], lpms, N, K_exp_vals, means_vector)
     norm_val = unnorm/norm
-    
-    return norm_val
+  
+    return unnorm, norm, norm_val
 
 def loop_perfect_matchings(N):
     '''
