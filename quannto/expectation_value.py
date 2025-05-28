@@ -2,6 +2,9 @@ import numpy as np
 from sympy import symbols, expand, MatrixSymbol, Add
 from numba import njit, prange
 import numba as nb
+import jax
+import jax.numpy as jnp
+from functools import partial
 
 from .utils import *
 
@@ -224,7 +227,7 @@ def complete_trace_expression(N, layers, photon_additions, n_outputs, include_ob
         expanded_expr = expand(sup_dag*sup)
     return expanded_expr
 
-@njit
+@partial(jax.jit, static_argnames=('perf_matchings', 'ladder_modes', 'ladder_types', 'N',))
 def wick_expansion_expval(perf_matchings, ladder_modes, ladder_types, N, means_vector, cov_mat_identities):
     '''
     Computes the expected value of the Wick-expanded trace expression terms 
@@ -255,9 +258,10 @@ def wick_expansion_expval(perf_matchings, ladder_modes, ladder_types, N, means_v
                 term_expval = single_ladder_exp_val(ladder_modes[i1], ladder_types[i2], N, means_vector)
             trace_prod *= term_expval
         trace_sum += trace_prod
+    #print(trace_sum)
     return trace_sum
 
-@njit
+@partial(jax.jit, static_argnames=('term_mode', 'term_type', 'N',))
 def single_ladder_exp_val(term_mode, term_type, N, means_vector):
     '''
     Computes the expectation value of a single ladder operator over a certain mode based
@@ -271,7 +275,7 @@ def single_ladder_exp_val(term_mode, term_type, N, means_vector):
     '''
     return (1/np.sqrt(2)) * (means_vector[term_mode] + 1j*(-2*term_type + 1)*means_vector[N+term_mode])
 
-@njit
+@partial(jax.jit, static_argnames=('term_modes', 'term_types', 'len_term', 'perf_matchs', 'N',))
 def get_expectation_value(term_modes, term_types, len_term, perf_matchs, N, K_exp_vals, means_vector):
     '''
     Dispatches the expectation value calculation method based on the number of
@@ -294,7 +298,7 @@ def get_expectation_value(term_modes, term_types, len_term, perf_matchs, N, K_ex
     else: # CASE Tr[a#a#...rho] -> Wick's expansion
         return wick_expansion_expval(perf_matchs, term_modes, term_types, N, means_vector, K_exp_vals)
 
-@njit(parallel=True)
+@partial(jax.jit, static_argnames=('modes', 'types', 'terms_len', 'lpms', 'N',))
 def compute_terms_in_trace(coefs, modes, types, terms_len, lpms, N, K_exp_vals, means_vector):
     '''
     Computes each term in the trace by calculating the term expression's expectation value
@@ -311,13 +315,15 @@ def compute_terms_in_trace(coefs, modes, types, terms_len, lpms, N, K_exp_vals, 
     :return: Final expectation value of the output
     '''
     sum_tr_values = 0.0 + 0.0*1j
-    for i in prange(len(modes)):
+    #print(len(modes))
+    #print(terms_len)
+    for i in range(len(modes)):
         lpms_idx = terms_len[i] - 2 if terms_len[i] > 2 else 0
-        exp_val = get_expectation_value(modes[i], types[i], terms_len[i], lpms[lpms_idx][0], N, K_exp_vals, means_vector)
+        #print(i, terms_len[i], modes[i], types[i])
+        exp_val = get_expectation_value(modes[i], types[i], terms_len[i], lpms[lpms_idx], N, K_exp_vals, means_vector)
         sum_tr_values += coefs[i] * exp_val
     return sum_tr_values
 
-@njit
 def compute_exp_val_loop(N, terms_coefs, norm_coefs, modes, types, unnorm_terms_len, modes_norm, types_norm, norm_terms_len, lpms, K_exp_vals, means_vector):
     '''
     Computes the expectation value of the expression (trace) that defines the QNN operations.
@@ -337,19 +343,19 @@ def compute_exp_val_loop(N, terms_coefs, norm_coefs, modes, types, unnorm_terms_
     :return: Normalized expectation value of each output of the QNN
     '''
     # For unnormalized exp val
-    unnorm = np.zeros((len(modes)), dtype='complex')
-    for outs in prange(len(modes)):
+    unnorm = jnp.zeros((len(modes)), dtype=jnp.complex64)
+    for outs in range(len(modes)):
         # TODO: Take care with this condition just made for 0 photon addition and N operator
         if len(modes[outs]) == 1:
-            unnorm[outs] = compute_terms_in_trace([1], modes[outs], types[outs], unnorm_terms_len[outs], lpms, N, K_exp_vals, means_vector)
+            unnorm = unnorm.at[outs].set(compute_terms_in_trace([1], modes[outs], types[outs], unnorm_terms_len[outs], lpms, N, K_exp_vals, means_vector))
         else:
-            unnorm[outs] = compute_terms_in_trace(terms_coefs[outs], modes[outs], types[outs], unnorm_terms_len[outs], lpms, N, K_exp_vals, means_vector)
-    
+            #unnorm[outs] = compute_terms_in_trace(terms_coefs[outs], modes[outs], types[outs], unnorm_terms_len[outs], lpms, N, K_exp_vals, means_vector)
+            unnorm = unnorm.at[outs].set(compute_terms_in_trace(terms_coefs[outs], modes[outs], types[outs], unnorm_terms_len[outs], lpms, N, K_exp_vals, means_vector))
     # For normalization factor
-    if len(modes_norm[0]) == 1 and modes_norm[0][0] == -1:
+    if len(modes_norm) == 0:
         norm = 1
     else:
-        norm = compute_terms_in_trace(norm_coefs, modes_norm[0], types_norm[0], norm_terms_len[0], lpms, N, K_exp_vals, means_vector)
+        norm = compute_terms_in_trace(norm_coefs, modes_norm, types_norm, norm_terms_len[0], lpms, N, K_exp_vals, means_vector)
     norm_val = unnorm/norm
   
     return unnorm, norm, norm_val

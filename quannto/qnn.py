@@ -4,6 +4,8 @@ import jsonpickle
 import time
 from sympy import lambdify
 from functools import reduce
+import jax
+import jax.numpy as jnp
 
 from .utils import *
 from .expectation_value import *
@@ -97,26 +99,33 @@ class QNN:
         
         # Extract ladder operators terms from expectation value expression
         self.modes, self.types = [], []
+        self.tmodes, self.ttypes = [], []
         for outs in range(len(self.trace_expr)):
             modes, types = extract_ladder_expressions(self.trace_expr[outs])
             self.modes.append(modes)
             self.types.append(types)
+            self.tmodes.append(tuple(map(tuple, modes)))
+            self.ttypes.append(tuple(map(tuple, types)))
+        self.tmodes = tuple(self.tmodes)
         self.np_modes, self.lens_modes = to_np_array(self.modes)
         self.np_types, self.lens_types = to_np_array(self.types)
+        self.tlens_modes = (tuple(map(tuple, self.lens_modes)))
         
         # Extract ladder operators terms from normalization expression
         modes_norm, types_norm = extract_ladder_expressions(self.norm_trace_expr)
         self.modes_norm, self.types_norm = [modes_norm], [types_norm]
+        self.tmodes_norm, self.ttypes_norm = (tuple(map(tuple, modes_norm))), (tuple(map(tuple,types_norm)))
         self.np_modes_norm, self.lens_modes_norm = to_np_array(self.modes_norm)
         self.np_types_norm, self.lens_types_norm = to_np_array(self.types_norm)
+        self.tlens_modes_norm = (tuple(map(tuple, self.lens_modes_norm)))
         
         # Compute all needed loop perfect matchings for the Wick's expansion of the trace expression
         max_lpms = np.max(self.lens_modes)
-        self.lpms = [to_np_array([loop_perfect_matchings(lens)]) for lens in range(2, max_lpms+1)]
+        print()
+        self.lpms = tuple([(tuple(map(tuple, loop_perfect_matchings(lens)))) for lens in range(2, max_lpms+1)])
+        print(self.lpms)
         if len(self.lpms) == 0:
             self.lpms = [to_np_array([loop_perfect_matchings(2)])]
-        self.np_lpms = nb.typed.List([lpms for (lpms, _) in self.lpms])
-        self.lens_lpms = nb.typed.List([lens for (_, lens) in self.lpms])
         
         # Remove all ladder operators from symbolic expressions of the trace and normalization
         a = symbols(f'a0:{N}', commutative=False)
@@ -150,13 +159,31 @@ class QNN:
         # Compile trace expression terms with respect to symplectic and displacement parameters
         t1 = time.time()
         self.nb_num_unnorm = []
+        """ for outs in range(len(self.unnorm_expr_terms_out)):
+            self.nb_num_unnorm.append([nb.njit(lambdify((S_r, S_i, d, d_conj), unnorm_trm, modules='numpy')) for unnorm_trm in self.unnorm_expr_terms_out[outs]]) """
         for outs in range(len(self.unnorm_expr_terms_out)):
-            self.nb_num_unnorm.append([nb.njit(lambdify((S_r, S_i, d, d_conj), unnorm_trm, modules='numpy')) for unnorm_trm in self.unnorm_expr_terms_out[outs]])
+            self.nb_num_unnorm.append([jax.jit(lambdify((S_r, S_i, d, d_conj), unnorm_trm, modules={'jax': jnp, 'numpy': jnp})) for unnorm_trm in self.unnorm_expr_terms_out[outs]])
         t2 = time.time()
         print(f"Time to lambdify unnormalized terms: {t2-t1}")
-        self.nb_num_norm = [nb.njit(lambdify((S_r, S_i, d, d_conj), norm_trm, modules='numpy')) for norm_trm in self.norm_subs_expr_terms]
+        #self.nb_num_norm = [nb.njit(lambdify((S_r, S_i, d, d_conj), norm_trm, modules='numpy')) for norm_trm in self.norm_subs_expr_terms]
+        self.nb_num_norm = [jax.jit(lambdify((S_r, S_i, d, d_conj), norm_trm, modules={'jax': jnp, 'numpy': jnp})) for norm_trm in self.norm_subs_expr_terms]
         t3 = time.time()
         print(f"Time to lambdify normalization terms: {t3-t2}")
+        
+        self.jax_exp_val = jax.jit(lambda terms_coefs, norm_coefs, K_exp_vals, means_vector: compute_exp_val_loop(
+            self.N,
+            terms_coefs,
+            norm_coefs,
+            self.tmodes,
+            self.ttypes, 
+            self.tlens_modes,
+            self.tmodes_norm,
+            self.ttypes_norm,
+            self.tlens_modes_norm, 
+            self.lpms,
+            K_exp_vals,
+            means_vector
+        ))
         
     def build_symp_orth_mat(self, parameters):
         '''
@@ -200,7 +227,7 @@ class QNN:
         
         :param parameters: Vector of trainable parameters
         '''
-        self.tunable_parameters = np.copy(parameters)
+        #self.tunable_parameters = np.copy(parameters)
         S_dim = 2*self.N
         self.G = np.eye(S_dim)
         current_par_idx = 0
@@ -334,15 +361,14 @@ class QNN:
         ladder_superpos_start = time.time()
         terms_coefs, norm_coefs = self.compute_coefficients()
         self.qnn_profiling.ladder_superpos_times.append(time.time() - ladder_superpos_start)
-        print(K_exp_vals)
         
         # 5. Compute the expectation values acting as outputs
         nongauss_start = time.time()
-        unnorm_val, norm_val, norm_exp_val = compute_exp_val_loop(self.N, terms_coefs, norm_coefs,
-                                            self.np_modes, self.np_types, self.lens_modes,
-                                            self.np_modes_norm, self.np_types_norm, self.lens_modes_norm, 
-                                            self.np_lpms, K_exp_vals, self.mean_vector)
+        unnorm_val, norm_val, norm_exp_val = self.jax_exp_val(terms_coefs, norm_coefs, K_exp_vals, self.mean_vector)
         self.qnn_profiling.nongauss_times.append(time.time() - nongauss_start)
+        
+        print("UNNORMALIZED EXPECTATION VALUES:")
+        print(unnorm_val)
         
         print("NORMALIZED EXPECTATION VALUES:")
         print(norm_exp_val)

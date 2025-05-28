@@ -2,6 +2,7 @@ import numpy as np
 from functools import reduce, partial
 import time
 import scipy.optimize as opt
+import jax
 
 from .loss_functions import mse
 from .qnn import QNN
@@ -115,6 +116,14 @@ def build_and_train_model(name, N, layers, n_inputs, n_outputs, photon_additions
     validate_QNN = partial(qnn.train_QNN, inputs_dataset=valid_inputs, outputs_dataset=valid_outputs, loss_function=loss_function)
     
     training_start = time.time()
+    # ==========
+    """ jax_training_QNN = jax.jit(training_QNN)
+    epochs = 100
+    for epoch in range(epochs):
+        loss, grads = jax.value_and_grad(jax_training_QNN)(init_pars)
+        print(f"Epoch {epoch} loss: {loss}") """
+    # ==========
+    
     minimizer_kwargs = {"method": "L-BFGS-B", "bounds": bounds, "callback": callback}
     result = opt.basinhopping(training_QNN, init_pars, niter=hopping_iters, minimizer_kwargs=minimizer_kwargs, callback=callback_hopping)
     print(f'Total training time: {time.time() - training_start} seconds')
