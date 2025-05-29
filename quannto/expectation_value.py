@@ -401,3 +401,28 @@ def to_np_array(lists):
             arr[out_idx, term_idx, :len(lists[out_idx][term_idx])] = np.array(lists[out_idx][term_idx])
     return arr, lengths
     
+def pad_3d_list_of_lists(raw, max_len_inner, pad_value=-1):
+    """
+    raw:        Python list of length G, each an inner list of variable-length lists of ints
+    max_len_inner:  target length for each innermost int-list
+    pad_value:  int to pad with
+    ---
+    returns: jnp.ndarray of shape (G, Mmax, max_len_inner)
+    """
+    G = len(raw)
+    # 1) pad each inner list to max_len_inner
+    padded_inners = [
+        [sub[:max_len_inner] + [pad_value] * max(0, max_len_inner - len(sub))
+         for sub in group]
+        for group in raw
+    ]
+    # 2) find Mmax = max number of sublists in any group
+    Mmax = max(len(group) for group in padded_inners)
+    # 3) pad each group to Mmax by appending dummy inners
+    dummy = [pad_value] * max_len_inner
+    padded_groups = [
+        grp + [dummy] * (Mmax - len(grp))
+        for grp in padded_inners
+    ]
+    # 4) stack into a single JAX array
+    return jnp.array(padded_groups, dtype=jnp.int32)
