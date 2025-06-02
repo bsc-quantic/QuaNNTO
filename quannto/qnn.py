@@ -168,7 +168,6 @@ class QNN:
         self.trace_terms_ranges = jnp.array(trace_terms_rngs[0])
         print(self.num_terms_in_trace)
         print(self.trace_terms_ranges)
-        input("sdaf")
         #self.trace_terms_ranges = jnp.array([jnp.array([i for i in range(num_terms)]) for num_terms in self.num_terms_in_trace])
         #uniq_num_terms = jnp.unique(self.num_terms_in_trace)
         #self.terms_ranges = {int(i): jnp.arange(i, dtype=jnp.int32) for i in uniq_num_terms}
@@ -347,27 +346,27 @@ class QNN:
         ladder_superpos_start = time.time()
         traces_terms_coefs = self.compute_coefficients()
         self.qnn_profiling.ladder_superpos_times.append(time.time() - ladder_superpos_start)
-        """ print("TRACE TERMS COEFS:")
-        print(traces_terms_coefs)
+        print("TRACE TERMS COEFS:")
+        print(np.round(traces_terms_coefs[:-1], 4))
+        print("NORM COEFS:")
+        print(np.round(traces_terms_coefs[-1], 4))
         print("QUADRATIC EXP VALS:")
-        print(K_exp_vals)
-        print("TRACES LENS:")
-        print(self.jax_lens) """
+        print(np.round(K_exp_vals, 4))
         # 5. Compute the expectation values acting as outputs
         nongauss_start = time.time()
         unnorm_val = self.compute_exp_val_loop(traces_terms_coefs, K_exp_vals, self.mean_vector)
         self.qnn_profiling.nongauss_times.append(time.time() - nongauss_start)
         
         print("UNNORMALIZED EXPECTATION VALUES:")
-        #print(unnorm_val[:-1])
-        print(unnorm_val[1:-1])
+        print(np.round(unnorm_val[:-1], 4))
+        #print(unnorm_val[1:-1])
         
         print("NORMALIZED EXPECTATION VALUES:")
-        #print(unnorm_val[:-1] / unnorm_val[-1])
-        print(unnorm_val[1:-1] / unnorm_val[0])
+        print(np.round(unnorm_val[:-1] / unnorm_val[-1], 4))
+        #print(unnorm_val[1:-1] / unnorm_val[0])
         
         print("NORM")
-        print(unnorm_val[-1])
+        print(np.round(unnorm_val[-1], 4))
             
         print("MEANS VECTOR AND COV MAT OF THE GAUSSIAN STATE:")
         print(self.mean_vector)
@@ -376,14 +375,15 @@ class QNN:
         symplectic_eigenvals(self.V)
         print()
         
-        #s, V = reconstruct_stats(unnorm_val[:-1] / unnorm_val[-1], self.N)
-        s, V = reconstruct_stats(unnorm_val[1:-1]/unnorm_val[0], self.N)
+        s, V = reconstruct_stats(unnorm_val[:-1] / unnorm_val[-1], self.N)
+        #s, V = reconstruct_stats(unnorm_val[1:-1]/unnorm_val[0], self.N)
         print("FINAL STATE MEANS AND COV MAT:")
         print(s)
         print(np.round(np.real_if_close(V), 4))
         check_uncertainty_pple(V)
         symplectic_eigenvals(V)
         print(self.qnn_profiling.avg_benchmark())
+        print(self.tunable_parameters)
         input("ASDF")
         return self.trace_const * np.real_if_close(unnorm_val[:-1] / unnorm_val[-1], tol=1e6)
     
@@ -420,28 +420,39 @@ class QNN:
         types_row = self.jax_types[trace_idx, tr_term_idx]  # (Kmax,)
 
         def term_prod(p1_row, p2_row):
-            # p1_row, p2_row: shape (Kmax,)
-            # 3a) valid‐pair mask
-            valid = p1_row >= 0 # False for matchings with -1
+            def valid_pms(_):
+                # p1_row, p2_row: shape (Kmax,)
+                # 3a) valid‐pair mask
+                valid = p1_row >= 0 # False for matchings with -1
 
-            # 3b) gather mode/type indices
-            m1 = modes_row[p1_row.clip(0)]  # clip to avoid OOB on padding
-            m2 = modes_row[p2_row.clip(0)]
-            t1 = types_row[p1_row.clip(0)]
-            t2 = types_row[p2_row.clip(0)]
+                # 3b) gather mode/type indices
+                m1 = modes_row[p1_row.clip(0)]  # clip to avoid OOB on padding
+                m2 = modes_row[p2_row.clip(0)]
+                t1 = types_row[p1_row.clip(0)]
+                t2 = types_row[p2_row.clip(0)]
 
-            # 3c) compute covariance‐based term and mean‐based term
-            cov_term  = quadratic_exp_vals[t1 + 2*t2, m1, m2]
-            mean_term = self.oneoversqrt2 * (means_vector[m1] + 1j*(-2*t1 + 1)*means_vector[self.N+m1])
+                # 3c) compute covariance‐based term and mean‐based term
+                cov_term  = quadratic_exp_vals[t1 + 2*t2, m1, m2]
+                mean_term = self.oneoversqrt2 * (means_vector[m1] + 1j*(-2*t1 + 1)*means_vector[self.N+m1])
 
-            # 3d) select: equal‐index pairs use mean_term, unequal use cov_term
-            pair_val = jnp.where(p1_row != p2_row, cov_term, mean_term)
+                # 3d) select: equal‐index pairs use mean_term, unequal use cov_term
+                pair_val = jnp.where(p1_row != p2_row, cov_term, mean_term)
 
-            # 3e) mask out padding positions: set to 1 so prod ignores them
-            pair_val = jnp.where(valid, pair_val, 1.0 + 0.0j)
+                # 3e) mask out padding positions: set to 1 so prod ignores them
+                pair_val = jnp.where(valid, pair_val, 1.0 + 0.0j)
 
-            # 3f) product across Kmax
-            return jnp.prod(pair_val)
+                # 3f) product across Kmax
+                return jnp.prod(pair_val)
+            
+            def null_pm(_):
+                return 0 + 0j
+            
+            return lax.cond(
+                p1_row[0] == -1,
+                null_pm,
+                valid_pms,
+                operand=None
+            )
 
         # 4) vmapped over all Pmax matchings (axis 0)
         prods = jax.vmap(term_prod, in_axes=(0,0))(p1, p2)  # shape (Pmax,)
@@ -503,7 +514,7 @@ class QNN:
         :return: Final expectation value of the output
         '''
         expvals = jax.vmap(self.get_expectation_value, in_axes=(None, 0, None, None))(trace_idx, self.trace_terms_ranges[trace_idx], quadratic_exp_vals, means_vector)
-        tr_value = jnp.vdot(coefs, expvals)
+        tr_value = jnp.sum(coefs * expvals)
         return tr_value
     
     @partial(jax.jit, static_argnums=(0,))
