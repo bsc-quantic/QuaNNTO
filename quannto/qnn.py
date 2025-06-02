@@ -12,6 +12,7 @@ from .utils import *
 from .expectation_value import *
 from .results_utils import *
 
+jax.config.update("jax_enable_x64", True)
 loss_values = []
 best_loss_values = [10]
 
@@ -101,42 +102,27 @@ class QNN:
         # Normalization expression of the wavefunction related to photon additions
         self.norm_trace_expr = complete_trace_expression(self.N, layers, photon_add, self.n_out, include_obs=False)
         
-        # Extract ladder operators terms from expectation value expression
+        # Extract ladder operators terms for expectation value expression(s)
         self.modes, self.types = [], []
-        self.tmodes, self.ttypes = [], []
         for outs in range(len(self.trace_expr)):
             modes, types = extract_ladder_expressions(self.trace_expr[outs])
             self.modes.append(modes)
             self.types.append(types)
-            self.tmodes.append(tuple(map(tuple, modes)))
-            self.ttypes.append(tuple(map(tuple, types)))
-        self.tmodes = tuple(self.tmodes)
+        # Extract ladder operators terms for normalization expression
+        modes_norm, types_norm = extract_ladder_expressions(self.norm_trace_expr)
+        self.modes.append(modes_norm)
+        self.types.append(types_norm)
+        
         self.np_modes, self.lens_modes = to_np_array(self.modes)
         self.np_types, self.lens_types = to_np_array(self.types)
-        self.tlens_modes = (tuple(map(tuple, self.lens_modes)))
         self.jax_modes = jnp.array(self.np_modes)
         self.jax_types = jnp.array(self.np_types)
         self.jax_lens = jnp.array(self.lens_modes)
-        print("AAAY")
-        print(self.jax_modes)
-        
-        # Extract ladder operators terms from normalization expression
-        modes_norm, types_norm = extract_ladder_expressions(self.norm_trace_expr)
-        self.modes_norm, self.types_norm = [modes_norm], [types_norm]
-        self.tmodes_norm, self.ttypes_norm = (tuple(map(tuple, modes_norm))), (tuple(map(tuple,types_norm)))
-        self.np_modes_norm, self.lens_modes_norm = to_np_array(self.modes_norm)
-        self.np_types_norm, self.lens_types_norm = to_np_array(self.types_norm)
-        self.tlens_modes_norm = (tuple(map(tuple, self.lens_modes_norm)))
         
         # Compute all needed loop perfect matchings for the Wick's expansion of the trace expression
-        max_lpms = np.max(self.lens_modes)
-        print(max_lpms)
-        #self.lpms = tuple([(tuple(map(tuple, loop_perfect_matchings(lens)))) for lens in range(2, max_lpms+1)])
+        max_lpms = np.maximum(np.max(self.lens_modes), 2)
         loop_pms = [loop_perfect_matchings(lens) for lens in range(2, max_lpms+1)]
         self.jax_lpms = pad_3d_list_of_lists(loop_pms, 2*max_lpms)
-        print(self.jax_lpms)
-        if max_lpms < 2:
-            self.jax_lpms = pad_3d_list_of_lists([loop_perfect_matchings(2)], 2)
         
         # Remove all ladder operators from symbolic expressions of the trace and normalization
         a = symbols(f'a0:{N}', commutative=False)
@@ -152,14 +138,15 @@ class QNN:
                 new_term = term.subs(ladder_subs)
                 unnorm_subs_expr_terms.append(new_term)
             self.unnorm_expr_terms_out.append(unnorm_subs_expr_terms)
-        print(f"Trace terms per output: {len(self.unnorm_expr_terms_out[0])}")
         
         norm_expr_terms = list(self.norm_trace_expr.args)
         self.norm_subs_expr_terms = []
         for norm_term in norm_expr_terms:
             new_term = norm_term.subs(ladder_subs)
             self.norm_subs_expr_terms.append(new_term)
-        print(f"Normalization factor terms: {len(self.norm_subs_expr_terms)}")
+        self.unnorm_expr_terms_out.append(self.norm_subs_expr_terms)
+        self.num_terms_per_trace = jnp.array([len(expr) for expr in self.unnorm_expr_terms_out])
+        print(f"Number of terms for each trace: {self.num_terms_per_trace}")
         
         d = symbols(f'r0:{layers*N}', commutative=True)
         d_conj = symbols(f'i0:{layers*N}', commutative=True)
@@ -170,44 +157,22 @@ class QNN:
         # Compile trace expression terms with respect to symplectic and displacement parameters
         t1 = time.time()
         self.nb_num_unnorm = []
-        """ for outs in range(len(self.unnorm_expr_terms_out)):
-            self.nb_num_unnorm.append([nb.njit(lambdify((S_r, S_i, d, d_conj), unnorm_trm, modules='numpy')) for unnorm_trm in self.unnorm_expr_terms_out[outs]]) """
         for outs in range(len(self.unnorm_expr_terms_out)):
             self.nb_num_unnorm.append([jax.jit(lambdify((S_r, S_i, d, d_conj), unnorm_trm, modules={'jax': jnp, 'numpy': jnp})) for unnorm_trm in self.unnorm_expr_terms_out[outs]])
         t2 = time.time()
-        print(f"Time to lambdify unnormalized terms: {t2-t1}")
-        #self.nb_num_norm = [nb.njit(lambdify((S_r, S_i, d, d_conj), norm_trm, modules='numpy')) for norm_trm in self.norm_subs_expr_terms]
-        self.nb_num_norm = [jax.jit(lambdify((S_r, S_i, d, d_conj), norm_trm, modules={'jax': jnp, 'numpy': jnp})) for norm_trm in self.norm_subs_expr_terms]
-        t3 = time.time()
-        print(f"Time to lambdify normalization terms: {t3-t2}")
+        print(f"Time to lambdify trace terms: {t2-t1}")
         
-        self.exp_vals_inds = jnp.arange(len(self.tmodes), dtype=jnp.int32)
-        self.num_terms_in_trace = jnp.array([len(output_terms) for output_terms in self.tmodes])
-        self.trace_terms_ranges = jnp.array([jnp.array([i for i in range(num_terms)]) for num_terms in self.num_terms_in_trace])
-        print("HEEEY")
-        print(self.exp_vals_inds)
+        self.exp_vals_inds = jnp.arange(len(self.jax_modes), dtype=jnp.int32)
+        self.num_terms_in_trace = jnp.array([len(output_terms) for output_terms in self.modes])
+        trace_terms_rngs, _ = to_np_array([[[i for i in range(num_terms)] for num_terms in self.num_terms_in_trace]])
+        self.trace_terms_ranges = jnp.array(trace_terms_rngs[0])
         print(self.num_terms_in_trace)
-        print(self.tlens_modes)
+        print(self.trace_terms_ranges)
+        input("sdaf")
+        #self.trace_terms_ranges = jnp.array([jnp.array([i for i in range(num_terms)]) for num_terms in self.num_terms_in_trace])
         #uniq_num_terms = jnp.unique(self.num_terms_in_trace)
         #self.terms_ranges = {int(i): jnp.arange(i, dtype=jnp.int32) for i in uniq_num_terms}
         #self.trace_terms_ranges = {int(trace): self.terms_ranges[int(self.num_terms_in_trace[int(trace)])] for trace in self.exp_vals_inds}
-        print("RANGEs")
-        print(self.trace_terms_ranges)
-        
-        self.jax_exp_val = jax.jit(lambda terms_coefs, norm_coefs, K_exp_vals, means_vector: compute_exp_val_loop(
-            self.N,
-            terms_coefs,
-            norm_coefs,
-            self.tmodes,
-            self.ttypes, 
-            self.tlens_modes,
-            self.tmodes_norm,
-            self.ttypes_norm,
-            self.tlens_modes_norm, 
-            self.lpms,
-            K_exp_vals,
-            means_vector
-        ))
         
     def build_symp_orth_mat(self, parameters):
         '''
@@ -251,7 +216,7 @@ class QNN:
         
         :param parameters: Vector of trainable parameters
         '''
-        #self.tunable_parameters = np.copy(parameters)
+        self.tunable_parameters = jnp.copy(parameters)
         S_dim = 2*self.N
         self.G = np.eye(S_dim)
         current_par_idx = 0
@@ -341,18 +306,15 @@ class QNN:
         # Transform symplectic matrix to ladder basis & compute its transpose conjugate
         S_r = self.S_concat
         S_i = np.conjugate(S_r)
-        
-        # Values of normalization terms
-        norm_vals = np.zeros((len(self.nb_num_norm)), dtype='complex')
-        for idx in range(len(self.modes_norm[0])):
-            norm_vals[idx] = self.nb_num_norm[idx](S_r, S_i, d_r, d_i)
-        
+
         # Values of trace terms
         trace_vals = np.zeros((len(self.nb_num_unnorm), len(self.nb_num_unnorm[0])), dtype='complex')
-        for out_idx in range(len(self.modes)):
-            for idx in range(len(self.modes[out_idx])):
+        for out_idx in range(len(self.num_terms_per_trace)):
+            if len(self.nb_num_unnorm[out_idx]) == 0:
+                trace_vals[out_idx, 0] = 1
+            for idx in range(self.num_terms_per_trace[out_idx]):
                 trace_vals[out_idx, idx] = self.nb_num_unnorm[out_idx][idx](S_r, S_i, d_r, d_i)
-        return trace_vals, norm_vals
+        return trace_vals
     
     def eval_QNN(self, input):
         '''
@@ -383,24 +345,29 @@ class QNN:
 
         # 4. Compute coefficients for trace expression and normalization terms
         ladder_superpos_start = time.time()
-        terms_coefs, norm_coefs = self.compute_coefficients()
+        traces_terms_coefs = self.compute_coefficients()
         self.qnn_profiling.ladder_superpos_times.append(time.time() - ladder_superpos_start)
-        print(terms_coefs)
-        
+        """ print("TRACE TERMS COEFS:")
+        print(traces_terms_coefs)
+        print("QUADRATIC EXP VALS:")
+        print(K_exp_vals)
+        print("TRACES LENS:")
+        print(self.jax_lens) """
         # 5. Compute the expectation values acting as outputs
         nongauss_start = time.time()
-        #unnorm_val, norm_val, norm_exp_val = self.jax_exp_val(terms_coefs, norm_coefs, K_exp_vals, self.mean_vector)
-        unnorm_val = self.compute_exp_val_loop(terms_coefs, K_exp_vals, self.mean_vector)
+        unnorm_val = self.compute_exp_val_loop(traces_terms_coefs, K_exp_vals, self.mean_vector)
         self.qnn_profiling.nongauss_times.append(time.time() - nongauss_start)
         
         print("UNNORMALIZED EXPECTATION VALUES:")
-        print(unnorm_val)
+        #print(unnorm_val[:-1])
+        print(unnorm_val[1:-1])
         
-        """ print("NORMALIZED EXPECTATION VALUES:")
-        print(norm_exp_val)
+        print("NORMALIZED EXPECTATION VALUES:")
+        #print(unnorm_val[:-1] / unnorm_val[-1])
+        print(unnorm_val[1:-1] / unnorm_val[0])
         
         print("NORM")
-        print(norm_val)
+        print(unnorm_val[-1])
             
         print("MEANS VECTOR AND COV MAT OF THE GAUSSIAN STATE:")
         print(self.mean_vector)
@@ -409,16 +376,16 @@ class QNN:
         symplectic_eigenvals(self.V)
         print()
         
-        s, V = reconstruct_stats(norm_exp_val, self.N)
-        #s, V = reconstruct_stats(norm_exp_val[1:]/norm_exp_val[0], self.N)
+        #s, V = reconstruct_stats(unnorm_val[:-1] / unnorm_val[-1], self.N)
+        s, V = reconstruct_stats(unnorm_val[1:-1]/unnorm_val[0], self.N)
         print("FINAL STATE MEANS AND COV MAT:")
         print(s)
         print(np.round(np.real_if_close(V), 4))
         check_uncertainty_pple(V)
         symplectic_eigenvals(V)
-        print(self.qnn_profiling.avg_benchmark()) """
+        print(self.qnn_profiling.avg_benchmark())
         input("ASDF")
-        return self.trace_const * np.real_if_close(norm_exp_val, tol=1e6)
+        return self.trace_const * np.real_if_close(unnorm_val[:-1] / unnorm_val[-1], tol=1e6)
     
     #==================
     def single_ladder_exp_val(self, trace_idx, tr_term_idx, means_vector):
@@ -433,38 +400,6 @@ class QNN:
         term_type = self.jax_types[trace_idx][tr_term_idx][0]
         return self.oneoversqrt2 * (means_vector[term_mode] + 1j*(-2*term_type + 1)*means_vector[self.N+term_mode])
     
-    """ def wick_expansion_expval(self, trace_idx, tr_term_idx, quadratic_exp_vals, means_vector):
-        '''
-        Computes the expected value of the Wick-expanded trace expression terms 
-        (sum of product of pairs or singlets of ladder operators applied to a Gaussian state) 
-        using loop perfect matchings and the covariance matrix and means vector of the last Gaussian state.
-        
-        :param means_vector: Expectation values of position and momentum of each mode (xxpp order)
-        :param quadratic_exp_vals: All possible expectation values of pairs of ladder operators acting on a Gaussian state
-        :return: Corresponding expectation value of the energy
-        '''
-        trace_sum = np.complex128(0)
-        tr_term_modes = self.jax_modes[trace_idx][tr_term_idx]
-        tr_term_types = self.jax_types[trace_idx][tr_term_idx]
-        lpms_idx = self.jax_lens[trace_idx][tr_term_idx] - 2
-        perf_matchings = self.jax_lpms[lpms_idx]
-        for perf_match in perf_matchings:
-            trace_prod = np.complex128(1+0j)        
-            for i1,i2 in zip(perf_match[0::2], perf_match[1::2]):
-                term_expval = 0
-                # When the pair is -1 -> No more perfect matchings for the term
-                if i1 == -1:
-                    break
-                # Different elements in the pair -> Expected value of the pair using covariance matrix and cross relations
-                elif i1 != i2:
-                    term_expval = quadratic_exp_vals[tr_term_types[i1] + 2*tr_term_types[i2], tr_term_modes[i1], tr_term_modes[i2]]
-                # Equal elements in the pair (loop) -> Expected value of the singlet using means vector
-                else:
-                    term_expval = self.single_ladder_exp_val(tr_term_modes[i1], tr_term_types[i2], means_vector)
-                trace_prod *= term_expval
-            trace_sum += trace_prod
-        #print(trace_sum)
-        return trace_sum """
     def wick_expansion_expval(self, trace_idx, tr_term_idx, quadratic_exp_vals, means_vector):
         """
         Vectorized over all perfect‐matchings for a given (trace_idx, tr_term_idx).
@@ -487,7 +422,7 @@ class QNN:
         def term_prod(p1_row, p2_row):
             # p1_row, p2_row: shape (Kmax,)
             # 3a) valid‐pair mask
-            valid = p1_row >= 0    # False for padding -1
+            valid = p1_row >= 0 # False for matchings with -1
 
             # 3b) gather mode/type indices
             m1 = modes_row[p1_row.clip(0)]  # clip to avoid OOB on padding
@@ -497,10 +432,10 @@ class QNN:
 
             # 3c) compute covariance‐based term and mean‐based term
             cov_term  = quadratic_exp_vals[t1 + 2*t2, m1, m2]
-            mean_term = self.single_ladder_exp_val(m1, t2, means_vector)
+            mean_term = self.oneoversqrt2 * (means_vector[m1] + 1j*(-2*t1 + 1)*means_vector[self.N+m1])
 
             # 3d) select: equal‐index pairs use mean_term, unequal use cov_term
-            pair_val = jnp.where(t1 != t2, cov_term, mean_term)
+            pair_val = jnp.where(p1_row != p2_row, cov_term, mean_term)
 
             # 3e) mask out padding positions: set to 1 so prod ignores them
             pair_val = jnp.where(valid, pair_val, 1.0 + 0.0j)
@@ -513,8 +448,6 @@ class QNN:
 
         # 5) sum over all matchings
         finalsum = jnp.sum(prods)
-        print("SUM")
-        print(finalsum)
         return finalsum
     
     def get_expectation_value(self, trace_idx, tr_term_idx, quadratic_exp_vals, means_vector):
@@ -537,7 +470,8 @@ class QNN:
         def case1(_):
             mode = self.jax_modes[trace_idx, tr_term_idx, 0]
             typ  = self.jax_types[trace_idx, tr_term_idx, 0]
-            return self.single_ladder_exp_val(mode, typ, means_vector)
+            #return self.single_ladder_exp_val(trace_idx, tr_term_idx, means_vector) #FIXME: Indices fixed to 0 but not for PMs
+            return self.oneoversqrt2 * (means_vector[mode] + 1j*(-2*typ + 1)*means_vector[self.N+mode])
 
         # case2: wick expansion
         def case2(_):
@@ -557,13 +491,6 @@ class QNN:
             ),
             operand=None
         )
-        """ len_term = self.jax_lens[trace_idx][tr_term_idx]
-        if len_term == 0: # CASE Tr[rho] (Pure state)
-            return 1
-        elif len_term == 1: # CASE Tr[a#rho] (Means vector)
-            return self.single_ladder_exp_val(self.tmodes[trace_idx][tr_term_idx][0], self.ttypes[trace_idx][tr_term_idx][0], means_vector)
-        else: # CASE Tr[a#a#...rho] -> Wick's expansion
-            return self.wick_expansion_expval(trace_idx, tr_term_idx, means_vector, quadratic_exp_vals) """
         
     def compute_terms_in_trace(self, trace_idx, coefs, quadratic_exp_vals, means_vector):
         '''
@@ -575,26 +502,9 @@ class QNN:
         :param means_vector: Position and momentum expectation values of all modes (xxpp order)
         :return: Final expectation value of the output
         '''
-        print("COMP")
-        print(self.trace_terms_ranges[trace_idx])
-        range_to = jnp.arange(25)
-        #expvals = jax.vmap(self.get_expectation_value, in_axes=(None, 0, None, None))(trace_idx, self.trace_terms_inds[trace_idx], quadratic_exp_vals, means_vector)
         expvals = jax.vmap(self.get_expectation_value, in_axes=(None, 0, None, None))(trace_idx, self.trace_terms_ranges[trace_idx], quadratic_exp_vals, means_vector)
-        print("ASDFH")
-        print(expvals)
-        print(coefs)
         tr_value = jnp.vdot(coefs, expvals)
         return tr_value
-        
-        """ sum_tr_values = 0.0 + 0.0*1j
-        #print(len(modes))
-        #print(terms_len)
-        for i in range(len(modes)):
-            lpms_idx = terms_len[i] - 2 if terms_len[i] > 2 else 0
-            #print(i, terms_len[i], modes[i], types[i])
-            exp_val = get_expectation_value(modes[i], types[i], terms_len[i], lpms[lpms_idx], N, quadratic_exp_vals, means_vector)
-            sum_tr_values += coefs[i] * exp_val
-        return sum_tr_values """
     
     @partial(jax.jit, static_argnums=(0,))
     def compute_exp_val_loop(self, terms_coefs, quadratic_exp_vals, means_vector):
@@ -608,27 +518,8 @@ class QNN:
         :param means_vector: Position and momentum expectation values of all modes (xxpp order)
         :return: Normalized expectation value of each output of the QNN
         '''
-        print(self.exp_vals_inds, terms_coefs)
         exp_vals = jax.vmap(self.compute_terms_in_trace, in_axes=(0, 0, None, None))(self.exp_vals_inds, terms_coefs, quadratic_exp_vals, means_vector)
-        
         return exp_vals
-        """ # For unnormalized exp val
-        unnorm = jnp.zeros((len(self.tmodes)), dtype=jnp.complex64)
-        for outs in range(len(self.tmodes)):
-            # TODO: Take care with this condition just made for 0 photon addition and N operator
-            if len(self.tmodes[outs]) == 1:
-                unnorm = unnorm.at[outs].set(compute_terms_in_trace([1], self.tmodes[outs], self.ttypes[outs], self.tlens_modes[outs], self.lpms, self.N, quadratic_exp_vals, means_vector))
-            else:
-                #unnorm[outs] = compute_terms_in_trace(terms_coefs[outs], modes[outs], types[outs], unnorm_terms_len[outs], lpms, N, K_exp_vals, means_vector)
-                unnorm = unnorm.at[outs].set(compute_terms_in_trace(terms_coefs[outs], self.tmodes[outs], self.ttypes[outs], self.tlens_modes[outs], self.lpms, self.N, quadratic_exp_vals, means_vector))
-        # For normalization factor
-        if len(self.tmodes_norm) == 0:
-            norm = 1
-        else:
-            norm = compute_terms_in_trace(norm_coefs, self.tmodes_norm, self.ttypes_norm, self.tlens_modes_norm[0], self.lpms, self.N, quadratic_exp_vals, means_vector)
-        norm_val = unnorm/norm
-    
-        return unnorm, norm, norm_val """
     
     #=====================
 

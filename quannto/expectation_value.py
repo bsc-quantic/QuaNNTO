@@ -94,9 +94,11 @@ def extract_ladder_expressions(trace_expr):
         trace_args = trace_expr.args[1:]
     else:
         trace_args = trace_expr.args
-        
     ladder_modes = []
     ladder_types = []
+    if len(trace_expr.args) == 0:
+        ladder_modes = [[]]
+        ladder_types = [[]]
     for sym_term in trace_args:
         term = str(sym_term).replace(" ","").replace("*","")
         tr_modes = []
