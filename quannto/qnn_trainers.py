@@ -148,7 +148,8 @@ def build_and_train_model(name, N, layers, n_inputs, n_outputs, photon_additions
 
 def train_entanglement_witness(name, N, layers, n_inputs, n_outputs, photon_additions, observable, hopping_iters=2, in_preprocs=[], out_prepocs=[], postprocs=[], init_pars=None, save=True):
     n_pars = layers*(2*N**2 + 3*N)
-    init_pars = np.random.rand(n_pars + N + 1) # TODO: Consider parameterize momentum too
+    if type(init_pars) == type(None):
+        init_pars = np.random.rand(n_pars + N + 1) # TODO: Consider parameterize momentum too
     
     inp_disp_bounds = (-2, 2)
     passive_bounds = (None, None)
