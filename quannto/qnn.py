@@ -140,11 +140,14 @@ class QNN:
             self.unnorm_expr_terms_out.append(unnorm_subs_expr_terms)
         
         norm_expr_terms = list(self.norm_trace_expr.args)
-        self.norm_subs_expr_terms = []
-        for norm_term in norm_expr_terms:
-            new_term = norm_term.subs(ladder_subs)
-            self.norm_subs_expr_terms.append(new_term)
-        self.unnorm_expr_terms_out.append(self.norm_subs_expr_terms)
+        if len(norm_expr_terms) == 0:
+            self.unnorm_expr_terms_out.append([1])
+        else:
+            self.norm_subs_expr_terms = []
+            for norm_term in norm_expr_terms:
+                new_term = norm_term.subs(ladder_subs)
+                self.norm_subs_expr_terms.append(new_term)
+            self.unnorm_expr_terms_out.append(self.norm_subs_expr_terms)
         self.num_terms_per_trace = jnp.array([len(expr) for expr in self.unnorm_expr_terms_out])
         print(f"Number of terms for each trace: {self.num_terms_per_trace}")
         
@@ -154,24 +157,41 @@ class QNN:
         S_r = MatrixSymbol('S_r', dim, layers*dim)
         S_i = MatrixSymbol('S_i', dim, layers*dim)
         
-        # Compile trace expression terms with respect to symplectic and displacement parameters
-        t1 = time.time()
-        self.nb_num_unnorm = []
-        for outs in range(len(self.unnorm_expr_terms_out)):
-            self.nb_num_unnorm.append([jax.jit(lambdify((S_r, S_i, d, d_conj), unnorm_trm, modules={'jax': jnp, 'numpy': jnp})) for unnorm_trm in self.unnorm_expr_terms_out[outs]])
-        t2 = time.time()
-        print(f"Time to lambdify trace terms: {t2-t1}")
-        
         self.exp_vals_inds = jnp.arange(len(self.jax_modes), dtype=jnp.int32)
         self.num_terms_in_trace = jnp.array([len(output_terms) for output_terms in self.modes])
+        self.max_terms = jnp.max(self.num_terms_in_trace)
         trace_terms_rngs, _ = to_np_array([[[i for i in range(num_terms)] for num_terms in self.num_terms_in_trace]])
         self.trace_terms_ranges = jnp.array(trace_terms_rngs[0])
-        print(self.num_terms_in_trace)
-        print(self.trace_terms_ranges)
-        #self.trace_terms_ranges = jnp.array([jnp.array([i for i in range(num_terms)]) for num_terms in self.num_terms_in_trace])
-        #uniq_num_terms = jnp.unique(self.num_terms_in_trace)
-        #self.terms_ranges = {int(i): jnp.arange(i, dtype=jnp.int32) for i in uniq_num_terms}
-        #self.trace_terms_ranges = {int(trace): self.terms_ranges[int(self.num_terms_in_trace[int(trace)])] for trace in self.exp_vals_inds}
+        
+        # Compile trace expression terms with respect to symplectic and displacement parameters
+        t1 = time.time()
+        self.unnorm_fns = []
+        for expr_list in self.unnorm_expr_terms_out:
+            # 1) Introduce padding for those traces not reaching the maximum number of terms
+            for pad in range(len(expr_list), self.max_terms):
+                expr_list.append(0)
+            # 2) Turn the list of sympy scalars into a Python tuple
+            expr_tuple = tuple(expr_list)  # length = m_i
+
+            # 3) Lambdify that tuple: returns a Python tuple of JAX scalars
+            f_vec = lambdify(
+                (S_r, S_i, d, d_conj),
+                expr_tuple,
+                modules={'jax': jnp, 'numpy': jnp}
+            )
+            #   now f_vec(Sr, Si, d_r, d_i) → Python tuple (v0, v1, …, v_{m_i−1})
+            #   each v_k is a JAX scalar (dtype complex64/128).
+
+            # 4) Wrap in a one‐line function that stacks into a 1D array:
+            def f_stack(Sr, Si, d_r, d_i, _f=f_vec):
+                # NOTE: Python tuple → stack to JAX array of shape (m_i,)
+                return jnp.stack(_f(Sr, Si, d_r, d_i), axis=0)
+
+            # 5) JIT‐compile that stacked function once
+            f_jit = jax.jit(f_stack)
+            self.unnorm_fns.append(f_jit)
+        t2 = time.time()
+        print(f"Time to lambdify trace terms: {t2-t1}")
         
     def build_symp_orth_mat(self, parameters):
         '''
@@ -218,6 +238,9 @@ class QNN:
         self.tunable_parameters = jnp.copy(parameters)
         S_dim = 2*self.N
         self.G = np.eye(S_dim)
+        self.S_concat = np.zeros((2*self.N, 2*self.layers*self.N), dtype='complex')
+        self.D_concat = np.zeros((2*self.layers*self.N))
+        
         current_par_idx = 0
         for l in range(self.layers-1, -1, -1):
             # Build symplectic-orthogonal (unitary) matrices and diagonal symplectic matrix
@@ -228,15 +251,20 @@ class QNN:
             self.G = self.S_l[l] @ self.G
             # Build concatenated symplectic matrices in Fock space for trace expressions' coefficients
             self.S_concat[:, l*S_dim:(l+1)*S_dim] = self.u_bar.to_ladder_op(self.G)
+            #self.S_concat[:, l*S_dim:(l+1)*S_dim] = self.G.copy()
             
             # Build displacements (linear Gaussian)
             if not self.is_input_reupload:
                 self.D_l[l] = np.sqrt(2) * parameters[current_par_idx : current_par_idx + 2*self.N]
+                #self.D_l[l] = np.zeros((2*self.N))
                 current_par_idx += 2*self.N
                 if l == (self.layers - 1):
                     self.D_concat[l*S_dim:(l+1)*S_dim] = self.D_l[l].copy()
                 else:
                     self.D_concat[l*S_dim:(l+1)*S_dim] = self.D_l[l] + self.S_l[l] @ self.D_concat[(l+1)*S_dim:(l+2)*S_dim]
+                    
+        self.S_concat = jnp.array(self.S_concat)
+        self.D_concat = jnp.array(self.D_concat)
         if self.observable == 'witness':
             self.trace_const = np.array([1, 1, parameters[current_par_idx]])
             current_par_idx += 1
@@ -284,36 +312,39 @@ class QNN:
             self.apply_linear_gaussian(self.D_l[l])
 
     def build_disp_coefs(self):
-        '''
-        Creates the complex vector of displacements of each mode from the displacement parameters.
-        '''
-        d = np.zeros((self.layers * self.N), dtype='complex')
-        for l in range(self.layers):
-            for i in range(self.N):
-                d[l*self.N + i] = self.D_concat[l*2*self.N + i] + 1j*self.D_concat[l*2*self.N + self.N+i]
-        return d
-    
-    def compute_coefficients(self):
-        '''
-        Calculates the coefficients related to each term in the trace and the normalization expressions
-        that appear after the commutation of the non-Gaussian operators 
-        using the displacement and the symplectic coefficients of the Gaussian operators.
-        '''
-        # Build displacement complex vector & its conjugate
-        d_r = self.build_disp_coefs()
-        d_i = np.conjugate(d_r)
-        # Transform symplectic matrix to ladder basis & compute its transpose conjugate
-        S_r = self.S_concat
-        S_i = np.conjugate(S_r)
+        """
+        Returns a 1‐D JAX complex array of shape (layers * N,),
+        where each block of length N is
+          D_concat[layer*2N : layer*2N + N] 
+          + 1j * D_concat[layer*2N + N : layer*2N + 2N].
+        """
+        # 1) Reshape into (layers, 2*N)
+        D = self.D_concat.reshape((self.layers, 2 * self.N))
 
-        # Values of trace terms
-        trace_vals = np.zeros((len(self.nb_num_unnorm), len(self.nb_num_unnorm[0])), dtype='complex')
-        for out_idx in range(len(self.num_terms_per_trace)):
-            if len(self.nb_num_unnorm[out_idx]) == 0:
-                trace_vals[out_idx, 0] = 1
-            for idx in range(self.num_terms_per_trace[out_idx]):
-                trace_vals[out_idx, idx] = self.nb_num_unnorm[out_idx][idx](S_r, S_i, d_r, d_i)
-        return trace_vals
+        # 2) Split into real part (first N cols) and imag part (last N cols)
+        real_part = D[:, :self.N]        # shape (layers, N)
+        imag_part = D[:, self.N:]        # shape (layers, N)
+
+        # 3) Form the complex displacement matrix
+        disp_matrix = real_part + 1j * imag_part  # shape (layers, N), dtype=complex
+
+        # 4) Flatten to a 1‐D array of length layers * N
+        return disp_matrix.reshape((self.layers * self.N,))
+        
+    @partial(jax.jit, static_argnums=(0,))
+    def compute_coefficients(self):
+        d_r = self.build_disp_coefs()
+        d_i = jnp.conjugate(d_r)
+        S_r = self.S_concat
+        S_i = jnp.conjugate(S_r)
+
+        def f_switch(i, S_r, S_i, d_r, d_i):
+            # Internally compile all f’s as branches
+            return lax.switch(i, self.unnorm_fns, S_r, S_i, d_r, d_i)
+        
+        batched_f = jax.vmap(f_switch, in_axes=(0, None, None, None, None))
+        
+        return batched_f(self.exp_vals_inds, S_r, S_i, d_r, d_i)
     
     def eval_QNN(self, input):
         '''
@@ -326,7 +357,7 @@ class QNN:
         input_prep_start = time.time()
         self.V = 0.5*np.eye(2*self.N)
         self.mean_vector = np.zeros(2*self.N)
-        self.apply_linear_gaussian(np.sqrt(2) * input)
+        #self.apply_linear_gaussian(np.sqrt(2) * input)
         # 1.1. When using input reuploading: build displacement with inputs
         if self.is_input_reupload:
             self.build_reuploading_disp(input)
@@ -346,12 +377,7 @@ class QNN:
         ladder_superpos_start = time.time()
         traces_terms_coefs = self.compute_coefficients()
         self.qnn_profiling.ladder_superpos_times.append(time.time() - ladder_superpos_start)
-        print("TRACE TERMS COEFS:")
-        print(np.round(traces_terms_coefs[:-1], 4))
-        print("NORM COEFS:")
-        print(np.round(traces_terms_coefs[-1], 4))
-        print("QUADRATIC EXP VALS:")
-        print(np.round(K_exp_vals, 4))
+        
         # 5. Compute the expectation values acting as outputs
         nongauss_start = time.time()
         unnorm_val = self.compute_exp_val_loop(traces_terms_coefs, K_exp_vals, self.mean_vector)
@@ -383,7 +409,7 @@ class QNN:
         check_uncertainty_pple(V)
         symplectic_eigenvals(V)
         print(self.qnn_profiling.avg_benchmark())
-        print(self.tunable_parameters)
+        self.print_qnn()
         input("ASDF")
         return self.trace_const * np.real_if_close(unnorm_val[:-1] / unnorm_val[-1], tol=1e6)
     
