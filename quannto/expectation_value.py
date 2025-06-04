@@ -156,23 +156,28 @@ def complete_trace_expression(N, layers, photon_additions, n_outputs, include_ob
     aux = symbols('aux') if len(photon_additions) == 0 else 0
     
     sup = 1
-    sup_dag = 1
-    for l in range(layers):
+    for l in range(layers-1, -1, -1):
         for i in range(len(photon_additions)):
             # Displacement terms
             expr = d_i[l*N + photon_additions[i]]
-            expr_dag = d_r[l*N + photon_additions[i]]
             #expr = c[photon_additions[i]] - d_i[l*N + photon_additions[i]]
-            #expr_dag = a[photon_additions[i]] - d_r[l*N + photon_additions[i]]
             for j in range(N):
                 # Creation and annihilation terms with their symplectic coefficient
                 expr += S_r[N+photon_additions[i], l*dim + j]*a[j]
                 expr += S_r[N+photon_additions[i], l*dim + (N+j)]*c[j]
+            sup *= expr
+    sup_dag = 1
+    for l in range(layers):
+        for i in range(len(photon_additions)):
+            # Displacement terms
+            expr_dag = d_r[l*N + photon_additions[i]]
+            #expr_dag = a[photon_additions[i]] - d_r[l*N + photon_additions[i]]
+            for j in range(N):
+                # Creation and annihilation terms with their symplectic coefficient
                 expr_dag += S_i[N+photon_additions[i], l*dim + j]*c[j]
                 expr_dag += S_i[N+photon_additions[i], l*dim + (N+j)]*a[j]
-            sup *= expr
             sup_dag *= expr_dag
-
+    
     if include_obs:
         expanded_expr = []
         if obs == 'witness':
