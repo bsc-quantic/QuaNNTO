@@ -251,7 +251,6 @@ class QNN:
             self.G = self.S_l[l] @ self.G
             # Build concatenated symplectic matrices in Fock space for trace expressions' coefficients
             self.S_concat[:, l*S_dim:(l+1)*S_dim] = self.u_bar.to_ladder_op(self.G)
-            #self.S_concat[:, l*S_dim:(l+1)*S_dim] = self.G.copy()
             
             # Build displacements (linear Gaussian)
             if not self.is_input_reupload:
@@ -357,7 +356,7 @@ class QNN:
         input_prep_start = time.time()
         self.V = 0.5*np.eye(2*self.N)
         self.mean_vector = np.zeros(2*self.N)
-        #self.apply_linear_gaussian(np.sqrt(2) * input)
+        self.apply_linear_gaussian(np.sqrt(2) * input)
         # 1.1. When using input reuploading: build displacement with inputs
         if self.is_input_reupload:
             self.build_reuploading_disp(input)
@@ -383,34 +382,6 @@ class QNN:
         unnorm_val = self.compute_exp_val_loop(traces_terms_coefs, K_exp_vals, self.mean_vector)
         self.qnn_profiling.nongauss_times.append(time.time() - nongauss_start)
         
-        print("UNNORMALIZED EXPECTATION VALUES:")
-        print(np.round(unnorm_val[:-1], 4))
-        #print(unnorm_val[1:-1])
-        
-        print("NORMALIZED EXPECTATION VALUES:")
-        print(np.round(unnorm_val[:-1] / unnorm_val[-1], 4))
-        #print(unnorm_val[1:-1] / unnorm_val[0])
-        
-        print("NORM")
-        print(np.round(unnorm_val[-1], 4))
-            
-        print("MEANS VECTOR AND COV MAT OF THE GAUSSIAN STATE:")
-        print(self.mean_vector)
-        print(np.round(self.V, 4))
-        check_uncertainty_pple(self.V)
-        symplectic_eigenvals(self.V)
-        print()
-        
-        s, V = reconstruct_stats(unnorm_val[:-1] / unnorm_val[-1], self.N)
-        #s, V = reconstruct_stats(unnorm_val[1:-1]/unnorm_val[0], self.N)
-        print("FINAL STATE MEANS AND COV MAT:")
-        print(s)
-        print(np.round(np.real_if_close(V), 4))
-        check_uncertainty_pple(V)
-        symplectic_eigenvals(V)
-        print(self.qnn_profiling.avg_benchmark())
-        self.print_qnn()
-        input("ASDF")
         return self.trace_const * np.real_if_close(unnorm_val[:-1] / unnorm_val[-1], tol=1e6)
     
     #==================
