@@ -5,7 +5,7 @@ import time
 from sympy import lambdify
 from functools import reduce
 import jax
-from jax import lax
+from jax import lax, random
 import jax.numpy as jnp
 
 from .utils import *
@@ -75,18 +75,6 @@ class QNN:
         # Some useful constants
         self.oneoversqrt2 = 1/np.sqrt(2)
         
-        # Symplectic matrix and displacement vectors for each layer
-        self.S_l = np.zeros((self.layers, 2*self.N, 2*self.N))
-        self.D_l = np.zeros((self.layers, 2*self.N))
-        # Bloch-Messiah decomposition of the symplectic matrix for each layer
-        self.Q1_gauss = np.zeros((self.layers, 2*self.N, 2*self.N))
-        self.Q2_gauss = np.zeros((self.layers, 2*self.N, 2*self.N))
-        self.Z_gauss = np.zeros((self.layers, 2*self.N, 2*self.N))
-        # Concatenation of symplectic matrix and displacement vectors of each layer
-        self.S_concat = np.zeros((2*self.N, 2*self.layers*self.N), dtype='complex')
-        self.D_concat = np.zeros((2*self.layers*self.N))
-        # Final Gaussian transformation when commuting with photon additions (product of all Gaussians)
-        self.G = np.eye(2*self.N)
         
         # Quadratures - Fock space transformation utils
         self.u_bar = CanonicalLadderTransformations(N)
@@ -203,7 +191,7 @@ class QNN:
         '''
         H = general_hermitian_matrix(parameters, self.N)
         U = unitary_from_hermitian(H)
-        return np.real_if_close(self.u_bar.to_canonical_op(U))
+        return self.u_bar.to_canonical_op(U)
         
     def build_quadratic_gaussians(self, parameters, current_par_idx):
         '''
@@ -222,12 +210,18 @@ class QNN:
         current_par_idx += self.N**2
         
         # Build squeezing diagonal matrix Z
-        sqz_parameters = np.e**np.abs(parameters[current_par_idx : current_par_idx + self.N])
+        sqz_parameters = jnp.exp(jnp.abs(parameters[current_par_idx : current_par_idx + self.N]))
         sqz_inv = 1.0/sqz_parameters
-        Z = np.diag(np.concatenate((sqz_parameters, sqz_inv)))
+        Z = jnp.diag(jnp.concatenate((sqz_parameters, sqz_inv)))
         current_par_idx += self.N
         
         return Q1, Z, Q2, current_par_idx
+    
+    def update_S(S_concat, l, block, S_dim):
+        # returns a brand‐new array with that column‐block replaced
+        start = l * S_dim
+        end   = (l + 1) * S_dim
+        return S_concat.at[:, start:end].set(block)
 
     def build_QNN(self, parameters):
         '''
@@ -237,35 +231,51 @@ class QNN:
         '''
         self.tunable_parameters = jnp.copy(parameters)
         S_dim = 2*self.N
-        self.G = np.eye(S_dim)
-        self.S_concat = np.zeros((2*self.N, 2*self.layers*self.N), dtype='complex')
-        self.D_concat = np.zeros((2*self.layers*self.N))
+        
+        # Symplectic matrix and displacement vectors for each layer
+        self.S_l = jnp.zeros((self.layers, 2*self.N, 2*self.N), dtype=jnp.complex128)
+        self.D_l = jnp.zeros((self.layers, 2*self.N), dtype=jnp.complex128)
+        # Bloch-Messiah decomposition of the symplectic matrix for each layer
+        self.Q1_gauss = jnp.zeros((self.layers, 2*self.N, 2*self.N), dtype=jnp.complex128)
+        self.Q2_gauss = jnp.zeros((self.layers, 2*self.N, 2*self.N), dtype=jnp.complex128)
+        self.Z_gauss = jnp.zeros((self.layers, 2*self.N, 2*self.N), dtype=jnp.complex128)
+        # Concatenation of symplectic matrix and displacement vectors of each layer
+        self.S_concat = jnp.zeros((2*self.N, 2*self.layers*self.N), dtype=jnp.complex128)
+        self.D_concat = jnp.zeros((2*self.layers*self.N), dtype=jnp.complex128)
+        # Final Gaussian transformation when commuting with photon additions (product of all Gaussians)
+        self.G = jnp.eye(S_dim, dtype=jnp.complex128)
         
         current_par_idx = 0
         for l in range(self.layers-1, -1, -1):
             # Build symplectic-orthogonal (unitary) matrices and diagonal symplectic matrix
-            self.Q1_gauss[l], self.Z_gauss[l], self.Q2_gauss[l], current_par_idx = self.build_quadratic_gaussians(parameters, current_par_idx)
+            Q1, Z, Q2, current_par_idx = self.build_quadratic_gaussians(parameters, current_par_idx)
+            self.Q1_gauss = self.Q1_gauss.at[l].set(Q1)
+            self.Q2_gauss = self.Q2_gauss.at[l].set(Q2)
+            self.Z_gauss = self.Z_gauss.at[l].set(Z)
 
             # Build final quadratic Gaussian transformation
-            self.S_l[l] = self.Q2_gauss[l] @ self.Z_gauss[l] @ self.Q1_gauss[l]
+            self.S_l = self.S_l.at[l].set(self.Q2_gauss[l] @ self.Z_gauss[l] @ self.Q1_gauss[l])
             self.G = self.S_l[l] @ self.G
             # Build concatenated symplectic matrices in Fock space for trace expressions' coefficients
-            self.S_concat[:, l*S_dim:(l+1)*S_dim] = self.u_bar.to_ladder_op(self.G)
+            block = self.u_bar.to_ladder_op(self.G)
+            self.S_concat = QNN.update_S(self.S_concat, l, block, S_dim)
             
             # Build displacements (linear Gaussian)
             if not self.is_input_reupload:
-                self.D_l[l] = np.sqrt(2) * parameters[current_par_idx : current_par_idx + 2*self.N]
-                #self.D_l[l] = np.zeros((2*self.N))
+                self.D_l = self.D_l.at[l].set(np.sqrt(2) * parameters[current_par_idx : current_par_idx + 2*self.N])
                 current_par_idx += 2*self.N
+                start = l * S_dim
+                end   = (l + 1) * S_dim
                 if l == (self.layers - 1):
-                    self.D_concat[l*S_dim:(l+1)*S_dim] = self.D_l[l].copy()
+                    val = self.D_l[l]
                 else:
-                    self.D_concat[l*S_dim:(l+1)*S_dim] = self.D_l[l] + self.S_l[l] @ self.D_concat[(l+1)*S_dim:(l+2)*S_dim]
-                    
-        self.S_concat = jnp.array(self.S_concat)
-        self.D_concat = jnp.array(self.D_concat)
+                    next_slice = self.D_concat[(l + 1) * S_dim : (l + 2) * S_dim]
+                    val = self.D_l[l] + self.S_l[l] @ next_slice
+                self.D_concat = self.D_concat.at[start:end].set(val)
+
         if self.observable == 'witness':
-            self.trace_const = np.array([1, 1, parameters[current_par_idx]])
+            #self.trace_const = jnp.array([1, 1, parameters[current_par_idx]])
+            self.trace_const = jnp.ones(self.N*(self.N+1) + self.N)
             current_par_idx += 1
     
     def build_reuploading_disp(self, inputs):
@@ -283,32 +293,32 @@ class QNN:
             else:
                 self.D_concat[l*S_dim:(l+1)*S_dim] = self.D_l[l] + self.S_l[l] @ self.D_concat[(l+1)*S_dim:(l+2)*S_dim]
         
-    def apply_linear_gaussian(self, D):
+    def apply_linear_gaussian(D, mean_vector):
         '''
         Transforms the means vector of the Gaussian state by adding 
         the corresponding linear gaussian to it.
         
         :param D: Vector of displacements of the system's quadratures
         '''
-        self.mean_vector[0:len(D)] += D
+        return mean_vector + D
         
-    def apply_quadratic_gaussian(self, G):
+    def apply_quadratic_gaussian(G, mean_vector, V):
         '''
         Transforms the means vector and the covariance matrix of the Gaussian state 
         given a quadratic Gaussian operator.
         
         :param G: Symplectic matrix of a quadratic Gaussian operator to be applied
         '''
-        self.V = G @ self.V @ G.T
-        self.mean_vector = G @ self.mean_vector
+        return G @ mean_vector, G @ V @ G.T
         
-    def apply_gaussian_transformations(self):
+    def apply_gaussian_transformations(self, mean_vector, V):
         '''
         Applies all Gaussian transformations of the QONN to the initial quantum state.
         '''
         for l in range(self.layers):
-            self.apply_quadratic_gaussian(self.S_l[l])
-            self.apply_linear_gaussian(self.D_l[l])
+            new_means, new_V = QNN.apply_quadratic_gaussian(self.S_l[l], mean_vector, V)
+            new_means = QNN.apply_linear_gaussian(self.D_l[l], new_means)
+        return new_means, new_V
 
     def build_disp_coefs(self):
         """
@@ -330,7 +340,6 @@ class QNN:
         # 4) Flatten to a 1‐D array of length layers * N
         return disp_matrix.reshape((self.layers * self.N,))
         
-    @partial(jax.jit, static_argnums=(0,))
     def compute_coefficients(self):
         d_r = self.build_disp_coefs()
         d_i = jnp.conjugate(d_r)
@@ -345,18 +354,89 @@ class QNN:
         
         return batched_f(self.exp_vals_inds, S_r, S_i, d_r, d_i)
     
-    def eval_QNN(self, input):
+    def exp_val_ladder_jk(self, j, k, V):
+        '''
+        Computes the expectation value of two annihilation operators (in mode j and k) of a Gaussian state based 
+        on the first two statistical moments of the state. This corresponds to the first identity I1.
+
+        :param j: Mode of the first annihilation operator
+        :param k: Mode of the second annihilation operator
+        :param V: Covariance matrix of the Gaussian state
+        :param means: Means vector of the Gaussian state
+        :param N: Number of modes of the quantum system
+        :return: Expectation value of a pair of annihilation operators of a Gaussian state
+        '''
+        return 0.5*(V[j,k] - V[self.N+j, self.N+k] + 1j*(V[j, self.N+k] + V[self.N+j, k]))
+
+    def exp_val_ladder_jdagger_k(self, j, k, V):
+        '''
+        Computes the expectation value of one annihilation and one creation operators (in mode j and k) 
+        of a Gaussian state based on the first two statistical moments of the state.
+        This corresponds to the second identity I2.
+
+        :param j: Mode of the creation operator
+        :param k: Mode of the annihilation operator
+        :param V: Covariance matrix of the Gaussian state
+        :param means: Means vector of the Gaussian state
+        :param N: Number of modes of the quantum system
+        :return: Expectation value of one creation and one annihilation operators of a Gaussian state
+        '''
+        delta = jnp.where(j == k, 1, 0)
+        return 0.5*(V[j,k] + V[self.N+j, self.N+k] + 1j*(V[j, self.N+k] - V[self.N+j, k]) - delta)
+
+    def exp_val_ladder_jdagger_kdagger(self, j, k, V):
+        '''
+        Computes the expectation value of two creation operators (in mode j and k) of a Gaussian state based 
+        on the first two statistical moments of the state. This corresponds to the fourth identity I4.
+
+        :param j: Mode of the first creation operator
+        :param k: Mode of the second creation operator
+        :param V: Covariance matrix of the Gaussian state
+        :param means: Means vector of the Gaussian state
+        :param N: Number of modes of the quantum system
+        :return: Expectation value of a pair of creation operators of a Gaussian state
+        '''
+        return 0.5*(V[j,k] - V[self.N+j, self.N+k] - 1j*(V[j, self.N+k] + V[self.N+j, k]))
+    
+    #@partial(jax.jit, static_argnums=(0,))
+    def compute_quad_exp_vals(self, V):
+        '''
+        Computes the expectation value of all combinations of ladder operators pairs of all existing modes
+        of a Gaussian state based on its covariance matrix and means vector.
+        
+        :param V: Covariance matrix of the Gaussian state
+        :param means: Means vector of the Gaussian state
+        :return: All expectation values of the different configuration of a pair of ladder operators on all modes.
+        '''
+        js = jnp.arange(self.N)
+        ks = jnp.arange(self.N)
+        
+        K00 = jax.vmap(jax.vmap(self.exp_val_ladder_jk, in_axes=(None, 0, None)), in_axes=(0, None, None))(js, ks, V)
+        K01 = jax.vmap(jax.vmap(self.exp_val_ladder_jdagger_k, in_axes=(None, 0, None)), in_axes=(0, None, None))(js, ks, V)
+        K10 = K01.T + jnp.eye(self.N, dtype=K01.dtype)
+        K11 = jax.vmap(jax.vmap(self.exp_val_ladder_jdagger_kdagger, in_axes=(None, 0, None)), in_axes=(0, None, None))(js, ks, V)
+
+        return jnp.stack([K00, K01, K10, K11], axis=0)
+    
+    @partial(jax.jit, static_argnums=(0,))
+    def eval_QNN(self, params, input):
         '''
         Evaluates the QONN for a given input.
         
         :param input: Input to be predicted by the QONN
         :return: EXpectation values of the observables related to QONN outputs
         '''
+        # 0. Build the QONN components using the tunable parameters
+        build_start = time.time()
+        self.build_QNN(params)
+        self.qnn_profiling.build_qnn_times.append(time.time() - build_start)
+        
         # 1. Prepare initial state: initial vacuum state displaced according to the inputs
         input_prep_start = time.time()
-        self.V = 0.5*np.eye(2*self.N)
-        self.mean_vector = np.zeros(2*self.N)
-        self.apply_linear_gaussian(np.sqrt(2) * input)
+        V = 0.5*np.eye(2*self.N)
+        mean_vector = np.zeros((2*self.N,), dtype=input.dtype)
+        mean_vector = QNN.apply_linear_gaussian(jnp.sqrt(2) * input, mean_vector)
+        
         # 1.1. When using input reuploading: build displacement with inputs
         if self.is_input_reupload:
             self.build_reuploading_disp(input)
@@ -364,12 +444,12 @@ class QNN:
 
         # 2. Apply the Gaussian transformation acting as weights matrix and bias vector
         gauss_start = time.time()
-        self.apply_gaussian_transformations()
+        mean_vector, V = self.apply_gaussian_transformations(mean_vector, V)
         self.qnn_profiling.gauss_times.append(time.time() - gauss_start)
         
         # 3. Compute the expectation values of all possible ladder operators pairs over the final Gaussian state
         K_exp_vals_start = time.time()
-        K_exp_vals = compute_K_exp_vals(self.V, self.mean_vector)
+        K_exp_vals = self.compute_quad_exp_vals(V)
         self.qnn_profiling.K_exp_vals_times.append(time.time() - K_exp_vals_start)
 
         # 4. Compute coefficients for trace expression and normalization terms
@@ -379,10 +459,10 @@ class QNN:
         
         # 5. Compute the expectation values acting as outputs
         nongauss_start = time.time()
-        unnorm_val = self.compute_exp_val_loop(traces_terms_coefs, K_exp_vals, self.mean_vector)
+        unnorm_val = self.compute_exp_val_loop(traces_terms_coefs, K_exp_vals, mean_vector)
         self.qnn_profiling.nongauss_times.append(time.time() - nongauss_start)
         
-        return self.trace_const * np.real_if_close(unnorm_val[:-1] / unnorm_val[-1], tol=1e6)
+        return self.trace_const * unnorm_val[:-1] / unnorm_val[-1]
     
     #==================
     def single_ladder_exp_val(self, trace_idx, tr_term_idx, means_vector):
@@ -514,7 +594,6 @@ class QNN:
         tr_value = jnp.sum(coefs * expvals)
         return tr_value
     
-    @partial(jax.jit, static_argnums=(0,))
     def compute_exp_val_loop(self, terms_coefs, quadratic_exp_vals, means_vector):
         '''
         Computes the expectation value of the expression (trace) that defines the QNN operations.
@@ -542,14 +621,16 @@ class QNN:
         :param loss_function: Function to evaluate the loss of the QONN predictions
         :return: Losses of the QONN predictions
         '''
-        build_start = time.time()
-        self.build_QNN(parameters)
-        self.qnn_profiling.build_qnn_times.append(time.time() - build_start)
+        batch_dim, inputs_dim = inputs_dataset.shape
+        pad_width = ((0, 0),          # no padding on batch‐axis
+                 (0, 2*self.N - inputs_dim))  # pad (2N−M) zeros to the right of each row
+        pad_inputs = jnp.pad(inputs_dataset, pad_width, mode="constant", constant_values=0)
         
-        shuffle_indices = np.random.permutation(len(inputs_dataset))
-        qnn_outputs = np.full_like(outputs_dataset, 0)
-        for dataset_idx in shuffle_indices:
-            qnn_outputs[dataset_idx] = self.eval_QNN(inputs_dataset[dataset_idx])
+        # BATCH EVALUATION
+        qnn_outputs = np.real_if_close(
+            jax.vmap(self.eval_QNN, in_axes=(None, 0))(parameters, pad_inputs), tol=1e6
+        )
+        
         return loss_function(outputs_dataset, qnn_outputs)
     
     def train_ent_witness(self, parameters):
@@ -560,13 +641,25 @@ class QNN:
         :param parameters: QONN tunable parameters
         :return: Entanglement witness expectation value
         '''
-        #input_disp = parameters[0:self.N] # TODO: Consider parameterize momentum too
+        #input_disp = parameters[0:self.N] # TODO: Consider parameterize momentum toobatch_dim, inputs_dim = inputs_dataset.shape
+        inputs = parameters[-self.N:]
+        inputs_dim = inputs.shape
+        pad_width = ((0),          # no padding on batch‐axis
+                 (2*self.N - inputs_dim[0]))  # pad (2N−M) zeros to the right of each row
+        pad_inputs = jnp.pad(inputs, pad_width, mode="constant", constant_values=0)
         
-        build_start = time.time()
-        self.build_QNN(parameters)
-        self.qnn_profiling.build_qnn_times.append(time.time() - build_start)
+        witness_vals = self.eval_QNN(parameters[:-self.N], pad_inputs)
         
-        witness_vals = self.eval_QNN(parameters[-self.N:])
+        s, V_rec = reconstruct_stats(witness_vals, self.N)
+        #s, V = reconstruct_stats(unnorm_val[1:-1]/unnorm_val[0], self.N)
+        print("FINAL STATE MEANS AND COV MAT:")
+        print(s)
+        print(np.round(np.real_if_close(V_rec), 4))
+        check_uncertainty_pple(V_rec)
+        symplectic_eigenvals(V_rec)
+        print(self.qnn_profiling.avg_benchmark())
+        
+        input("ASDF")
         #print("VAL")
         #print(witness_vals[0] - witness_vals[1]*witness_vals[2])
         #self.print_qnn()
@@ -581,6 +674,7 @@ class QNN:
         for layer in range(self.layers):
             print(f"=== LAYER {layer+1} ===\nQ1 = {self.Q1_gauss[layer]}\nZ = {self.Z_gauss[layer]}\nQ2 = {self.Q2_gauss[layer]}")
             print(f"Symplectic matrix:\n{self.S_l[layer]}")
+            check_symp_orth(self.S_l[layer])
             if not self.is_input_reupload:
                 print(f"Displacement vector:\n{self.D_l[layer]}")
             print(f"Symplectic coefficients:\n{self.S_concat[:,layer*2*self.N : (layer+1)*2*self.N]}")
@@ -599,12 +693,16 @@ class QNN:
         test_inputs = reduce(lambda x, func: func(x), self.in_preprocessors, testing_dataset[0])
         test_outputs = reduce(lambda x, func: func(x), self.out_preprocessors, testing_dataset[1])
         
-        #error = np.zeros((len(testing_dataset[1]), len(testing_dataset[1][0])))
-        qnn_outputs = np.full_like(test_outputs, 0)
+        batch_dim, inputs_dim = test_inputs.shape
+        pad_width = ((0, 0),          # no padding on batch‐axis
+                 (0, 2*self.N - inputs_dim))  # pad (2N−M) zeros to the right of each row
+        pad_inputs = jnp.pad(test_inputs, pad_width, mode="constant", constant_values=0)
         
         # Evaluate all testing set
-        for k in range(len(test_inputs)):
-            qnn_outputs[k] = self.eval_QNN(test_inputs[k])
+        qnn_outputs = np.real_if_close(
+            jax.vmap(self.eval_QNN, in_axes=(None, 0))(self.tunable_parameters, pad_inputs), tol=1e6
+        )
+        
         mean_error = loss_function(test_outputs, qnn_outputs)
         print(f"LOSS VALUE FOR TESTING SET: {mean_error}")
         
