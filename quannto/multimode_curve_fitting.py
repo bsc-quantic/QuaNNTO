@@ -67,7 +67,8 @@ plt.ylabel('Output')
 plt.grid(linestyle='--', linewidth=0.4)
 plt.legend()
 plt.savefig("figures/trainset_"+target_function.__name__+"_size"+str(trainset_size)+".png")
-plt.show()
+#plt.show()
+plt.clf()
 
 # Generate a linearly-spaced testing dataset of the target function and test the trained QNN
 test_dataset = generate_linear_dataset_of(target_function, n_inputs, n_outputs, testset_size, input_range)
@@ -119,8 +120,9 @@ plt.xlim()
 plt.ylabel('Output')
 plt.grid(linestyle='--', linewidth=0.4)
 plt.legend()
-plt.savefig("figures/test_res_"+model_name+"_N"+str(modes[0])+".png")
-plt.show()
+plt.savefig("figures/test_res_"+model_name+"_N"+str(modes)+"_L"+str(layers)+"_ph"+str(photon_additions)+"_in"+str(input_range)+".png")
+#plt.show()
+plt.clf()
 
 c=0
 for (train_loss, valid_loss, qnn) in zip(train_losses, valid_losses, qnns):
@@ -135,8 +137,9 @@ plt.ylabel('Loss value')
 plt.title(f'LOGARITHMIC TRAINING AND VALIDATION LOSS')
 plt.grid(linestyle='--', linewidth=0.4)
 plt.legend()
-plt.savefig("figures/log_loss_"+model_name+"_N"+str(modes[0])+".png")
-plt.show()
+plt.savefig("figures/log_loss_"+model_name+"_N"+str(modes)+"_L"+str(layers)+"_ph"+str(photon_additions)+"_in"+str(input_range)+".png")
+#plt.show()
+plt.clf()
 
 c=0
 for (train_loss, valid_loss, qnn) in zip(train_losses, valid_losses, qnns):
@@ -150,7 +153,8 @@ plt.ylabel('Loss value')
 plt.title(f'TRAINING AND VALIDATION LOSS')
 plt.grid(linestyle='--', linewidth=0.4)
 plt.legend()
-plt.savefig("figures/loss_"+model_name+"_N"+str(modes[0])+".png")
-plt.show()
+plt.savefig("figures/loss_"+model_name+"_N"+str(modes)+"_L"+str(layers)+"_ph"+str(photon_additions)+"_in"+str(input_range)+".png")
+#plt.show()
+plt.clf()
 
 print(f'MINIMAL LOSSES ACHIEVED: {qnn_loss}')

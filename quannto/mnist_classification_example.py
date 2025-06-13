@@ -62,10 +62,9 @@ for (cat, color) in zip(categories, colors):
     plt.plot(subset[0][0,:], subset[0][1,:], c=color, linestyle='dotted', label=cat)
 plt.grid(linestyle='--', linewidth=0.4)
 plt.legend()
-plt.show()
-#output_range = get_range(dataset[1])
-#print("LABELS RANGE:")
-#print(output_range)
+#plt.show()
+plt.savefig(f"figures/trainset_{N}modes_{layers}layers_{n_inputs}lat_{num_cats}cats.png")
+plt.clf()
 
 # === PREPROCESSORS AND POSTPROCESSORS ===
 in_preprocessors = []
@@ -93,7 +92,9 @@ plt.xlabel('Epochs')
 plt.ylabel('Logarithmic loss value')
 plt.title(f'LOGARITHMIC LOSS FUNCTIONS')
 plt.legend()
-plt.show()
+plt.savefig(f"figures/logloss_{N}modes_{layers}layers_{n_inputs}lat_{num_cats}cats.png")
+#plt.show()
+plt.clf()
 
 # Generate a linearly-spaced testing dataset of the target function and test the trained QNN
 qnn_test_outputs = qnn.test_model(test_dataset, loss_function)
@@ -119,7 +120,9 @@ sns.heatmap(cm_normalized, annot=True, fmt='.2f', cmap='Greens', alpha=cm_normal
 plt.title('Confusion Matrix')
 plt.xlabel('Predicted Label')
 plt.ylabel('True Label')
-plt.show()
+#plt.show()
+plt.savefig(f"figures/cm_{N}modes_{layers}layers_{n_inputs}lat_{num_cats}cats.png")
+plt.clf()
 
 plt.figure(figsize=(8, 6))
 sns.heatmap(cm_total, annot=True, fmt='.2f', cmap='Greens', alpha=cm_normalized)
@@ -127,4 +130,6 @@ sns.heatmap(cm_total, annot=True, fmt='.2f', cmap='Greens', alpha=cm_normalized)
 plt.title('Confusion Matrix')
 plt.xlabel('Predicted Label')
 plt.ylabel('True Label')
-plt.show()
+#plt.show()
+plt.savefig(f"figures/cmacc_{N}modes_{layers}layers_{n_inputs}lat_{num_cats}cats.png")
+plt.clf()
