@@ -125,16 +125,17 @@ def build_and_train_model(name, N, layers, n_inputs, n_outputs, photon_additions
     # ==========
     
     minimizer_kwargs = {"method": "L-BFGS-B", "bounds": bounds, "callback": callback}
-    result = opt.basinhopping(training_QNN, init_pars, niter=hopping_iters, minimizer_kwargs=minimizer_kwargs, callback=callback_hopping)
+    opt_result = opt.basinhopping(training_QNN, init_pars, niter=hopping_iters, minimizer_kwargs=minimizer_kwargs, callback=callback_hopping)
     print(f'Total training time: {time.time() - training_start} seconds')
     
     print(f'\nOPTIMIZATION ERROR FOR N={N}, L={layers}')
-    print(result.fun)
+    print(opt_result.fun)
     
-    qnn.build_QNN(result.x)
+    qnn.build_QNN(opt_result.x)
 
     qnn.print_qnn()
     print(qnn.qnn_profiling.avg_benchmark())
+    qnn.qnn_profiling.avg_epochs()
     
     if save:
         qnn.qnn_profiling.clear_times()

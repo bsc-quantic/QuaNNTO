@@ -5,7 +5,7 @@ import time
 from sympy import lambdify
 from functools import reduce
 import jax
-from jax import lax, random
+from jax import lax
 import jax.numpy as jnp
 
 from .utils import *
@@ -13,8 +13,6 @@ from .expectation_value import *
 from .results_utils import *
 
 jax.config.update("jax_enable_x64", True)
-loss_values = []
-best_loss_values = [10]
 
 class ProfilingQNN:
     '''
@@ -30,6 +28,7 @@ class ProfilingQNN:
         self.K_exp_vals_times = []
         self.ladder_superpos_times = []
         self.nongauss_times = []
+        self.epoch_times = []
 
     def avg_benchmark(self):
         self.avg_times = {}
@@ -41,6 +40,12 @@ class ProfilingQNN:
         self.avg_times["Non-gaussianity"] = sum(self.nongauss_times)/len(self.nongauss_times)
         return self.avg_times
     
+    def avg_epochs(self):
+        avg_epochs = sum(self.epoch_times) / len(self.epoch_times)
+        print(f'TOTAL EPOCHS: {len(self.epoch_times)}')
+        print(f'AVERAGE EPOCH TIME: {avg_epochs}')
+        return avg_epochs
+    
     def clear_times(self):
         self.build_qnn_times = []
         self.input_prep_times = []
@@ -48,6 +53,7 @@ class ProfilingQNN:
         self.K_exp_vals_times = []
         self.ladder_superpos_times = []
         self.nongauss_times = []
+        self.avg_epochs = []
     
 class QNN:
     '''
@@ -74,7 +80,6 @@ class QNN:
         
         # Some useful constants
         self.oneoversqrt2 = 1/np.sqrt(2)
-        
         
         # Quadratures - Fock space transformation utils
         self.u_bar = CanonicalLadderTransformations(N)
@@ -398,7 +403,6 @@ class QNN:
         '''
         return 0.5*(V[j,k] - V[self.N+j, self.N+k] - 1j*(V[j, self.N+k] + V[self.N+j, k]))
     
-    #@partial(jax.jit, static_argnums=(0,))
     def compute_quad_exp_vals(self, V):
         '''
         Computes the expectation value of all combinations of ladder operators pairs of all existing modes
@@ -464,7 +468,6 @@ class QNN:
         
         return self.trace_const * unnorm_val[:-1] / unnorm_val[-1]
     
-    #==================
     def single_ladder_exp_val(self, trace_idx, tr_term_idx, means_vector):
         '''
         Computes the expectation value of a single ladder operator over a certain mode based
@@ -607,8 +610,6 @@ class QNN:
         '''
         exp_vals = jax.vmap(self.compute_terms_in_trace, in_axes=(0, 0, None, None))(self.exp_vals_inds, terms_coefs, quadratic_exp_vals, means_vector)
         return exp_vals
-    
-    #=====================
 
     def train_QNN(self, parameters, inputs_dataset, outputs_dataset, loss_function):
         '''
@@ -622,9 +623,11 @@ class QNN:
         :return: Losses of the QONN predictions
         '''
         # BATCH EVALUATION
+        epoch_start_time = time.time()
         qnn_outputs = np.real_if_close(
             jax.vmap(self.eval_QNN, in_axes=(None, 0))(parameters, inputs_dataset), tol=1e6
         )
+        self.qnn_profiling.epoch_times.append(time.time() - epoch_start_time)
         
         return loss_function(outputs_dataset, qnn_outputs)
     
@@ -688,14 +691,9 @@ class QNN:
         test_inputs = reduce(lambda x, func: func(x), self.in_preprocessors, testing_dataset[0])
         test_outputs = reduce(lambda x, func: func(x), self.out_preprocessors, testing_dataset[1])
         
-        batch_dim, inputs_dim = test_inputs.shape
-        pad_width = ((0, 0),          # no padding on batch‐axis
-                 (0, 2*self.N - inputs_dim))  # pad (2N−M) zeros to the right of each row
-        pad_inputs = jnp.pad(test_inputs, pad_width, mode="constant", constant_values=0)
-        
         # Evaluate all testing set
         qnn_outputs = np.real_if_close(
-            jax.vmap(self.eval_QNN, in_axes=(None, 0))(self.tunable_parameters, pad_inputs), tol=1e6
+            jax.vmap(self.eval_QNN, in_axes=(None, 0))(self.tunable_parameters, test_inputs), tol=1e6
         )
         
         mean_error = loss_function(test_outputs, qnn_outputs)
