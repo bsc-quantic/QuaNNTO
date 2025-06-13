@@ -14,12 +14,12 @@ from .loss_functions import *
 np.random.seed(42)
 
 # === HYPERPARAMETERS DEFINITION ===
-N = 4
+N = 6
 photon_additions = [0]
 layers = 1
 is_input_reupload = False
-n_inputs = 2
-n_outputs = 4
+n_inputs = 4
+n_outputs = 6
 observable = 'position'
 in_norm_range = (-2, 2)
 out_norm_range = (1, 5)
@@ -27,7 +27,7 @@ loss_function = cross_entropy
 basinhopping_iters = 0
 
 # === DATASET SETTINGS ===
-categories = [0, 1, 2, 3]
+categories = [0, 1, 2, 3, 4, 5]
 num_cats = len(categories)
 dataset_size = 30*num_cats
 validset_size = 80
@@ -71,6 +71,7 @@ plt.clf()
 # === PREPROCESSORS AND POSTPROCESSORS ===
 in_preprocessors = []
 in_preprocessors.append(partial(rescale_set_with_ranges, data_ranges=data_ranges, rescale_range=in_norm_range))
+in_preprocessors.append(partial(pad_data, length=2*N))
 
 out_preprocessors = []
 out_preprocessors.append(partial(rescale_data, data_range=output_range, scale_data_range=out_norm_range))
