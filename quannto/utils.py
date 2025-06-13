@@ -45,7 +45,7 @@ def general_hermitian_matrix(pars: jnp.ndarray, N: int) -> jnp.ndarray:
     diag    = pars[2*offdiag_sz:2*offdiag_sz + N]
 
     # start from zeros
-    mat = jnp.zeros((N, N), dtype=pars.dtype)
+    mat = jnp.zeros((N, N), dtype=jnp.complex128)
 
     # set diagonal
     mat = mat.at[jnp.diag_indices(N)].set(diag)
