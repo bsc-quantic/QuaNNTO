@@ -6,7 +6,8 @@ def plot_qnn_testing(qnn, exp_outputs, qnn_outputs):
     plt.plot(qnn_outputs, 'r', label='QNN results')
     plt.title(f'TESTING SET\nModel: {qnn.model_name}, Modes = {qnn.N}, Layers = {qnn.layers}')
     plt.legend()
-    plt.show()
+    #plt.show()
+    plt.savefig(f"figures/testset_{qnn.model_name}_{qnn.N}modes_{qnn.layers}layers_{qnn.n_in}in.png")
     
 def plot_qnn_train_results(qnn, inputs, exp_outputs, qnn_outputs, loss_values):
     fig, (ax1, ax2) = plt.subplots(1, 2)
