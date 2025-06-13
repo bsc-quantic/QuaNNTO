@@ -1,86 +1,9 @@
 import numpy as np
-from sympy import symbols, expand, MatrixSymbol, Add
-from numba import njit, prange
-import numba as nb
-import jax
+from sympy import symbols, expand, MatrixSymbol
 import jax.numpy as jnp
 from functools import partial
 
 from .utils import *
-
-nb.set_num_threads(6)
-
-def exp_val_ladder_jk(j, k, V, means, N):
-    '''
-    Computes the expectation value of two annihilation operators (in mode j and k) of a Gaussian state based 
-    on the first two statistical moments of the state. This corresponds to the first identity I1.
-
-    :param j: Mode of the first annihilation operator
-    :param k: Mode of the second annihilation operator
-    :param V: Covariance matrix of the Gaussian state
-    :param means: Means vector of the Gaussian state
-    :param N: Number of modes of the quantum system
-    :return: Expectation value of a pair of annihilation operators of a Gaussian state
-    '''
-    return 0.5*(V[j,k] - V[N+j, N+k] + 1j*(V[j, N+k] + V[N+j, k]))
-
-def exp_val_ladder_jdagger_k(j, k, V, means, N):
-    '''
-    Computes the expectation value of one annihilation and one creation operators (in mode j and k) 
-    of a Gaussian state based on the first two statistical moments of the state.
-    This corresponds to the second identity I2.
-
-    :param j: Mode of the creation operator
-    :param k: Mode of the annihilation operator
-    :param V: Covariance matrix of the Gaussian state
-    :param means: Means vector of the Gaussian state
-    :param N: Number of modes of the quantum system
-    :return: Expectation value of one creation and one annihilation operators of a Gaussian state
-    '''
-    return 0.5*(V[j,k] + V[N+j, N+k] + 1j*(V[j, N+k] - V[N+j, k]) - (1 if j==k else 0))
-
-def exp_val_ladder_jdagger_kdagger(j, k, V, means, N):
-    '''
-    Computes the expectation value of two creation operators (in mode j and k) of a Gaussian state based 
-    on the first two statistical moments of the state. This corresponds to the fourth identity I4.
-
-    :param j: Mode of the first creation operator
-    :param k: Mode of the second creation operator
-    :param V: Covariance matrix of the Gaussian state
-    :param means: Means vector of the Gaussian state
-    :param N: Number of modes of the quantum system
-    :return: Expectation value of a pair of creation operators of a Gaussian state
-    '''
-    return 0.5*(V[j,k] - V[N+j, N+k] - 1j*(V[j, N+k] + V[N+j, k]))
-
-def compute_K_exp_vals(V, means):
-    '''
-    Computes the expectation value of all combinations of ladder operators pairs of all existing modes
-    of a Gaussian state based on its covariance matrix and means vector.
-    
-    :param V: Covariance matrix of the Gaussian state
-    :param means: Means vector of the Gaussian state
-    :return: All expectation values of the different configuration of a pair of ladder operators on all modes.
-    '''
-    N = len(V)//2
-    K_exp_vals = np.zeros((4,N,N), dtype='complex')
-    # Expectation values of two creation operators for all modes
-    for j in range(N):
-        for k in range(N):
-            K_exp_vals[0,j,k] = exp_val_ladder_jk(j,k,V,means,N)
-    # Expectation values of first creation and then annihilation operators for all modes
-    for j in range(N):
-        for k in range(N):
-            K_exp_vals[1,j,k] = exp_val_ladder_jdagger_k(j,k,V,means,N)
-    # Expectation values of first annihilation and then creation operators for all modes
-    K_exp_vals[2] = np.copy(K_exp_vals[1].T)
-    for j in range(N):
-        K_exp_vals[2,j,j] += 1
-    # Expectation values of two annihilation operators for all modes
-    for j in range(N):
-        for k in range(N):
-            K_exp_vals[3,j,k] = exp_val_ladder_jdagger_kdagger(j,k,V,means,N)
-    return K_exp_vals
 
 def extract_ladder_expressions(trace_expr):
     '''
