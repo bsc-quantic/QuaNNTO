@@ -9,7 +9,7 @@ from .results_utils import *
 from .data_processors import *
 from .loss_functions import *
 
-#np.random.seed(27)
+np.random.seed(42)
 
 # === HYPERPARAMETERS DEFINITION ===
 modes = [2]
@@ -24,6 +24,7 @@ out_norm_range = (-2, 2)
 loss_function = mse
 basinhopping_iters = 1
 noise = 0.1
+params = None
 
 # === TARGET FUNCTION SETTINGS ===
 target_function = sin_1in_1out
@@ -98,7 +99,7 @@ for N in modes:
             # Build the QNN and train it with the generated dataset
             qnn, train_loss, valid_loss = build_and_train_model(model_name, N, l, n_inputs, n_outputs, ph_add, observable, is_input_reupload,
                                                                 train_dataset, valid_dataset, loss_function, basinhopping_iters,
-                                                                in_preprocessors, out_preprocessors, postprocessors)
+                                                                in_preprocessors, out_preprocessors, postprocessors, init_pars=params)
             qnns.append(qnn)
             train_losses.append(train_loss.copy())
             valid_losses.append(valid_loss.copy())
