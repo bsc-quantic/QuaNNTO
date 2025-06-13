@@ -2,7 +2,7 @@ import numpy as np
 from functools import reduce, partial
 import time
 import scipy.optimize as opt
-import jax
+import jax.numpy as jnp
 
 from .loss_functions import mse
 from .qnn import QNN
@@ -99,9 +99,17 @@ def build_and_train_model(name, N, layers, n_inputs, n_outputs, photon_additions
               photon_additions, observable, is_input_reupload, in_preprocs, out_prepocs, postprocs)
     train_inputs = reduce(lambda x, func: func(x), qnn.in_preprocessors, train_set[0])
     train_outputs = reduce(lambda x, func: func(x), qnn.out_preprocessors, train_set[1])
+    train_batch_dim, train_inputs_dim = train_inputs.shape
+    pad_width = ((0, 0),          # no padding on batch‐axis
+                (0, 2*N - train_inputs_dim))  # pad (2N−M) zeros to the right of each row
+    train_pad_inputs = jnp.pad(train_inputs, pad_width, mode="constant", constant_values=0)
     
     valid_inputs = reduce(lambda x, func: func(x), qnn.in_preprocessors, valid_set[0])
     valid_outputs = reduce(lambda x, func: func(x), qnn.out_preprocessors, valid_set[1])
+    valid_batch_dim, valid_inputs_dim = train_inputs.shape
+    pad_width = ((0, 0),          # no padding on batch‐axis
+                (0, 2*N - valid_inputs_dim))  # pad (2N−M) zeros to the right of each row
+    valid_pad_inputs = jnp.pad(valid_inputs, pad_width, mode="constant", constant_values=0)
     
     global best_loss_values
     best_loss_values = [9999]
@@ -112,8 +120,8 @@ def build_and_train_model(name, N, layers, n_inputs, n_outputs, photon_additions
     global validation_loss
     validation_loss = [9999]
     
-    training_QNN = partial(qnn.train_QNN, inputs_dataset=train_inputs, outputs_dataset=train_outputs, loss_function=loss_function)
-    validate_QNN = partial(qnn.train_QNN, inputs_dataset=valid_inputs, outputs_dataset=valid_outputs, loss_function=loss_function)
+    training_QNN = partial(qnn.train_QNN, inputs_dataset=train_pad_inputs, outputs_dataset=train_outputs, loss_function=loss_function)
+    validate_QNN = partial(qnn.train_QNN, inputs_dataset=valid_pad_inputs, outputs_dataset=valid_outputs, loss_function=loss_function)
     
     training_start = time.time()
     # ==========

@@ -621,14 +621,9 @@ class QNN:
         :param loss_function: Function to evaluate the loss of the QONN predictions
         :return: Losses of the QONN predictions
         '''
-        batch_dim, inputs_dim = inputs_dataset.shape
-        pad_width = ((0, 0),          # no padding on batch‐axis
-                 (0, 2*self.N - inputs_dim))  # pad (2N−M) zeros to the right of each row
-        pad_inputs = jnp.pad(inputs_dataset, pad_width, mode="constant", constant_values=0)
-        
         # BATCH EVALUATION
         qnn_outputs = np.real_if_close(
-            jax.vmap(self.eval_QNN, in_axes=(None, 0))(parameters, pad_inputs), tol=1e6
+            jax.vmap(self.eval_QNN, in_axes=(None, 0))(parameters, inputs_dataset), tol=1e6
         )
         
         return loss_function(outputs_dataset, qnn_outputs)
