@@ -437,8 +437,8 @@ class QNN:
         
         # 1. Prepare initial state: initial vacuum state displaced according to the inputs
         input_prep_start = time.time()
-        V = 0.5*np.eye(2*self.N)
-        mean_vector = np.zeros((2*self.N,), dtype=input.dtype)
+        V = 0.5*jnp.eye(2*self.N)
+        mean_vector = jnp.zeros((2*self.N,), dtype=jnp.complex128)
         mean_vector = QNN.apply_linear_gaussian(jnp.sqrt(2) * input, mean_vector)
         
         # 1.1. When using input reuploading: build displacement with inputs
