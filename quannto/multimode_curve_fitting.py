@@ -22,13 +22,13 @@ observable = 'position'
 in_norm_range = (-2, 2)
 out_norm_range = (-2, 2)
 loss_function = mse
-basinhopping_iters = 1
+basinhopping_iters = 3
 noise = 0.1
 params = None
 
 # === TARGET FUNCTION SETTINGS ===
 target_function = sin_1in_1out
-trainset_size = 100
+trainset_size = 80
 testset_size = 200
 validset_size = 50
 input_range = (0, 6.3)
@@ -51,8 +51,6 @@ else:
 
 train_dataset = bubblesort(np.reshape(train_dataset[1], (trainset_size)), np.reshape(train_dataset[0], (trainset_size)))
 train_dataset = (train_dataset[1].reshape((trainset_size, 1)), train_dataset[0].reshape((trainset_size, 1)))
-
-input_range = get_range(train_dataset[0])
 
 # Generate a validation dataset of the target function
 valid_dataset = generate_dataset_of(target_function, n_inputs, n_outputs, validset_size, input_range)
