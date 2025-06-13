@@ -1,5 +1,6 @@
 import numpy as np
 import tensorflow as tf
+import jax.numpy as jnp
 
 def trigonometric_feature_expressivity(features, num_final_features):
     transf_feats = np.zeros((len(features), num_final_features))
@@ -43,6 +44,12 @@ def rescale_set_with_ranges(set, data_ranges, rescale_range):
     for col in range(len(set[0])):
         rescaled_set[:,col] = rescale_data(set[:,col], data_ranges[col], rescale_range)
     return rescaled_set
+
+def pad_data(data, length):
+    batch_dim, entries_dim = data.shape
+    pad_width = ((0, 0),          # no padding on batch‐axis
+                (0, length - entries_dim))  # pad (2N−M) zeros to the right of each row
+    return jnp.pad(data, pad_width, mode="constant", constant_values=0)
 
 def binning(data, data_range, num_categories):
     # TODO: center the binning in the numerical value used for training

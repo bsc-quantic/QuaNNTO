@@ -86,9 +86,8 @@ for N in modes:
         for ph_add in photon_additions:
             # Initialize the desired data processors for pre/post-processing
             in_preprocessors = []
-            #in_preprocessors.append(partial(trigonometric_feature_expressivity, num_final_features=N))
-            #input_range = (-N, N)
             in_preprocessors.append(partial(rescale_data, data_range=input_range, scale_data_range=in_norm_range))
+            in_preprocessors.append(partial(pad_data, length=2*N))
 
             out_preprocessors = []
             out_preprocessors.append(partial(rescale_data, data_range=output_range, scale_data_range=out_norm_range))
