@@ -11,6 +11,8 @@ from .results_utils import *
 from .data_processors import *
 from .loss_functions import *
 
+np.random.seed(42)
+
 # === HYPERPARAMETERS DEFINITION ===
 N = 4
 photon_additions = [0]
