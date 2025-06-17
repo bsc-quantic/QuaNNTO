@@ -230,8 +230,6 @@ def check_uncertainty_pple(V):
 def symplectic_eigenvals(V):
     symp_mat = 1j*create_J(len(V) // 2)@V
     symp_eigvals = LA.eigvals(symp_mat)
-    print('Eigenvalues of iJV: ')
-    print(symp_eigvals)
     return symp_eigvals
     
 def reconstruct_stats(exp_vals, N):
@@ -260,13 +258,6 @@ def reconstruct_stats(exp_vals, N):
     xjpk_pkxj = np.array([[aj_ak[j,k].imag + ajdag_ak[j,k].imag for k in range(N)] for j in range(N)])
     #xjpk_pkxj = np.array([[2*aj_ak[j,k].imag for k in range(N)] for j in range(N)])
     sjsk = np.block([[xjxk, xjpk_pkxj],[xjpk_pkxj.T, pjpk]])
-    
-    print("Xj")
-    print(xj)
-    print("Pj")
-    print(pj)
-    print("XjXk")
-    print(xjxk)
     
     V = np.array([[sjsk[j,k] - sj[j]*sj[k] for k in range(2*N)] for j in range(2*N)])
     return sj, V
