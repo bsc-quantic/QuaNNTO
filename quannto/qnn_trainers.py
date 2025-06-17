@@ -149,7 +149,7 @@ def build_and_train_model(name, N, layers, n_inputs, n_outputs, photon_additions
     
     return qnn, best_loss_values, best_validation_loss
 
-def train_entanglement_witness(name, N, layers, n_inputs, n_outputs, photon_additions, observable, hopping_iters=2, in_preprocs=[], out_prepocs=[], postprocs=[], init_pars=None, save=True):
+def train_symplectic_rank(name, N, layers, n_inputs, n_outputs, photon_additions, observable, hopping_iters=2, in_preprocs=[], out_prepocs=[], postprocs=[], init_pars=None, save=True):
     n_pars = layers*(2*N**2 + 3*N)
     if type(init_pars) == type(None):
         init_pars = np.random.rand(n_pars + 2*N) # TODO: Consider parameterize momentum too
@@ -181,7 +181,7 @@ def train_entanglement_witness(name, N, layers, n_inputs, n_outputs, photon_addi
         :param xk: QONN tunable parameters
         '''
         e = train_symplectic_rank(xk)
-        print(f'Witness expected value: {e}')
+        print(f'Symplectic rank expected value: {e}')
         loss_values.append(e)
         
     def callback_hopping(x,f,accept):
@@ -213,7 +213,7 @@ def train_entanglement_witness(name, N, layers, n_inputs, n_outputs, photon_addi
     result = opt.basinhopping(train_symplectic_rank, init_pars, niter=hopping_iters, minimizer_kwargs=minimizer_kwargs, callback=callback_hopping)
     print(f'Total training time: {time.time() - training_start} seconds')
     
-    print(f'\nOPTIMIZED ENTANGLEMENT WITNESS VALUE FOR N={N}, L={layers}')
+    print(f'\nOPTIMIZED SYMPLECTIC RANK VALUE FOR N={N}, L={layers}')
     print(result.fun)
     
     qnn.build_QNN(result.x)
