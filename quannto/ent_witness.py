@@ -2,7 +2,7 @@ import matplotlib.pyplot as plt
 from matplotlib import colormaps
 import os.path
 
-from .qnn_trainers import train_entanglement_witness
+from .qnn_trainers import train_symplectic_rank
 from .synth_datasets import *
 from .results_utils import *
 from .data_processors import *
@@ -13,7 +13,7 @@ from .loss_functions import *
 # === HYPERPARAMETERS DEFINITION ===
 modes = [2]
 photon_additions = [[0]]
-layers = [3]
+layers = [2]
 is_input_reupload = False
 n_inputs = 1
 n_outputs = 1
@@ -43,7 +43,7 @@ for N in modes:
         for ph_add in photon_additions:
             model_name = "ent_witness"
             # Build the QNN and train it with the generated dataset
-            qnn, train_loss = train_entanglement_witness(model_name, N, l, n_inputs, n_outputs, ph_add, observable, init_pars=params)
+            qnn, train_loss = train_symplectic_rank(model_name, N, l, n_inputs, n_outputs, ph_add, observable, init_pars=params)
             qnns.append(qnn)
             train_losses.append(train_loss.copy())
             qnn_loss.append(train_loss[-1])
@@ -60,6 +60,7 @@ plt.title(f'Entanglement witness training')
 plt.grid(linestyle='--', linewidth=0.4)
 plt.legend()
 plt.savefig("figures/ent_wit_loss_"+model_name+"_N"+str(modes[0])+".png")
-plt.show()
+#plt.show()
+plt.clf()
 
 print(f'MINIMUM ACHIEVED VALUES: {qnn_loss}')

@@ -463,10 +463,11 @@ class QNN:
         
         # 5. Compute the expectation values acting as outputs
         nongauss_start = time.time()
-        unnorm_val = self.compute_exp_val_loop(traces_terms_coefs, K_exp_vals, mean_vector)
+        exp_vals = self.compute_exp_val_loop(traces_terms_coefs, K_exp_vals, mean_vector)
         self.qnn_profiling.nongauss_times.append(time.time() - nongauss_start)
         
-        return self.trace_const * unnorm_val[:-1] / unnorm_val[-1]
+        # 6. Multiply by trace coefficients and normalize (last expectation value)
+        return self.trace_const * exp_vals[:-1] / exp_vals[-1]
     
     def single_ladder_exp_val(self, trace_idx, tr_term_idx, means_vector):
         '''
@@ -624,45 +625,32 @@ class QNN:
         '''
         # BATCH EVALUATION
         epoch_start_time = time.time()
+        shuffled_inds = np.random.permutation(len(inputs_dataset))
+        shuffled_inputs_dataset = inputs_dataset[shuffled_inds]
         qnn_outputs = np.real_if_close(
-            jax.vmap(self.eval_QNN, in_axes=(None, 0))(parameters, inputs_dataset), tol=1e6
+            jax.vmap(self.eval_QNN, in_axes=(None, 0))(parameters, shuffled_inputs_dataset), tol=1e6
         )
         self.qnn_profiling.epoch_times.append(time.time() - epoch_start_time)
         
-        return loss_function(outputs_dataset, qnn_outputs)
+        return loss_function(outputs_dataset[shuffled_inds], qnn_outputs)
     
-    def train_ent_witness(self, parameters):
+    def train_symp_rank(self, parameters):
         '''
-        Tunes the QONN parameters in order to minimize an entanglement witness 
-        aiming for maximally entangled states.
+        Tunes the QONN parameters in order to maximize the symplectic rank, 
+        i.e. to maximize the non-Gaussianity in a pure quantum system.
         
         :param parameters: QONN tunable parameters
-        :return: Entanglement witness expectation value
+        :return: Symplectic eigenvalues of the final QONN state
         '''
-        #input_disp = parameters[0:self.N] # TODO: Consider parameterize momentum toobatch_dim, inputs_dim = inputs_dataset.shape
-        inputs = parameters[-self.N:]
-        inputs_dim = inputs.shape
-        pad_width = ((0),          # no padding on batch‐axis
-                 (2*self.N - inputs_dim[0]))  # pad (2N−M) zeros to the right of each row
-        pad_inputs = jnp.pad(inputs, pad_width, mode="constant", constant_values=0)
-        
-        witness_vals = self.eval_QNN(parameters[:-self.N], pad_inputs)
+        inputs = parameters[-2*self.N:]
+        witness_vals = self.eval_QNN(parameters[:-self.N], inputs)
         
         s, V_rec = reconstruct_stats(witness_vals, self.N)
-        #s, V = reconstruct_stats(unnorm_val[1:-1]/unnorm_val[0], self.N)
-        print("FINAL STATE MEANS AND COV MAT:")
-        print(s)
-        print(np.round(np.real_if_close(V_rec), 4))
-        check_uncertainty_pple(V_rec)
-        symplectic_eigenvals(V_rec)
-        print(self.qnn_profiling.avg_benchmark())
-        
-        input("ASDF")
-        #print("VAL")
-        #print(witness_vals[0] - witness_vals[1]*witness_vals[2])
-        #self.print_qnn()
-        
-        return -(witness_vals[0] - witness_vals[1]*witness_vals[2])
+        symp_eigvals = np.real_if_close(symplectic_eigenvals(V_rec))
+        #print(symp_eigvals)
+        abs_smyp_eigvals = np.abs(symp_eigvals)
+        symp_rank = np.sum(0.5 - abs_smyp_eigvals)
+        return symp_rank
     
     def print_qnn(self):
         '''

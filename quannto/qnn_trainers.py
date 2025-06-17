@@ -49,7 +49,7 @@ def build_and_train_model(name, N, layers, n_inputs, n_outputs, photon_additions
             assert len(init_pars) == layers*(2*N**2 + 3*N) + aux_pars
     
     passive_bounds = (None, None)
-    sqz_bounds = (np.log(0.1), np.log(10))
+    sqz_bounds = (np.log(0.05), np.log(20))
     disp_bounds = (-2/np.sqrt(2), 2/np.sqrt(2))
     bounds = []
     for _ in range(layers):
@@ -114,6 +114,8 @@ def build_and_train_model(name, N, layers, n_inputs, n_outputs, photon_additions
     
     training_QNN = partial(qnn.train_QNN, inputs_dataset=train_inputs, outputs_dataset=train_outputs, loss_function=loss_function)
     validate_QNN = partial(qnn.train_QNN, inputs_dataset=valid_inputs, outputs_dataset=valid_outputs, loss_function=loss_function)
+    #train_validation_inputs = np.concatenate((train_inputs, valid_inputs))
+    #train_validation_outputs = np.concatenate((train_outputs, valid_outputs))
     
     training_start = time.time()
     # ==========
@@ -150,13 +152,13 @@ def build_and_train_model(name, N, layers, n_inputs, n_outputs, photon_additions
 def train_entanglement_witness(name, N, layers, n_inputs, n_outputs, photon_additions, observable, hopping_iters=2, in_preprocs=[], out_prepocs=[], postprocs=[], init_pars=None, save=True):
     n_pars = layers*(2*N**2 + 3*N)
     if type(init_pars) == type(None):
-        init_pars = np.random.rand(n_pars + N + 1) # TODO: Consider parameterize momentum too
+        init_pars = np.random.rand(n_pars + 2*N) # TODO: Consider parameterize momentum too
     
     inp_disp_bounds = (-2, 2)
     passive_bounds = (None, None)
     sqz_bounds = (np.log(0.1), np.log(10))
     disp_bounds = (-2/np.sqrt(2), 2/np.sqrt(2))
-    witness_par_bound = (0,1)
+    #witness_par_bound = (0,1)
     bounds = []
     for _ in range(layers):
         # Passive optics bounds
@@ -166,9 +168,9 @@ def train_entanglement_witness(name, N, layers, n_inputs, n_outputs, photon_addi
         # Displacement bounds
         bounds += [disp_bounds for _ in range(2*N)]
     # Witness parameter bounds
-    bounds += [witness_par_bound]
+    #bounds += [witness_par_bound]
     # Input displacements bounds
-    bounds += [inp_disp_bounds for _ in range(N)]
+    bounds += [inp_disp_bounds for _ in range(2*N)]
     
     qnn = QNN("model_N" + str(N) + "_L" + str(layers) + "_" + name, N, layers, n_inputs, n_outputs, photon_additions, observable)
     
@@ -178,7 +180,7 @@ def train_entanglement_witness(name, N, layers, n_inputs, n_outputs, photon_addi
         
         :param xk: QONN tunable parameters
         '''
-        e = train_witness(xk)
+        e = train_symplectic_rank(xk)
         print(f'Witness expected value: {e}')
         loss_values.append(e)
         
@@ -204,12 +206,11 @@ def train_entanglement_witness(name, N, layers, n_inputs, n_outputs, photon_addi
     global loss_values
     loss_values = [9999]
     
-    train_witness = partial(qnn.train_ent_witness)
+    train_symplectic_rank = partial(qnn.train_symp_rank)
     
     training_start = time.time()
     minimizer_kwargs = {"method": "L-BFGS-B", "bounds": bounds, "callback": callback}
-    result = opt.basinhopping(train_witness, init_pars, niter=hopping_iters, minimizer_kwargs=minimizer_kwargs, callback=callback_hopping)
-    print(bounds)
+    result = opt.basinhopping(train_symplectic_rank, init_pars, niter=hopping_iters, minimizer_kwargs=minimizer_kwargs, callback=callback_hopping)
     print(f'Total training time: {time.time() - training_start} seconds')
     
     print(f'\nOPTIMIZED ENTANGLEMENT WITNESS VALUE FOR N={N}, L={layers}')
