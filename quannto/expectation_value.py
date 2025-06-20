@@ -128,15 +128,22 @@ def complete_trace_expression(N, layers, photon_additions, n_outputs, include_ob
                         expanded_expr.append(expand(sup_dag*(c[j]*c[k]*a[l])*sup + aux))
                         expanded_expr.append(expand(sup_dag*(c[j]*c[k]*c[l])*sup + aux)) """
         elif obs == 'witness': # FIXME
-            expanded_expr.append(expand(sup_dag*(c[0]*a[0]*c[1]*a[1])*sup + aux)) #〈N1N2〉
-            expanded_expr.append(expand(sup_dag*(c[0]*a[0])*sup + aux)) #〈N1〉
-            expanded_expr.append(expand(sup_dag*(c[1]*a[1])*sup + aux)) #〈N2〉
+            #expanded_expr.append(expand(sup_dag*(c[0]*a[0]*c[1]*a[1])*sup + aux)) #〈N1N2〉
+            #expanded_expr.append(expand(sup_dag*(c[0]*a[0])*sup + aux)) #〈N1〉
+            #expanded_expr.append(expand(sup_dag*(c[1]*a[1])*sup + aux)) #〈N2〉
             #expanded_expr.append(expand(sup_dag*(a[0]*c[0]*a[0]*c[0])*sup + aux)) #〈aN1a+〉
-            #expanded_expr.append(expand(sup_dag*(a[0]*c[0])*sup + aux)) #〈aa+〉
+            expanded_expr.append(expand(sup_dag*(a[0]*c[0])*sup + aux)) #〈aa+〉
+            expanded_expr.append(expand(sup_dag*(a[0]*a[0]*c[0])*sup + aux)) #〈a a a+〉
+            expanded_expr.append(expand(sup_dag*(a[0]*c[0]*c[0])*sup + aux)) #〈a a+ a+〉
             #expanded_expr.append(expand(sup_dag*(a[0]*a[0]*c[0]*a[0]*c[0]*c[0])*sup + aux)) #〈aaN1a+a+〉
-            #expanded_expr.append(expand(sup_dag*(a[0]*a[0]*c[0]*c[0])*sup + aux)) #〈aaa+a+〉
+            expanded_expr.append(expand(sup_dag*(a[0]*a[0]*c[0]*c[0])*sup + aux)) #〈aaa+a+〉
+            expanded_expr.append(expand(sup_dag*(a[0]*a[0]*a[0]*c[0]*c[0])*sup + aux)) #〈aa a a+a+〉
+            expanded_expr.append(expand(sup_dag*(a[0]*a[0]*c[0]*c[0]*c[0])*sup + aux)) #〈aa a+ a+a+〉
             #expanded_expr.append(expand(sup_dag*(c[0]*c[0]*a[0]*a[0])*sup + aux)) #〈a+N1a〉
             #expanded_expr.append(expand(sup_dag*(c[0]*a[0])*sup + aux)) #〈a+a〉
+            expanded_expr.append(expand(sup_dag*(a[0]*a[0]*a[0]*c[0]*c[0]*c[0])*sup + aux)) #〈aaaa+a+a+〉
+            expanded_expr.append(expand(sup_dag*(a[0]*a[0]*a[0]*a[0]*c[0]*c[0]*c[0])*sup + aux)) #〈aaa a a+a+a+〉
+            expanded_expr.append(expand(sup_dag*(a[0]*a[0]*a[0]*c[0]*c[0]*c[0]*c[0])*sup + aux)) #〈aaa a+ a+a+a+〉
         else:
             for i in range(n_outputs):
                 if obs == 'position':
