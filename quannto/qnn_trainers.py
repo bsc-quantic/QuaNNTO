@@ -50,7 +50,8 @@ def build_and_train_model(name, N, layers, n_inputs, n_outputs, photon_additions
     
     passive_bounds = (None, None)
     sqz_bounds = (np.log(0.05), np.log(20))
-    disp_bounds = (-2/np.sqrt(2), 2/np.sqrt(2))
+    #disp_bounds = (-2/np.sqrt(2), 2/np.sqrt(2))
+    disp_bounds = (-50, 50)
     bounds = []
     for _ in range(layers):
         # Passive optics bounds
@@ -157,7 +158,8 @@ def train_symplectic_rank(name, N, layers, n_inputs, n_outputs, photon_additions
     inp_disp_bounds = (-2, 2)
     passive_bounds = (None, None)
     sqz_bounds = (np.log(0.1), np.log(10))
-    disp_bounds = (-2/np.sqrt(2), 2/np.sqrt(2))
+    #disp_bounds = (-2/np.sqrt(2), 2/np.sqrt(2))
+    disp_bounds = (-50, 50)
     #witness_par_bound = (0,1)
     bounds = []
     for _ in range(layers):
