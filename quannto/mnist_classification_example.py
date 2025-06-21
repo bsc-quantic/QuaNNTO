@@ -14,30 +14,30 @@ from .loss_functions import *
 np.random.seed(42)
 
 # === HYPERPARAMETERS DEFINITION ===
-N = 3
+N = 5
 photon_additions = [0]
 layers = 1
 is_input_reupload = False
-n_inputs = 3
-n_outputs = 3
+n_inputs = 5
+n_outputs = 5
 observable = 'position'
-in_norm_range = (-2, 2)
+in_norm_range = (-1, 1)
 out_norm_range = (1, 5)
 loss_function = cross_entropy
-basinhopping_iters = 4
+basinhopping_iters = 1
 
 # === DATASET SETTINGS ===
-categories = [0, 1, 2]
+categories = [0, 1, 2, 3, 4]
 num_cats = len(categories)
-dataset_size = 30*num_cats
+dataset_size = 50*num_cats
 validset_size = 120
 testset_size = 80
 model_name = f"mnist_{N}modes_{layers}layers_{n_inputs}lat_{num_cats}cats_{observable}_ph{len(photon_additions)}"
 
-if os.path.isfile(f"datasets/mnist_encoding_{N}modes_{n_inputs}lat_{num_cats}cats_inputs.npy"):
-    with open(f"datasets/mnist_encoding_{N}modes_{n_inputs}lat_{num_cats}cats_inputs.npy", "rb") as f:
+if os.path.isfile(f"datasets/mnist_encoding_{n_inputs}lat_{num_cats}cats_inputs.npy"):
+    with open(f"datasets/mnist_encoding_{n_inputs}lat_{num_cats}cats_inputs.npy", "rb") as f:
         inputs = np.load(f)
-    with open(f"datasets/mnist_encoding_{N}modes_{n_inputs}lat_{num_cats}cats_outputs.npy", "rb") as f:
+    with open(f"datasets/mnist_encoding_{n_inputs}lat_{num_cats}cats_outputs.npy", "rb") as f:
         outputs = np.load(f)
     dataset = [inputs, outputs]
     data_ranges = np.array([(np.min(dataset[0][:,col]), np.max(dataset[0][:,col])) for col in range(len(dataset[0][0]))])
