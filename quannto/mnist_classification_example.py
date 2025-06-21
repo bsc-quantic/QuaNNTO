@@ -14,25 +14,25 @@ from .loss_functions import *
 np.random.seed(42)
 
 # === HYPERPARAMETERS DEFINITION ===
-N = 6
+N = 3
 photon_additions = [0]
 layers = 1
 is_input_reupload = False
-n_inputs = 4
-n_outputs = 6
+n_inputs = 3
+n_outputs = 3
 observable = 'position'
 in_norm_range = (-2, 2)
 out_norm_range = (1, 5)
 loss_function = cross_entropy
-basinhopping_iters = 0
+basinhopping_iters = 4
 
 # === DATASET SETTINGS ===
-categories = [0, 1, 2, 3, 4, 5]
+categories = [0, 1, 2]
 num_cats = len(categories)
 dataset_size = 30*num_cats
-validset_size = 80
+validset_size = 120
 testset_size = 80
-model_name = f"mnist_encoded_{N}modes_{n_inputs}lat_{num_cats}cats_{observable}_ph{len(photon_additions)}"
+model_name = f"mnist_{N}modes_{layers}layers_{n_inputs}lat_{num_cats}cats_{observable}_ph{len(photon_additions)}"
 
 if os.path.isfile(f"datasets/mnist_encoding_{N}modes_{n_inputs}lat_{num_cats}cats_inputs.npy"):
     with open(f"datasets/mnist_encoding_{N}modes_{n_inputs}lat_{num_cats}cats_inputs.npy", "rb") as f:
@@ -56,16 +56,14 @@ print("ENCODED INPUTS RANGE:")
 print(data_ranges)
 print(dataset)
 output_range = (0, 1)
-colors = ['red', 'fuchsia', 'blue', 'purple']
+colors = ['red', 'fuchsia', 'blue', 'purple', 'orange']
 for (cat, color) in zip(categories, colors):
     subset = filter_dataset_categories(dataset[0], dataset[1], [cat])
-    print(f"SUBSET OF {cat}")
-    print(subset)
     plt.plot(subset[0][0,:], subset[0][1,:], c=color, linestyle='dotted', label=cat)
 plt.grid(linestyle='--', linewidth=0.4)
 plt.legend()
 #plt.show()
-plt.savefig(f"figures/trainset_{N}modes_{layers}layers_{n_inputs}lat_{num_cats}cats.png")
+plt.savefig(f"figures/trainset_{model_name}.png")
 plt.clf()
 
 # === PREPROCESSORS AND POSTPROCESSORS ===
@@ -95,7 +93,7 @@ plt.xlabel('Epochs')
 plt.ylabel('Logarithmic loss value')
 plt.title(f'LOGARITHMIC LOSS FUNCTIONS')
 plt.legend()
-plt.savefig(f"figures/logloss_{N}modes_{layers}layers_{n_inputs}lat_{num_cats}cats.png")
+plt.savefig(f"figures/logloss_{model_name}.png")
 #plt.show()
 plt.clf()
 
@@ -124,7 +122,7 @@ plt.title('Confusion Matrix')
 plt.xlabel('Predicted Label')
 plt.ylabel('True Label')
 #plt.show()
-plt.savefig(f"figures/cm_{N}modes_{layers}layers_{n_inputs}lat_{num_cats}cats.png")
+plt.savefig(f"figures/cm_{model_name}.png")
 plt.clf()
 
 plt.figure(figsize=(8, 6))
@@ -134,5 +132,5 @@ plt.title('Confusion Matrix')
 plt.xlabel('Predicted Label')
 plt.ylabel('True Label')
 #plt.show()
-plt.savefig(f"figures/cmacc_{N}modes_{layers}layers_{n_inputs}lat_{num_cats}cats.png")
+plt.savefig(f"figures/cmacc_{model_name}.png")
 plt.clf()
