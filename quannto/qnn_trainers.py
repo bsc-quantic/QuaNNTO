@@ -8,7 +8,7 @@ from .loss_functions import mse
 from .qnn import QNN
 
 
-def build_and_train_model(name, N, layers, n_inputs, n_outputs, photon_additions, observable, is_input_reupload, 
+def build_and_train_model(model_name, N, layers, n_inputs, n_outputs, photon_additions, observable, is_input_reupload, 
                           train_set, valid_set, loss_function=mse, hopping_iters=2, in_preprocs=[], out_prepocs=[], postprocs=[], init_pars=None, save=True):
     '''
     Creates and trains a QNN model with the given hyperparameters and dataset by optimizing the 
@@ -49,7 +49,7 @@ def build_and_train_model(name, N, layers, n_inputs, n_outputs, photon_additions
             assert len(init_pars) == layers*(2*N**2 + 3*N) + aux_pars
     
     passive_bounds = (None, None)
-    sqz_bounds = (np.log(0.05), np.log(20))
+    sqz_bounds = (np.log(0.001), np.log(1000))
     #disp_bounds = (-2/np.sqrt(2), 2/np.sqrt(2))
     disp_bounds = (-50, 50)
     bounds = []
@@ -95,8 +95,7 @@ def build_and_train_model(name, N, layers, n_inputs, n_outputs, photon_additions
             best_validation_loss = validation_loss.copy()
         loss_values = [9999]
         validation_loss = [9999]
-    
-    qnn = QNN("model_N" + str(N) + "_L" + str(layers) + "_" + name, N, layers, n_inputs, n_outputs,
+    qnn = QNN(model_name, N, layers, n_inputs, n_outputs,
               photon_additions, observable, is_input_reupload, in_preprocs, out_prepocs, postprocs)
     train_inputs = reduce(lambda x, func: func(x), qnn.in_preprocessors, train_set[0])
     train_outputs = reduce(lambda x, func: func(x), qnn.out_preprocessors, train_set[1])
@@ -137,7 +136,7 @@ def build_and_train_model(name, N, layers, n_inputs, n_outputs, photon_additions
     qnn.build_QNN(opt_result.x)
 
     qnn.print_qnn()
-    print(qnn.qnn_profiling.avg_benchmark())
+    #print(qnn.qnn_profiling.avg_benchmark())
     qnn.qnn_profiling.avg_epochs()
     
     if save:
@@ -157,7 +156,7 @@ def train_symplectic_rank(name, N, layers, n_inputs, n_outputs, photon_additions
     
     inp_disp_bounds = (-2, 2)
     passive_bounds = (None, None)
-    sqz_bounds = (np.log(0.1), np.log(10))
+    sqz_bounds = (np.log(0.001), np.log(1000))
     #disp_bounds = (-2/np.sqrt(2), 2/np.sqrt(2))
     disp_bounds = (-50, 50)
     #witness_par_bound = (0,1)
@@ -220,7 +219,7 @@ def train_symplectic_rank(name, N, layers, n_inputs, n_outputs, photon_additions
     
     qnn.build_QNN(result.x)
     qnn.print_qnn()
-    print(qnn.qnn_profiling.avg_benchmark())
+    #print(qnn.qnn_profiling.avg_benchmark())
     
     if save:
         qnn.qnn_profiling.clear_times()
