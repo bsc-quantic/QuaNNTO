@@ -14,24 +14,23 @@ from .loss_functions import *
 np.random.seed(42)
 
 # === HYPERPARAMETERS DEFINITION ===
-N = 5
+N = 3
 photon_additions = [0]
 layers = 1
 is_input_reupload = False
-n_inputs = 5
-n_outputs = 5
+n_inputs = 1
+n_outputs = 3
 observable = 'position'
-in_norm_range = (-1, 1)
-out_norm_range = (1, 5)
+in_norm_range = (-3, 3)
+out_norm_range = (0.1, 25)
 loss_function = cross_entropy
-basinhopping_iters = 1
+basinhopping_iters = 2
 
 # === DATASET SETTINGS ===
-categories = [0, 1, 2, 3, 4]
+categories = [0, 1, 2]
 num_cats = len(categories)
-dataset_size = 50*num_cats
-validset_size = 120
-testset_size = 80
+dataset_size = 75*num_cats
+validset_size = 20*num_cats
 model_name = f"mnist_{N}modes_{layers}layers_{n_inputs}lat_{num_cats}cats_{observable}_ph{len(photon_additions)}"
 
 if os.path.isfile(f"datasets/mnist_encoding_{n_inputs}lat_{num_cats}cats_inputs.npy"):
