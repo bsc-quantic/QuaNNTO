@@ -35,6 +35,9 @@ def exp_1in_1out(inputs):
 def sin_1in_1out(inputs):
     return np.sin(inputs[0])
 
+def trig_fun(inputs):
+    return np.sin(3*inputs[0]) + np.cos(5*inputs[0])
+
 def sin_cos_function(inputs):
     return -np.sin(10*inputs[0]) + 3*np.cos(18*inputs[0]) - 8*((inputs[0]-1/2)**2) + 5/4
 
