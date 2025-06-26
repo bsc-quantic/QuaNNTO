@@ -431,12 +431,12 @@ class QNN:
         :return: EXpectation values of the observables related to QONN outputs
         '''
         # 0. Build the QONN components using the tunable parameters
-        build_start = time.time()
+        #build_start = time.time()
         self.build_QNN(params)
-        self.qnn_profiling.build_qnn_times.append(time.time() - build_start)
+        #self.qnn_profiling.build_qnn_times.append(time.time() - build_start)
         
         # 1. Prepare initial state: initial vacuum state displaced according to the inputs
-        input_prep_start = time.time()
+        #input_prep_start = time.time()
         V = 0.5*jnp.eye(2*self.N)
         mean_vector = jnp.zeros((2*self.N,), dtype=input.dtype)
         mean_vector = QNN.apply_linear_gaussian(jnp.sqrt(2) * input, mean_vector)
@@ -444,27 +444,27 @@ class QNN:
         # 1.1. When using input reuploading: build displacement with inputs
         if self.is_input_reupload:
             self.build_reuploading_disp(input)
-        self.qnn_profiling.input_prep_times.append(time.time() - input_prep_start)
+        #self.qnn_profiling.input_prep_times.append(time.time() - input_prep_start)
 
         # 2. Apply the Gaussian transformation acting as weights matrix and bias vector
-        gauss_start = time.time()
+        #gauss_start = time.time()
         mean_vector, V = self.apply_gaussian_transformations(mean_vector, V)
-        self.qnn_profiling.gauss_times.append(time.time() - gauss_start)
+        #self.qnn_profiling.gauss_times.append(time.time() - gauss_start)
         
         # 3. Compute the expectation values of all possible ladder operators pairs over the final Gaussian state
-        K_exp_vals_start = time.time()
+        #K_exp_vals_start = time.time()
         K_exp_vals = self.compute_quad_exp_vals(V)
-        self.qnn_profiling.K_exp_vals_times.append(time.time() - K_exp_vals_start)
+        #self.qnn_profiling.K_exp_vals_times.append(time.time() - K_exp_vals_start)
 
         # 4. Compute coefficients for trace expression and normalization terms
-        ladder_superpos_start = time.time()
+        #ladder_superpos_start = time.time()
         traces_terms_coefs = self.compute_coefficients()
-        self.qnn_profiling.ladder_superpos_times.append(time.time() - ladder_superpos_start)
+        #self.qnn_profiling.ladder_superpos_times.append(time.time() - ladder_superpos_start)
         
         # 5. Compute the expectation values acting as outputs
-        nongauss_start = time.time()
+        #nongauss_start = time.time()
         exp_vals = self.compute_exp_val_loop(traces_terms_coefs, K_exp_vals, mean_vector)
-        self.qnn_profiling.nongauss_times.append(time.time() - nongauss_start)
+        #self.qnn_profiling.nongauss_times.append(time.time() - nongauss_start)
         
         # 6. Multiply by trace coefficients and normalize (last expectation value)
         return self.trace_const * exp_vals[:-1] / exp_vals[-1]
@@ -647,8 +647,10 @@ class QNN:
         
         s, V_rec = reconstruct_stats(witness_vals, self.N)
         symp_eigvals = np.real_if_close(symplectic_eigenvals(V_rec))
-        #print(symp_eigvals)
         abs_smyp_eigvals = np.abs(symp_eigvals)
+        print(abs_smyp_eigvals)
+        print('SUM: ', np.sum(abs_smyp_eigvals))
+        print('0.5 EIGVAL: ', np.sum(np.isclose(symp_eigvals, 0.5, atol=1e-4)))
         symp_rank = np.sum(0.5 - abs_smyp_eigvals)
         return symp_rank
     
