@@ -12,24 +12,25 @@ from .loss_functions import *
 np.random.seed(42)
 
 # === HYPERPARAMETERS DEFINITION ===
-modes = [3, 3]
-photon_additions = [[0,1], [0,1]]
-layers = [1, 1]
+modes = [2]
+#photon_additions = [[],[0],[0,0],[0,1],[0]]
+photon_additions = [[0]]
+layers = [1]
 is_input_reupload = False
 n_inputs = 1
 n_outputs = 1
 observable = 'position'
-in_norm_ranges = [(-1, 1), (-2, 2)]
-out_norm_ranges = [(-1, 1), (-2, 2)]
+in_norm_ranges = [(-1, 1)]*len(modes)
+out_norm_ranges = [(-1, 1)]*len(modes)
 loss_function = mse
-basinhopping_iters = 1
+basinhopping_iters = 2
 params = None
 
 # === TARGET FUNCTION SETTINGS ===
-target_function = sin_1in_1out
-input_range = (-6.3, 6.3)
-trainset_noise = 0.1
-trainset_size = 100
+target_function = three_function_1in_1out
+input_range = (-5, 5)
+trainset_noise = 5
+trainset_size = 50
 testset_size = 200
 validset_size = 50
 
@@ -65,9 +66,9 @@ plt.xlabel('x')
 plt.xlim()
 plt.ylabel('f(x)')
 plt.grid(linestyle='--', linewidth=0.4)
-plt.legend()
+plt.legend(loc='upper right')
 plt.savefig("figures/trainset_"+target_function.__name__+"_size"+str(trainset_size)+"_range"+str(input_range)+".png")
-plt.show()
+#plt.show()
 plt.clf()
 
 # Generate a linearly-spaced testing dataset of the target function and test the trained QNN
@@ -81,9 +82,6 @@ valid_losses = []
 qnn_loss = []
 qnn_outs = []
 qnns = []
-""" for N in modes:
-    for l in layers:
-        for ph_add in photon_additions: """
 for (N, l, ph_add, in_norm_range, out_norm_range) in zip(modes, layers, photon_additions, in_norm_ranges, out_norm_ranges):
     # Initialize the desired data processors for pre/post-processing
     in_preprocessors = []
@@ -96,7 +94,7 @@ for (N, l, ph_add, in_norm_range, out_norm_range) in zip(modes, layers, photon_a
     postprocessors = []
     postprocessors.append(partial(rescale_data, data_range=out_norm_range, scale_data_range=output_range))
 
-    model_name = target_function.__name__
+    model_name = target_function.__name__ + "_N" + str(N) + "_L" + str(l) + "_ph" + str(ph_add) + "_in" + str(in_norm_range) + "_out" + str(out_norm_range)
     # Build the QNN and train it with the generated dataset
     qnn, train_loss, valid_loss = build_and_train_model(model_name, N, l, n_inputs, n_outputs, ph_add, observable, is_input_reupload,
                                                         train_dataset, valid_dataset, loss_function, basinhopping_iters,
@@ -109,26 +107,33 @@ for (N, l, ph_add, in_norm_range, out_norm_range) in zip(modes, layers, photon_a
     #print(qnn_test_outputs)
     qnn_outs.append(qnn_test_outputs.copy())
     
+# PLOT RESULTS
+#legend_labels = [f'N={qnn.N}, L={qnn.layers}, Photon addition in modes {np.array(qnn.photon_add) + 1}, disp range {in_norm_range}' for (qnn, in_norm_range) in zip(qnns, in_norm_ranges)]
+#legend_labels = [f'N={qnn.N}, L={qnn.layers}, Photon addition in modes {np.array(qnn.photon_add) + 1}' for qnn in qnns]
+legend_labels = [f'N={qnn.N}, L={qnn.layers}, {len(qnn.photon_add)} photons/layer' for qnn in qnns]
+
 plt.plot(test_dataset[0], test_dataset[1], 'o', markerfacecolor='g', markeredgecolor='none', alpha=0.25, label='Expected results')
 c = 0
-for (qnn_test_outputs, qnn) in zip(qnn_outs, qnns):
-    plt.plot(test_dataset[0], qnn_test_outputs, c=colors(c+3%10), linestyle='dashed', label=f'N={qnn.N}, L={qnn.layers}, {len(qnn.photon_add)} photons/layer, {input_range} disp')
+for (qnn_test_outputs, legend_label) in zip(qnn_outs, legend_labels):
+    plt.plot(test_dataset[0], qnn_test_outputs, c=colors(c+3%10), linestyle='dashed', label=legend_label)#, {input_range} disp')
     c+=1
 plt.title(f'TESTING SET')
 plt.xlabel('Input')
 plt.xlim()
 plt.ylabel('Output')
+#plt.ylim(top=output_range[1] + len(qnns)*0.2 + 0.2)
 plt.grid(linestyle='--', linewidth=0.4)
+#plt.legend(loc='upper right')
 plt.legend()
 plt.savefig("figures/test_res_"+model_name+"_N"+str(modes)+"_L"+str(layers)+"_ph"+str(photon_additions)+"_in"+str(input_range)+".png")
 plt.show()
 plt.clf()
 
 c=0
-for (train_loss, valid_loss, qnn) in zip(train_losses, valid_losses, qnns):
+for (train_loss, valid_loss, legend_label) in zip(train_losses, valid_losses, legend_labels):
     x_log = np.log(np.array(range(1,len(train_loss)+1)))
-    plt.plot(np.log(np.array(train_loss)+1), c=colors(c+3%10), label=f'Train loss N={qnn.N}, L={qnn.layers}, {len(qnn.photon_add)} photons/layer, {input_range} disp')
-    plt.plot(np.log(np.array(valid_loss)+1), c=colors(c+3%10), linestyle='dashed', label=f'Validation loss N={qnn.N}, L={qnn.layers}, {len(qnn.photon_add)} photons/layer, {input_range} disp')
+    plt.plot(np.log(np.array(train_loss)+1), c=colors(c+3%10), label=f'Train loss {legend_label}')#, {input_range} disp')
+    plt.plot(np.log(np.array(valid_loss)+1), c=colors(c+3%10), linestyle='dashed', label=f'Validation loss {legend_label}')#, {input_range} disp')
     c+=1
 
 plt.ylim(bottom=0.0)
@@ -143,8 +148,8 @@ plt.clf()
 
 c=0
 for (train_loss, valid_loss, qnn) in zip(train_losses, valid_losses, qnns):
-    plt.plot(np.array(train_loss), c=colors(c+3%10), label=f'Train loss N={qnn.N}, L={qnn.layers}, {len(qnn.photon_add)} photons/layer')
-    plt.plot(np.array(valid_loss), c=colors(c+3%10), linestyle='dashed', label=f'Validation loss N={qnn.N}, L={qnn.layers}, {len(qnn.photon_add)} photons/layer')
+    plt.plot(np.array(train_loss), c=colors(c+3%10), label=f'Train loss {legend_label}')
+    plt.plot(np.array(valid_loss), c=colors(c+3%10), linestyle='dashed', label=f'Validation loss {legend_label}')
     c+=1
     
 plt.ylim(bottom=0.0)
