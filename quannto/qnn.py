@@ -198,90 +198,44 @@ class QNN:
         U = unitary_from_hermitian(H)
         return self.u_bar.to_canonical_op(U)
         
-    def build_quadratic_gaussians(self, parameters, current_par_idx):
-        '''
-        Builds the symplectic-orthogonal matrices, Q1 and Q2 (passive optics), 
-        and the diagonal symplectic matrix, Z (squeezing), of each QONN layer 
-        given the vector of tunable parameters.
-        
-        :param parameters: Vector of all QONN trainable parameters
-        :param current_par_idx: Index of the last unused parameter in the vector
-        :return: (Q1, Z, Q2, last unused parameter vector index)
-        '''
-        # Build passive-optics Q1 and Q2 for the Gaussian transformation
-        Q1 = self.build_symp_orth_mat(parameters[current_par_idx : current_par_idx + self.N**2])
-        current_par_idx += self.N**2        
-        Q2 = self.build_symp_orth_mat(parameters[current_par_idx : current_par_idx + self.N**2])
-        current_par_idx += self.N**2
-        
-        # Build squeezing diagonal matrix Z
-        sqz_parameters = jnp.exp(jnp.abs(parameters[current_par_idx : current_par_idx + self.N]))
-        sqz_inv = 1.0/sqz_parameters
-        Z = jnp.diag(jnp.concatenate((sqz_parameters, sqz_inv)))
-        current_par_idx += self.N
-        
+    def build_quadratic_gaussians(self,
+                                  parameters:      jnp.ndarray,
+                                  current_par_idx: jnp.ndarray  # tracer-compatible int
+                                 ) -> tuple[jnp.ndarray, jnp.ndarray, jnp.ndarray, jnp.ndarray]:
+        """
+        Builds (Q1, Z, Q2) and returns updated current_par_idx,
+        slicing `parameters` via lax.dynamic_slice so it works under jit.
+        """
+
+        N2 = self.N * self.N      # number of parameters for each orth mat
+        # 1) Slice out the next N2 params for Q1:
+        p1 = lax.dynamic_slice(parameters,
+                               start_indices=(current_par_idx,),
+                               slice_sizes=(N2,))
+        current_par_idx = current_par_idx + N2
+
+        # 2) Slice out the next N2 params for Q2:
+        p2 = lax.dynamic_slice(parameters,
+                               start_indices=(current_par_idx,),
+                               slice_sizes=(N2,))
+        current_par_idx = current_par_idx + N2
+
+        # 3) Build squeezing diagonal Z from the next N params:
+        sqN = self.N
+        p3  = lax.dynamic_slice(parameters,
+                                start_indices=(current_par_idx,),
+                                slice_sizes=(sqN,))
+        current_par_idx = current_par_idx + sqN
+
+        # Now build your matrices
+        Q1 = self.build_symp_orth_mat(p1)
+        Q2 = self.build_symp_orth_mat(p2)
+
+        sqz_parameters = jnp.exp(jnp.abs(p3))        # shape (N,)
+        sqz_inv        = 1.0 / sqz_parameters       # shape (N,)
+        Z              = jnp.diag(jnp.concatenate([sqz_parameters, sqz_inv]))
+
         return Q1, Z, Q2, current_par_idx
-    
-    def update_S(S_concat, l, block, S_dim):
-        # returns a brand‐new array with that column‐block replaced
-        start = l * S_dim
-        end   = (l + 1) * S_dim
-        return S_concat.at[:, start:end].set(block)
-
-    def build_QNN(self, parameters):
-        '''
-        Fills the QONN numerical components using the vector of tunable parameters.
-        
-        :param parameters: Vector of trainable parameters
-        '''
-        self.tunable_parameters = jnp.copy(parameters)
-        S_dim = 2*self.N
-        
-        # Symplectic matrix and displacement vectors for each layer
-        self.S_l = jnp.zeros((self.layers, 2*self.N, 2*self.N), dtype=jnp.complex128)
-        self.D_l = jnp.zeros((self.layers, 2*self.N), dtype=jnp.complex128)
-        # Bloch-Messiah decomposition of the symplectic matrix for each layer
-        self.Q1_gauss = jnp.zeros((self.layers, 2*self.N, 2*self.N), dtype=jnp.complex128)
-        self.Q2_gauss = jnp.zeros((self.layers, 2*self.N, 2*self.N), dtype=jnp.complex128)
-        self.Z_gauss = jnp.zeros((self.layers, 2*self.N, 2*self.N), dtype=jnp.complex128)
-        # Concatenation of symplectic matrix and displacement vectors of each layer
-        self.S_concat = jnp.zeros((2*self.N, 2*self.layers*self.N), dtype=jnp.complex128)
-        self.D_concat = jnp.zeros((2*self.layers*self.N), dtype=jnp.complex128)
-        # Final Gaussian transformation when commuting with photon additions (product of all Gaussians)
-        self.G = jnp.eye(S_dim, dtype=jnp.complex128)
-        
-        current_par_idx = 0
-        for l in range(self.layers-1, -1, -1):
-            # Build symplectic-orthogonal (unitary) matrices and diagonal symplectic matrix
-            Q1, Z, Q2, current_par_idx = self.build_quadratic_gaussians(parameters, current_par_idx)
-            self.Q1_gauss = self.Q1_gauss.at[l].set(Q1)
-            self.Q2_gauss = self.Q2_gauss.at[l].set(Q2)
-            self.Z_gauss = self.Z_gauss.at[l].set(Z)
-
-            # Build final quadratic Gaussian transformation
-            self.S_l = self.S_l.at[l].set(self.Q2_gauss[l] @ self.Z_gauss[l] @ self.Q1_gauss[l])
-            self.G = self.S_l[l] @ self.G
-            # Build concatenated symplectic matrices in Fock space for trace expressions' coefficients
-            block = self.u_bar.to_ladder_op(self.G)
-            self.S_concat = QNN.update_S(self.S_concat, l, block, S_dim)
-            
-            # Build displacements (linear Gaussian)
-            if not self.is_input_reupload:
-                self.D_l = self.D_l.at[l].set(np.sqrt(2) * parameters[current_par_idx : current_par_idx + 2*self.N])
-                current_par_idx += 2*self.N
-                start = l * S_dim
-                end   = (l + 1) * S_dim
-                if l == (self.layers - 1):
-                    val = self.D_l[l]
-                else:
-                    next_slice = self.D_concat[(l + 1) * S_dim : (l + 2) * S_dim]
-                    val = self.D_l[l] + self.S_l[l] @ next_slice
-                self.D_concat = self.D_concat.at[start:end].set(val)
-
-        if self.observable == 'witness':
-            #self.trace_const = jnp.array([1, 1, parameters[current_par_idx]])
-            self.trace_const = jnp.ones(self.N*(self.N+1) + self.N)
-            current_par_idx += 1
     
     def build_reuploading_disp(self, inputs):
         '''
@@ -316,16 +270,38 @@ class QNN:
         '''
         return G @ mean_vector, G @ V @ G.T
         
-    def apply_gaussian_transformations(self, mean_vector, V):
-        '''
-        Applies all Gaussian transformations of the QONN to the initial quantum state.
-        '''
-        for l in range(self.layers):
-            new_means, new_V = QNN.apply_quadratic_gaussian(self.S_l[l], mean_vector, V)
-            new_means = QNN.apply_linear_gaussian(self.D_l[l], new_means)
-        return new_means, new_V
+    def apply_gaussian_transformations(S_stack: jnp.ndarray,
+                                    D_stack: jnp.ndarray,
+                                    mean0:     jnp.ndarray,
+                                    V0:        jnp.ndarray
+                                    ) -> tuple[jnp.ndarray, jnp.ndarray]:
+        """
+        Runs all layers of the Gaussian net on (mean0, V0) via one XLA scan.
+        
+        S_stack.shape == (L, 2N, 2N)
+        D_stack.shape == (L,   2N,)
+        """
 
-    def build_disp_coefs(self):
+        def body(carry, sd):
+            mean, cov = carry
+            S, D      = sd        # shapes (2N,2N) and (2N,)
+
+            # quadratic step
+            mean, cov = QNN.apply_quadratic_gaussian(S, mean, cov)
+            # linear (displacement) step
+            mean      = QNN.apply_linear_gaussian(D, mean)
+
+            return (mean, cov), None
+
+        # scan over the leading axis of (S_stack, D_stack)
+        (final_mean, final_cov), _ = lax.scan(
+            body,
+            (mean0, V0),
+            (S_stack, D_stack),
+        )
+        return final_mean, final_cov
+
+    def build_disp_coefs(self, D_concat):
         """
         Returns a 1‐D JAX complex array of shape (layers * N,),
         where each block of length N is
@@ -333,7 +309,7 @@ class QNN:
           + 1j * D_concat[layer*2N + N : layer*2N + 2N].
         """
         # 1) Reshape into (layers, 2*N)
-        D = self.D_concat.reshape((self.layers, 2 * self.N))
+        D = D_concat.reshape((self.layers, 2 * self.N))
 
         # 2) Split into real part (first N cols) and imag part (last N cols)
         real_part = D[:, :self.N]        # shape (layers, N)
@@ -345,10 +321,10 @@ class QNN:
         # 4) Flatten to a 1‐D array of length layers * N
         return disp_matrix.reshape((self.layers * self.N,))
         
-    def compute_coefficients(self):
-        d_r = self.build_disp_coefs()
+    def compute_coefficients(self, S_concat, D_concat):
+        d_r = self.build_disp_coefs(D_concat)
         d_i = jnp.conjugate(d_r)
-        S_r = self.S_concat
+        S_r = S_concat
         S_i = jnp.conjugate(S_r)
 
         def f_switch(i, S_r, S_i, d_r, d_i):
@@ -422,6 +398,106 @@ class QNN:
 
         return jnp.stack([K00, K01, K10, K11], axis=0)
     
+    def build_QNN_jax(self, parameters: jnp.ndarray):
+        """
+        Pure-functional build of all layer quantities via one lax.scan,
+        using dynamic_slice and dynamic_update_slice for any dynamic indices.
+        Returns (Q1_gauss, Q2_gauss, Z_gauss, S_l, S_concat, D_l, D_concat, trace_const).
+        """
+        N     = self.N
+        L     = self.layers
+        S_dim = 2 * N
+
+        # Initial empty arrays
+        Q1_gauss = jnp.zeros((L, S_dim, S_dim), dtype=jnp.complex128)
+        Q2_gauss = jnp.zeros_like(Q1_gauss)
+        Z_gauss  = jnp.zeros_like(Q1_gauss)
+        S_l      = jnp.zeros_like(Q1_gauss)
+        S_concat = jnp.zeros((S_dim, L * S_dim), dtype=jnp.complex128)
+        D_l      = jnp.zeros((L, S_dim), dtype=jnp.complex128)
+        D_concat = jnp.zeros((L * S_dim,), dtype=jnp.complex128)
+
+        G   = jnp.eye(S_dim, dtype=jnp.complex128)
+        idx = 0  # this will be a traced int
+
+        init_carry = (idx, G,
+                      Q1_gauss, Q2_gauss, Z_gauss,
+                      S_l,      S_concat,
+                      D_l,      D_concat)
+
+        def body(carry, layer_idx):
+            idx, G, Q1_g, Q2_g, Z_g, S_l_g, S_concat_g, D_l_g, D_concat_g = carry
+
+            # 1) Bloch–Messiah decomposition for this layer
+            Q1, Zmat, Q2, idx1 = self.build_quadratic_gaussians(parameters, idx)
+            Q1_g = Q1_g.at[layer_idx].set(Q1)
+            Q2_g = Q2_g.at[layer_idx].set(Q2)
+            Z_g  = Z_g .at[layer_idx].set(Zmat)
+
+            # 2) Net symplectic and update S_l
+            SL      = Q2 @ Zmat @ Q1
+            S_l_g   = S_l_g.at[layer_idx].set(SL)
+            G_new   = SL @ G
+
+            # 3) Build the Fock-space block and dynamically update S_concat
+            blk     = self.u_bar.to_ladder_op(G_new)          # shape (S_dim, S_dim)
+            start   = layer_idx * S_dim
+            # dynamic_update_slice handles tracer‐valued start:
+            S_concat_g = lax.dynamic_update_slice(S_concat_g, blk, (0, start))
+
+            # 4) Linear displacements (if enabled)
+            idx2 = idx1
+            if not self.is_input_reupload:
+                # dynamic slice of 2N parameters
+                d_slice = lax.dynamic_slice(parameters,
+                                            (idx1,),
+                                            (2 * N,))
+                idx2 = idx1 + 2 * N
+
+                d_l   = jnp.sqrt(2.0) * d_slice           # (S_dim,)
+                D_l_g = D_l_g.at[layer_idx].set(d_l)
+
+                # back-recursion into D_concat
+                next_start = (layer_idx + 1) * S_dim
+                next_slice = lax.dynamic_slice(D_concat_g,
+                                               (next_start,),
+                                               (S_dim,))     # (S_dim,)
+                # choose d_l for last layer, else d_l + SL @ next_slice
+                val = jnp.where(layer_idx == L-1,
+                                d_l,
+                                d_l + SL @ next_slice)
+                # dynamic_update_slice into the 1-D D_concat_g
+                D_concat_g = lax.dynamic_update_slice(D_concat_g,
+                                                      val,
+                                                      (start,))
+
+            new_carry = (idx2, G_new,
+                         Q1_g, Q2_g, Z_g,
+                         S_l_g, S_concat_g,
+                         D_l_g, D_concat_g)
+            return new_carry, None
+
+        # scan over layer indices [0,1,...,L-1]
+        (idx_final, G_final,
+         Q1_gauss, Q2_gauss, Z_gauss,
+         S_l,      S_concat,
+         D_l,      D_concat), _ = lax.scan(
+            body,
+            init_carry,
+            jnp.arange(L, dtype=jnp.int64),
+        )
+
+        # optional trace constant
+        """ if self.observable == 'witness':
+            trace_const = jnp.ones((N * (N + 1) + N,), dtype=jnp.complex128)
+        else:
+            trace_const = jnp.empty((0,), dtype=jnp.complex128) """
+
+        return (Q1_gauss, Q2_gauss, Z_gauss,
+                S_l,       S_concat,
+                D_l,       D_concat,)
+                #trace_const)
+    
     @partial(jax.jit, static_argnums=(0,))
     def eval_QNN(self, params, input):
         '''
@@ -432,13 +508,13 @@ class QNN:
         '''
         # 0. Build the QONN components using the tunable parameters
         #build_start = time.time()
-        self.build_QNN(params)
+        Q1_gauss, Q2_gauss, Z_gauss, S_l, S_concat, D_l, D_concat = self.build_QNN_jax(params)
         #self.qnn_profiling.build_qnn_times.append(time.time() - build_start)
         
         # 1. Prepare initial state: initial vacuum state displaced according to the inputs
         #input_prep_start = time.time()
-        V = 0.5*jnp.eye(2*self.N)
-        mean_vector = jnp.zeros((2*self.N,), dtype=input.dtype)
+        V = 0.5*jnp.eye(2*self.N, dtype=jnp.complex128)
+        mean_vector = jnp.zeros((2*self.N,), dtype=jnp.complex128)
         mean_vector = QNN.apply_linear_gaussian(jnp.sqrt(2) * input, mean_vector)
         
         # 1.1. When using input reuploading: build displacement with inputs
@@ -448,7 +524,8 @@ class QNN:
 
         # 2. Apply the Gaussian transformation acting as weights matrix and bias vector
         #gauss_start = time.time()
-        mean_vector, V = self.apply_gaussian_transformations(mean_vector, V)
+        #mean_vector, V = self.apply_gaussian_transformations(mean_vector, V)
+        mean_vector, V = QNN.apply_gaussian_transformations(S_l, D_l, mean_vector, V)
         #self.qnn_profiling.gauss_times.append(time.time() - gauss_start)
         
         # 3. Compute the expectation values of all possible ladder operators pairs over the final Gaussian state
@@ -458,7 +535,7 @@ class QNN:
 
         # 4. Compute coefficients for trace expression and normalization terms
         #ladder_superpos_start = time.time()
-        traces_terms_coefs = self.compute_coefficients()
+        traces_terms_coefs = self.compute_coefficients(S_concat, D_concat)
         #self.qnn_profiling.ladder_superpos_times.append(time.time() - ladder_superpos_start)
         
         # 5. Compute the expectation values acting as outputs
@@ -611,7 +688,7 @@ class QNN:
         '''
         exp_vals = jax.vmap(self.compute_terms_in_trace, in_axes=(0, 0, None, None))(self.exp_vals_inds, terms_coefs, quadratic_exp_vals, means_vector)
         return exp_vals
-
+    
     def train_QNN(self, parameters, inputs_dataset, outputs_dataset, loss_function):
         '''
         Evaluates all dataset items with the QONN current state and computes the loss function 
@@ -627,12 +704,50 @@ class QNN:
         epoch_start_time = time.time()
         shuffled_inds = np.random.permutation(len(inputs_dataset))
         shuffled_inputs_dataset = inputs_dataset[shuffled_inds]
+        t0_lower = time.time()
+        lowered = self.eval_QNN.lower(self, parameters, shuffled_inputs_dataset[0])
+        #print("===== StableHLO =====")
+        #print(lowered.compiler_ir(dialect='stablehlo'))
+        ir_time = time.time() - t0_lower
+        print("IR Time: ", ir_time)
+        input('w7')
+        hlo = lowered.compiler_ir(dialect="hlo")
+        print(f"HLO text is {len(hlo.as_hlo_text())/1e6} MB")
+        input('w8')
+        
+        t0_compile = time.time()
+        compiled = lowered.compile()
+        compile_time = time.time() - t0_compile
+        print("First compile time: ", compile_time)
+        """ qnn_outputs = np.real_if_close(
+            jax.vmap(self.eval_QNN, in_axes=(None, 0))(parameters, shuffled_inputs_dataset), tol=1e6
+        ) """
+        self.qnn_profiling.epoch_times.append(time.time() - epoch_start_time)
+        
+        return loss_function(outputs_dataset[shuffled_inds], qnn_outputs)
+
+    """ def train_QNN(self, parameters, inputs_dataset, outputs_dataset, loss_function):
+        '''
+        Evaluates all dataset items with the QONN current state and computes the loss function 
+        values for each item. This function is the one to be minimized and refers to one epoch.
+        
+        :param parameters: QONN tunable parameters
+        :param inputs_dataset: Inputs of the dataset to be learned
+        :param outputs_dataset: Outputs to be learned
+        :param loss_function: Function to evaluate the loss of the QONN predictions
+        :return: Losses of the QONN predictions
+        '''
+        # BATCH EVALUATION
+        self.tunable_parameters = jnp.copy(parameters)
+        epoch_start_time = time.time()
+        shuffled_inds = np.random.permutation(len(inputs_dataset))
+        shuffled_inputs_dataset = inputs_dataset[shuffled_inds]
         qnn_outputs = np.real_if_close(
             jax.vmap(self.eval_QNN, in_axes=(None, 0))(parameters, shuffled_inputs_dataset), tol=1e6
         )
         self.qnn_profiling.epoch_times.append(time.time() - epoch_start_time)
         
-        return loss_function(outputs_dataset[shuffled_inds], qnn_outputs)
+        return loss_function(outputs_dataset[shuffled_inds], qnn_outputs) """
     
     def train_symp_rank(self, parameters):
         '''

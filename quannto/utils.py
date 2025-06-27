@@ -23,13 +23,13 @@ def hermitian_matrix(m, N):
             c+=1
     return mat
 
-@lru_cache(maxsize=None)
+#@lru_cache(maxsize=None)
 def _hermitian_index_pairs(N):
     # runs once per distinct N, on the host
     rows, cols = zip(*[(i, j) for i in range(N) for j in range(i+1, N)])
     return jnp.array(rows), jnp.array(cols)
 
-@partial(jax.jit, static_argnums=(1,))
+#@partial(jax.jit, static_argnums=(1,))
 def general_hermitian_matrix(pars: jnp.ndarray, N: int) -> jnp.ndarray:
     """
     Builds an N×N Hermitian matrix from pars of length N^2:
@@ -86,7 +86,7 @@ def build_general_unitary(N, params):
     U = U @ np.diag(phases)
     return U
 
-@jax.jit
+#@jax.jit
 def unitary_from_hermitian(H: jnp.ndarray) -> jnp.ndarray:
     """
     Given a Hermitian matrix H, returns the unitary U = exp(i H).
@@ -153,7 +153,7 @@ class CanonicalLadderTransformations:
         self.to_ladder_dagger = self.to_ladder.conj().T
 
     @staticmethod
-    @jax.jit
+    #@jax.jit
     def build_ustar_u(unitary: jnp.ndarray) -> jnp.ndarray:
         """
         Given an N×N unitary U, returns the 2N×2N block
@@ -166,7 +166,7 @@ class CanonicalLadderTransformations:
         M = M.at[N:, N:].set(unitary)
         return M
 
-    @partial(jax.jit, static_argnums=0)
+    #@partial(jax.jit, static_argnums=0)
     def to_ladder_op(self, symplectic_transf: jnp.ndarray) -> jnp.ndarray:
         """
         Map a symplectic matrix S in (q,p) → the corresponding ladder‐basis unitary blocks:
@@ -174,7 +174,7 @@ class CanonicalLadderTransformations:
         """
         return self.to_ladder @ symplectic_transf @ self.to_ladder_dagger
 
-    @partial(jax.jit, static_argnums=0)
+    #@partial(jax.jit, static_argnums=0)
     def to_canonical_op(self, unitary: jnp.ndarray) -> jnp.ndarray:
         """
         Map a ladder‐basis unitary U (on creation/annih operators) 
