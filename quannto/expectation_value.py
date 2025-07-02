@@ -144,6 +144,15 @@ def complete_trace_expression(N, layers, photon_additions, n_outputs, include_ob
             expanded_expr.append(expand(sup_dag*(a[0]*a[0]*a[0]*c[0]*c[0]*c[0])*sup + aux)) #〈aaaa+a+a+〉
             expanded_expr.append(expand(sup_dag*(a[0]*a[0]*a[0]*a[0]*c[0]*c[0]*c[0])*sup + aux)) #〈aaa a a+a+a+〉
             expanded_expr.append(expand(sup_dag*(a[0]*a[0]*a[0]*c[0]*c[0]*c[0]*c[0])*sup + aux)) #〈aaa a+ a+a+a+〉
+        elif obs == 'third-order':
+            x = a[0] + c[0]
+            p = a[0] - c[0]
+            expanded_expr.append(expand(sup_dag*x*sup))
+            expanded_expr.append(expand(sup_dag*p*sup))
+            expanded_expr.append(expand(sup_dag*(x*x)*sup))
+            expanded_expr.append(expand(sup_dag*(p*p)*sup))
+            expanded_expr.append(expand(sup_dag*(x*x*x)*sup))
+            expanded_expr.append(expand(sup_dag*(p*p*p)*sup))
         else:
             for i in range(n_outputs):
                 if obs == 'position':
@@ -194,12 +203,16 @@ def to_np_array(lists):
     :return: Tuple of NumPy array containing the nested lists and the actual
     dimension of the elements inside the lists.
     '''
-    lengths = np.full((len(lists), len(lists[0])), -1) if len(lists[0]) > 0 else np.array([[0]])
+    max_length_list = 0
+    for list in lists:
+        if len(list) > max_length_list:
+            max_length_list = len(list)
+    lengths = np.full((len(lists), max_length_list), -1) if max_length_list > 0 else np.array([[0]])
     for out_idx in range(len(lists)):
         for term_idx in range(len(lists[out_idx])):
             lengths[out_idx, term_idx] = len(lists[out_idx][term_idx])
     max_length = np.max(lengths)
-    arr = np.full((len(lists), len(lists[0]), max_length), -1) if len(lists[0]) > 0 else np.array([[[-1]]])
+    arr = np.full((len(lists), max_length_list, max_length), -1) if max_length_list > 0 else np.array([[[-1]]])
     for out_idx in range(len(lists)):
         for term_idx in range(len(lists[out_idx])):
             arr[out_idx, term_idx, :len(lists[out_idx][term_idx])] = np.array(lists[out_idx][term_idx])
