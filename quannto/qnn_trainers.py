@@ -51,7 +51,8 @@ def build_and_train_model(model_name, N, layers, n_inputs, n_outputs, photon_add
     passive_bounds = (None, None)
     sqz_bounds = (np.log(0.001), np.log(1000))
     #disp_bounds = (-2/np.sqrt(2), 2/np.sqrt(2))
-    disp_bounds = (-50, 50)
+    #disp_bounds = (-50, 50)
+    disp_bounds = (None, None)
     bounds = []
     for _ in range(layers):
         # Passive optics bounds
@@ -69,11 +70,14 @@ def build_and_train_model(model_name, N, layers, n_inputs, n_outputs, photon_add
         :param xk: QONN tunable parameters
         '''
         e = training_QNN(xk)
-        print(f'Training loss: {e}')
-        val_e = validate_QNN(xk)
-        print(f'Validation loss: {val_e}')
         loss_values.append(e)
-        validation_loss.append(val_e)
+        print(f'Training loss: {e}')
+        if valid_set != None:
+            val_e = validate_QNN(xk)
+            print(f'Validation loss: {val_e}')
+            validation_loss.append(val_e)
+        else:
+            validation_loss.append(e)
         
     def callback_hopping(x,f,accept):
         '''
@@ -100,8 +104,9 @@ def build_and_train_model(model_name, N, layers, n_inputs, n_outputs, photon_add
     train_inputs = reduce(lambda x, func: func(x), qnn.in_preprocessors, train_set[0])
     train_outputs = reduce(lambda x, func: func(x), qnn.out_preprocessors, train_set[1])
     
-    valid_inputs = reduce(lambda x, func: func(x), qnn.in_preprocessors, valid_set[0])
-    valid_outputs = reduce(lambda x, func: func(x), qnn.out_preprocessors, valid_set[1])
+    if valid_set != None:
+        valid_inputs = reduce(lambda x, func: func(x), qnn.in_preprocessors, valid_set[0])
+        valid_outputs = reduce(lambda x, func: func(x), qnn.out_preprocessors, valid_set[1])
     
     global best_loss_values
     best_loss_values = [9999]
@@ -113,7 +118,8 @@ def build_and_train_model(model_name, N, layers, n_inputs, n_outputs, photon_add
     validation_loss = [9999]
     
     training_QNN = partial(qnn.train_QNN, inputs_dataset=train_inputs, outputs_dataset=train_outputs, loss_function=loss_function)
-    validate_QNN = partial(qnn.train_QNN, inputs_dataset=valid_inputs, outputs_dataset=valid_outputs, loss_function=loss_function)
+    if valid_set != None:
+        validate_QNN = partial(qnn.train_QNN, inputs_dataset=valid_inputs, outputs_dataset=valid_outputs, loss_function=loss_function)
     #train_validation_inputs = np.concatenate((train_inputs, valid_inputs))
     #train_validation_outputs = np.concatenate((train_outputs, valid_outputs))
     
@@ -158,7 +164,8 @@ def train_symplectic_rank(name, N, layers, n_inputs, n_outputs, photon_additions
     passive_bounds = (None, None)
     sqz_bounds = (np.log(0.001), np.log(1000))
     #disp_bounds = (-2/np.sqrt(2), 2/np.sqrt(2))
-    disp_bounds = (-50, 50)
+    #disp_bounds = (-50, 50)
+    disp_bounds = (None, None)
     #witness_par_bound = (0,1)
     bounds = []
     for _ in range(layers):
