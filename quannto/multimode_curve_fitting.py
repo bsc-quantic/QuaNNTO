@@ -12,22 +12,22 @@ from .loss_functions import *
 np.random.seed(42)
 
 # === HYPERPARAMETERS DEFINITION ===
-modes = [2]
+modes = [2]*2
 #photon_additions = [[],[0],[0,0],[0,1],[0]]
-photon_additions = [[0]]
-layers = [1]
+photon_additions = [[0],[0,1]]
+layers = [1]*len(modes)
 is_input_reupload = False
 n_inputs = 1
 n_outputs = 1
 observable = 'position'
 in_norm_ranges = [(-1, 1)]*len(modes)
-out_norm_ranges = [(-1, 1)]*len(modes)
+out_norm_ranges = [(-2, 2)]*len(modes)
 loss_function = mse
-basinhopping_iters = 2
+basinhopping_iters = 1
 params = None
 
 # === TARGET FUNCTION SETTINGS ===
-target_function = three_function_1in_1out
+target_function = five_function_1in_1out
 input_range = (-5, 5)
 trainset_noise = 5
 trainset_size = 50
@@ -57,6 +57,7 @@ valid_dataset = generate_dataset_of(target_function, n_inputs, n_outputs, valids
 # Generate a linear dataset without noise to plot the real function
 real_function = generate_linear_dataset_of(target_function, n_inputs, n_outputs, trainset_size*100, input_range)
 output_range = get_range(real_function[1])
+#out_norm_ranges = [(output_range[0]/10, output_range[1]/10)]*len(modes)
 
 plt.plot(train_dataset[0], train_dataset[1], 'go', label='Noisy training set')
 plt.plot(real_function[0], real_function[1], 'b', label='Real function')
@@ -101,16 +102,23 @@ for (N, l, ph_add, in_norm_range, out_norm_range) in zip(modes, layers, photon_a
                                                         in_preprocessors, out_preprocessors, postprocessors, init_pars=params)
     qnns.append(qnn)
     train_losses.append(train_loss.copy())
+    with open(f"losses/{model_name}.npy", "wb") as f:
+        np.save(f, np.array(train_loss))
     valid_losses.append(valid_loss.copy())
+    with open(f"valid_losses/{model_name}.npy", "wb") as f:
+        np.save(f, np.array(valid_loss))
     qnn_loss.append(train_loss[-1])
     qnn_test_outputs = qnn.test_model(test_dataset, loss_function)
+    with open(f"testing/{model_name}.npy", "wb") as f:
+        np.save(f, np.array(qnn_test_outputs))
     #print(qnn_test_outputs)
     qnn_outs.append(qnn_test_outputs.copy())
     
 # PLOT RESULTS
 #legend_labels = [f'N={qnn.N}, L={qnn.layers}, Photon addition in modes {np.array(qnn.photon_add) + 1}, disp range {in_norm_range}' for (qnn, in_norm_range) in zip(qnns, in_norm_ranges)]
 #legend_labels = [f'N={qnn.N}, L={qnn.layers}, Photon addition in modes {np.array(qnn.photon_add) + 1}' for qnn in qnns]
-legend_labels = [f'N={qnn.N}, L={qnn.layers}, {len(qnn.photon_add)} photons/layer' for qnn in qnns]
+#legend_labels = [f'N={qnn.N}, L={qnn.layers}, {len(qnn.photon_add)} photons/layer' for qnn in qnns]
+legend_labels = [f'N={qnn.N}, L={qnn.layers}, {len(qnn.photon_add)} photons/layer, α ∈ {in_norm_range}' for (qnn, in_norm_range) in zip(qnns, in_norm_ranges)]
 
 plt.plot(test_dataset[0], test_dataset[1], 'o', markerfacecolor='g', markeredgecolor='none', alpha=0.25, label='Expected results')
 c = 0

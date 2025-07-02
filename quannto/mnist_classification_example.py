@@ -14,20 +14,20 @@ from .loss_functions import *
 np.random.seed(42)
 
 # === HYPERPARAMETERS DEFINITION ===
-N = 3
-photon_additions = [0]
+N = 5
+photon_additions = []
 layers = 1
 is_input_reupload = False
-n_inputs = 1
-n_outputs = 3
+n_inputs = 2
+n_outputs = 5
 observable = 'position'
 in_norm_range = (-3, 3)
 out_norm_range = (0.1, 25)
 loss_function = cross_entropy
-basinhopping_iters = 2
+basinhopping_iters = 0
 
 # === DATASET SETTINGS ===
-categories = [0, 1, 2]
+categories = [0, 1, 2, 3, 4]
 num_cats = len(categories)
 dataset_size = 75*num_cats
 validset_size = 20*num_cats
@@ -85,6 +85,11 @@ test_outputs_cats = test_outputs_cats.reshape((len(test_outputs_cats)))
 qnn, train_loss, valid_loss = build_and_train_model(model_name, N, layers, n_inputs, n_outputs, photon_additions, observable, is_input_reupload, 
                                                     train_dataset, valid_dataset, loss_function, basinhopping_iters, in_preprocessors, out_preprocessors, postprocessors)
 
+with open(f"losses/{model_name}.npy", "wb") as f:
+    np.save(f, np.array(train_loss))
+with open(f"valid_losses/{model_name}.npy", "wb") as f:
+    np.save(f, np.array(valid_loss))
+
 plt.plot(np.log(np.array(train_loss)+1), c='red', label=f'Train loss N={N}')
 plt.plot(np.log(np.array(valid_loss)+1), c='red', linestyle='dashed', label=f'Validation loss N={N}')
 plt.ylim(bottom=0.0)
@@ -96,8 +101,10 @@ plt.savefig(f"figures/logloss_{model_name}.png")
 #plt.show()
 plt.clf()
 
-# Generate a linearly-spaced testing dataset of the target function and test the trained QNN
+# Test the trained QONN with the unused samples of the MNIST dataset
 qnn_test_outputs = qnn.test_model(test_dataset, loss_function)
+with open(f"testing/{model_name}.npy", "wb") as f:
+    np.save(f, np.array(qnn_test_outputs))
 qnn_test_prob_outs = softmax_discretization(qnn_test_outputs)
 qnn_test_cat_outs = greatest_probability(qnn_test_prob_outs)
 qnn_test_cat_outs = qnn_test_cat_outs.reshape((len(qnn_test_cat_outs)))
