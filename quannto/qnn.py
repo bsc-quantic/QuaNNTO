@@ -90,6 +90,10 @@ class QNN:
         # Observable constant coefficient
         self.trace_const = 1 if observable=='number' else (1/np.sqrt(2)) if observable=='position' else (-1j/np.sqrt(2)) if observable=='momentum' else 0
         
+        if observable=='third-order':
+            x_const = 1/np.sqrt(2)
+            p_const = (-1j/np.sqrt(2))
+            self.trace_const = jnp.array([x_const, p_const, x_const**2, p_const**2, x_const**3, p_const**3])
         # Full expectation value expression of the wavefunction (photon additions + observable to be measured)
         self.trace_expr = complete_trace_expression(self.N, layers, photon_add, self.n_out, include_obs=True, obs=observable)
         # Normalization expression of the wavefunction related to photon additions
@@ -631,7 +635,6 @@ class QNN:
             jax.vmap(self.eval_QNN, in_axes=(None, 0))(parameters, shuffled_inputs_dataset), tol=1e6
         )
         self.qnn_profiling.epoch_times.append(time.time() - epoch_start_time)
-        
         return loss_function(outputs_dataset[shuffled_inds], qnn_outputs)
     
     def train_symp_rank(self, parameters):
@@ -688,6 +691,7 @@ class QNN:
         
         mean_error = loss_function(test_outputs, qnn_outputs)
         print(f"LOSS VALUE FOR TESTING SET: {mean_error}")
+        print("\n==========\n")
         
         return reduce(lambda x, func: func(x), self.postprocessors, qnn_outputs)
     
