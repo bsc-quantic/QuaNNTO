@@ -39,18 +39,24 @@ def compute_cubic_expectations(alpha, gamma, n_max):
     
     x2 = np.trace(rho @ (x_op @ x_op)).real
     p2 = np.trace(rho @ (p_op @ p_op)).real
+    xp = np.trace(rho @ (x_op @ p_op)).real
 
     # 5) Compute third moments via Tr[ρ x^3] and Tr[ρ p^3]
     x3 = np.trace(rho @ (x_op @ x_op @ x_op)).real
     p3 = np.trace(rho @ (p_op @ p_op @ p_op)).real
+    xp2 = np.trace(rho @ (x_op @ p_op @ p_op)).real
+    x2p = np.trace(rho @ (x_op @ x_op @ p_op)).real
 
     return {
         "x":  x_mean,
         "p":  p_mean,
         "x2": x2,
         "p2": p2,
+        "xp": xp,
         "x3": x3,
         "p3": p3,
+        "xp2": xp2,
+        "x2p": x2p,
     }
 
 # Example usage: build dataset
@@ -67,7 +73,7 @@ inputs_dataset = []
 outputs_dataset = []
 for α in alpha_list:
     obs = compute_cubic_expectations(α, gamma, n_max)
-    y = np.array([obs[k] for k in ("x","p","x2","p2","x3","p3")])
+    y = np.array([obs[k] for k in ("x","p","x2","p2","xp","x3","p3","xp2","x2p")])
     dataset.append(([α], y))
     inputs_dataset.append([α])
     outputs_dataset.append(y)
@@ -76,4 +82,4 @@ with open(f"datasets/cubicphase_gamma{gamma}_trainsize{dataset_size}_rng{alpha_l
     np.save(f, np.array(inputs_dataset))
 with open(f"datasets/cubicphase_gamma{gamma}_trainsize{dataset_size}_rng{alpha_list[0]}to{alpha_list[-1]}_outputs.npy", "wb") as f:
     np.save(f, np.array(outputs_dataset))
-# 'dataset' now holds (alpha, [⟨x⟩,⟨p⟩,⟨x²⟩,⟨p²⟩,⟨x³⟩,⟨p³⟩]) for the cubic‐phase gate.
+# 'dataset' now holds (alpha, [⟨x⟩,⟨p⟩,⟨x²⟩,⟨p²⟩,⟨xp⟩,⟨x³⟩,⟨p³⟩,⟨xp²⟩,⟨x²p⟩]) for the cubic‐phase gate.
