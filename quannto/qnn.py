@@ -349,7 +349,6 @@ class QNN:
         # 4) Flatten to a 1‐D array of length layers * N
         return disp_matrix.reshape((self.layers * self.N,))
         
-    @partial(jax.jit, static_argnums=(0,))
     def compute_coefficients(self):
         d_r = self.build_disp_coefs()
         d_i = jnp.conjugate(d_r)
@@ -603,7 +602,6 @@ class QNN:
         tr_value = jnp.sum(coefs * expvals)
         return tr_value
     
-    @partial(jax.jit, static_argnums=(0,))
     def compute_exp_val_loop(self, terms_coefs, quadratic_exp_vals, means_vector):
         '''
         Computes the expectation value of the expression (trace) that defines the QNN operations.
@@ -618,7 +616,7 @@ class QNN:
         exp_vals = jax.vmap(self.compute_terms_in_trace, in_axes=(0, 0, None, None))(self.exp_vals_inds, terms_coefs, quadratic_exp_vals, means_vector)
         return exp_vals
 
-    """ def train_QNN(self, parameters, inputs_dataset, outputs_dataset, loss_function):
+    def train_QNN(self, parameters, inputs_dataset, outputs_dataset, loss_function):
         '''
         Evaluates all dataset items with the QONN current state and computes the loss function 
         values for each item. This function is the one to be minimized and refers to one epoch.
@@ -637,73 +635,6 @@ class QNN:
             jax.vmap(self.eval_QNN, in_axes=(None, 0))(parameters, shuffled_inputs_dataset), tol=1e6
         )
         self.qnn_profiling.epoch_times.append(time.time() - epoch_start_time)
-        return loss_function(outputs_dataset[shuffled_inds], qnn_outputs) """
-        
-    def train_QNN(self, parameters, inputs_dataset, outputs_dataset, loss_function):
-        '''
-        Evaluates all dataset items with the QONN current state and computes the loss function 
-        values for each item. This function is the one to be minimized and refers to one epoch.
-        
-        :param parameters: QONN tunable parameters
-        :param inputs_dataset: Inputs of the dataset to be learned
-        :param outputs_dataset: Outputs to be learned
-        :param loss_function: Function to evaluate the loss of the QONN predictions
-        :return: Losses of the QONN predictions
-        '''
-        # BATCH EVALUATION
-        epoch_start_time = time.time()
-        shuffled_inds = np.random.permutation(len(inputs_dataset))
-        shuffled_inputs_dataset = inputs_dataset[shuffled_inds]
-        
-        # =====
-        self.build_QNN(parameters)
-        # =====
-        
-        t0_lower = time.time()
-        #lowered = self.eval_QNN.lower(self, parameters, shuffled_inputs_dataset[0])
-        lowered = self.compute_coefficients.lower(self)
-        #print("===== StableHLO =====")
-        #print(lowered.compiler_ir(dialect='stablehlo'))
-        ir_time = time.time() - t0_lower
-        print("IR Time: ", ir_time)
-        hlo = lowered.compiler_ir(dialect="hlo")
-        print(f"HLO size for COMPUTE COEFFICIENTS is {len(hlo.as_hlo_text())/1e6} MB")
-        input('w8')
-        
-        # =====
-        V = 0.5*jnp.eye(2*self.N)
-        mean_vector = jnp.zeros((2*self.N,), dtype=shuffled_inputs_dataset[0].dtype)
-        mean_vector = QNN.apply_linear_gaussian(jnp.sqrt(2) * shuffled_inputs_dataset[0], mean_vector)
-
-        mean_vector, V = self.apply_gaussian_transformations(mean_vector, V)
-        
-        K_exp_vals = self.compute_quad_exp_vals(V)
-
-        #traces_terms_coefs = self.compute_coefficients()
-        traces_terms_coefs = jnp.zeros((len(self.num_terms_per_trace), np.max(self.num_terms_per_trace)))
-        print(traces_terms_coefs.shape)
-        # =====
-        
-        t1_lower = time.time()
-        #lowered = self.eval_QNN.lower(self, parameters, shuffled_inputs_dataset[0])
-        lowered = self.compute_exp_val_loop.lower(self, traces_terms_coefs, K_exp_vals, mean_vector)
-        #print("===== StableHLO =====")
-        #print(lowered.compiler_ir(dialect='stablehlo'))
-        ir_time = time.time() - t1_lower
-        print("IR Time: ", ir_time)
-        hlo = lowered.compiler_ir(dialect="hlo")
-        print(f"HLO size for EXP VAL is {len(hlo.as_hlo_text())/1e6} MB")
-        input('w8')
-        
-        t0_compile = time.time()
-        compiled = lowered.compile()
-        compile_time = time.time() - t0_compile
-        print("First compile time: ", compile_time)
-        """ qnn_outputs = np.real_if_close(
-            jax.vmap(self.eval_QNN, in_axes=(None, 0))(parameters, shuffled_inputs_dataset), tol=1e6
-        ) """
-        self.qnn_profiling.epoch_times.append(time.time() - epoch_start_time)
-        
         return loss_function(outputs_dataset[shuffled_inds], qnn_outputs)
     
     def train_symp_rank(self, parameters):
