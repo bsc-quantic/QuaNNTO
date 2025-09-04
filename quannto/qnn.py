@@ -162,31 +162,18 @@ class QNN:
         
         # Compile trace expression terms with respect to symplectic and displacement parameters
         t1 = time.time()
-        self.unnorm_fns = []
-        for expr_list in self.unnorm_expr_terms_out:
-            # 1) Introduce padding for those traces not reaching the maximum number of terms
-            for pad in range(len(expr_list), self.max_terms):
-                expr_list.append(0)
-            # 2) Turn the list of sympy scalars into a Python tuple
-            expr_tuple = tuple(expr_list)  # length = m_i
-
-            # 3) Lambdify that tuple: returns a Python tuple of JAX scalars
-            f_vec = lambdify(
-                (S_r, S_i, d, d_conj),
-                expr_tuple,
-                modules={'jax': jnp, 'numpy': jnp}
-            )
-            #   now f_vec(Sr, Si, d_r, d_i) → Python tuple (v0, v1, …, v_{m_i−1})
-            #   each v_k is a JAX scalar (dtype complex64/128).
-
-            # 4) Wrap in a one‐line function that stacks into a 1D array:
-            def f_stack(Sr, Si, d_r, d_i, _f=f_vec):
-                # NOTE: Python tuple → stack to JAX array of shape (m_i,)
-                return jnp.stack(_f(Sr, Si, d_r, d_i), axis=0)
-
-            # 5) JIT‐compile that stacked function once
-            f_jit = jax.jit(f_stack)
-            self.unnorm_fns.append(f_jit)
+        trace_terms_coefs_inds = []
+        trace_terms_coefs = []
+        trace_terms_meta = []
+        for subexpr_terms in self.unnorm_expr_terms_out:
+            all_inds, coefs, meta = expressions_to_index_lists(N, layers, subexpr_terms)
+            num_inds = len(all_inds[0])
+            for pad in range(len(subexpr_terms), self.max_terms):
+                all_inds.append([-1]*num_inds)
+            trace_terms_coefs_inds.append(all_inds)
+            trace_terms_coefs.append(coefs)
+            trace_terms_meta.append(meta)
+        self.jax_traceterms_coefs_inds = jnp.array(trace_terms_coefs_inds, dtype=jnp.int32)
         t2 = time.time()
         print(f"Time to lambdify trace terms: {t2-t1}")
         
@@ -354,14 +341,28 @@ class QNN:
         d_i = jnp.conjugate(d_r)
         S_r = self.S_concat
         S_i = jnp.conjugate(S_r)
-
-        def f_switch(i, S_r, S_i, d_r, d_i):
-            # Internally compile all f’s as branches
-            return lax.switch(i, self.unnorm_fns, S_r, S_i, d_r, d_i)
         
-        batched_f = jax.vmap(f_switch, in_axes=(0, None, None, None, None))
+        full_coef_vector = jnp.concatenate(
+            [d_r.ravel(), d_i.ravel(), S_r.ravel(), S_i.ravel()]
+        )
         
-        return batched_f(self.exp_vals_inds, S_r, S_i, d_r, d_i)
+        def _trace_coefs(trace_term_idx, vec):
+            def _coef_comp(coefs_inds, vec):
+                def null_coef(_):
+                    return 0 + 0j
+                def valid_coef(_):
+                    return jnp.prod(vec[coefs_inds])
+                    
+                return lax.cond(
+                    coefs_inds[0] == -1,
+                    null_coef,
+                    valid_coef,
+                    operand=None
+                )
+            return jax.vmap(_coef_comp, in_axes=(0, None))(self.jax_traceterms_coefs_inds[trace_term_idx], vec)
+        
+            
+        return jax.vmap(_trace_coefs, in_axes=(0, None))(self.exp_vals_inds, full_coef_vector)
     
     def exp_val_ladder_jk(self, j, k, V):
         '''
@@ -636,6 +637,85 @@ class QNN:
         )
         self.qnn_profiling.epoch_times.append(time.time() - epoch_start_time)
         return loss_function(outputs_dataset[shuffled_inds], qnn_outputs)
+        
+    """ def train_QNN(self, parameters, inputs_dataset, outputs_dataset, loss_function):
+        '''
+        Evaluates all dataset items with the QONN current state and computes the loss function 
+        values for each item. This function is the one to be minimized and refers to one epoch.
+        
+        :param parameters: QONN tunable parameters
+        :param inputs_dataset: Inputs of the dataset to be learned
+        :param outputs_dataset: Outputs to be learned
+        :param loss_function: Function to evaluate the loss of the QONN predictions
+        :return: Losses of the QONN predictions
+        '''
+        # BATCH EVALUATION
+        epoch_start_time = time.time()
+        shuffled_inds = np.random.permutation(len(inputs_dataset))
+        shuffled_inputs_dataset = inputs_dataset[shuffled_inds]
+        
+        # =====
+        self.build_QNN(parameters)
+        # =====
+        
+        t0_lower = time.time()
+        lowered = self.eval_QNN.lower(self, parameters, shuffled_inputs_dataset[0])
+        ir_time = time.time() - t0_lower
+        print("IR Time: ", ir_time)
+        hlo = lowered.compiler_ir(dialect="hlo")
+        print(f"HLO size for EVAL QNN is {len(hlo.as_hlo_text())/1e6} MB")
+        input('w8')
+        lowered = self.compute_coefficients.lower(self)
+        #print("===== StableHLO =====")
+        #print(lowered.compiler_ir(dialect='stablehlo'))
+        ir_time = time.time() - t0_lower
+        print("IR Time: ", ir_time)
+        hlo = lowered.compiler_ir(dialect="hlo")
+        print(f"HLO size for COMPUTE COEFFICIENTS is {len(hlo.as_hlo_text())/1e6} MB")
+        input('w8')
+        
+        print(self.exp_vals_inds)
+        print(self.exp_vals_inds.shape)
+        # =====
+        V = 0.5*jnp.eye(2*self.N)
+        mean_vector = jnp.zeros((2*self.N,), dtype=shuffled_inputs_dataset[0].dtype)
+        mean_vector = QNN.apply_linear_gaussian(jnp.sqrt(2) * shuffled_inputs_dataset[0], mean_vector)
+
+        mean_vector, V = self.apply_gaussian_transformations(mean_vector, V)
+        
+        K_exp_vals = self.compute_quad_exp_vals(V)
+
+        traces_terms_coefs = self.compute_coefficients()
+        #traces_terms_coefs = jnp.zeros((len(self.num_terms_per_trace), np.max(self.num_terms_per_trace)))
+        print(traces_terms_coefs.shape)
+        print(traces_terms_coefs)
+        print(self.unnorm_expr_terms_out)
+        print(self.D_concat)
+        print(self.S_concat)
+        print("=====")
+        # =====
+        
+        t1_lower = time.time()
+        #lowered = self.eval_QNN.lower(self, parameters, shuffled_inputs_dataset[0])
+        lowered = self.compute_exp_val_loop.lower(self, traces_terms_coefs, K_exp_vals, mean_vector)
+        #print("===== StableHLO =====")
+        #print(lowered.compiler_ir(dialect='stablehlo'))
+        ir_time = time.time() - t1_lower
+        print("IR Time: ", ir_time)
+        hlo = lowered.compiler_ir(dialect="hlo")
+        print(f"HLO size for EXP VAL is {len(hlo.as_hlo_text())/1e6} MB")
+        input('w8')
+        
+        t0_compile = time.time()
+        compiled = lowered.compile()
+        compile_time = time.time() - t0_compile
+        print("First compile time: ", compile_time)
+        qnn_outputs = np.real_if_close(
+            jax.vmap(self.eval_QNN, in_axes=(None, 0))(parameters, shuffled_inputs_dataset), tol=1e6
+        )
+        self.qnn_profiling.epoch_times.append(time.time() - epoch_start_time)
+        
+        return loss_function(outputs_dataset[shuffled_inds], qnn_outputs) """
     
     def train_symp_rank(self, parameters):
         '''

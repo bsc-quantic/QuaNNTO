@@ -1,9 +1,133 @@
+from __future__ import annotations
 import numpy as np
 from sympy import symbols, expand, MatrixSymbol
 import jax.numpy as jnp
 from functools import partial
 
 from .utils import *
+
+# ---------- PRE-CÁLCULO (una sola vez, con SymPy) ----------
+import re
+from typing import List, Tuple, Sequence
+import sympy as sp
+from sympy.matrices.expressions.matexpr import MatrixElement
+import numpy as np
+
+# ===== TEST =====
+
+_num_re = re.compile(r"^([ri])(\d+)$")  # r123 / i45
+
+def build_meta_from_symbols(N, layers):
+    dim = 2*N
+    d_r = symbols(f'r0:{layers*N}', commutative=True)
+    d_i = symbols(f'i0:{layers*N}', commutative=True)
+    # Symplectic matrix 2Nx2N
+    S_r = MatrixSymbol('S_r', dim, layers*dim)
+    S_i = MatrixSymbol('S_i', dim, layers*dim)
+    """A partir de tus símbolos, calcula offsets/tamaños del vector concatenado."""
+    rows, cols = S_r.shape
+    assert S_i.shape == (rows, cols)
+    size_r = len(d_r)
+    size_i = len(d_i)
+    size_S = rows * cols
+
+    off_r  = 0
+    off_i  = off_r + size_r
+    off_Sr = off_i + size_i
+    off_Si = off_Sr + size_S
+    total  = off_Si + size_S
+
+    return dict(
+        rows=rows, cols=cols,
+        size_r=size_r, size_i=size_i, size_S=size_S,
+        off_r=off_r, off_i=off_i, off_Sr=off_Sr, off_Si=off_Si,
+        total=total
+    )
+
+def _flat_rc_row_major(p: int, q: int, cols: int) -> int:
+    return int(p) * int(cols) + int(q)
+
+def _is_matrix_element(x) -> bool:
+    # Evita dependencias de versión: MatrixElement tiene .parent, .i, .j
+    return hasattr(x, "parent") and hasattr(x, "i") and hasattr(x, "j")
+
+def factor_to_index(f, meta) -> int:
+    """Mapea un factor simbólico (rK, iK, S_r[p,q], S_i[p,q]) a índice en v."""
+    rows, cols = meta["rows"], meta["cols"]
+    off_r, off_i, off_Sr, off_Si = meta["off_r"], meta["off_i"], meta["off_Sr"], meta["off_Si"]
+
+    # Caso rK / iK (tus d_r/d_i)
+    if isinstance(f, sp.Symbol):
+        m = _num_re.match(f.name)
+        if m:
+            base, k = m.groups()
+            k = int(k)
+            if base == "r":
+                if not (0 <= k < meta["size_r"]): raise IndexError(f"r{k} fuera de rango")
+                return off_r + k
+            else:
+                if not (0 <= k < meta["size_i"]): raise IndexError(f"i{k} fuera de rango")
+                return off_i + k
+
+    # Caso MatrixElement: S_r[p,q] o S_i[p,q]
+    if _is_matrix_element(f):
+        name = str(f.parent)
+        p, q = int(f.i), int(f.j)
+        if not (0 <= p < rows and 0 <= q < cols):
+            raise IndexError(f"Índices fuera de rango para {name}: ({p},{q}) con shape=({rows},{cols})")
+        flat = _flat_rc_row_major(p, q, cols)
+        if name == "S_r":
+            return off_Sr + flat
+        if name == "S_i":
+            return off_Si + flat
+
+    raise TypeError(f"No sé mapear el factor: {repr(f)}")
+
+# -----------------------------
+# Conversión de expresiones
+# -----------------------------
+def expr_to_index_list_and_coeff(expr, meta) -> Tuple[List[int], float]:
+    """
+    Devuelve (indices, coeff_numérico).
+    - indices: lista de índices (uno por factor simbólico no numérico).
+    - coeff: producto de los factores numéricos (float). Si no hay, 1.0.
+    """
+    # Separa numéricos / no numéricos
+    if isinstance(expr, sp.Mul):
+        nums = [a for a in expr.args if a.is_number]
+        non_nums = [a for a in expr.args if not a.is_number]
+        coeff = float(sp.Mul(*nums)) if nums else 1.0
+    elif expr.is_number:
+        return [], float(expr)
+    else:
+        non_nums, coeff = [expr], 1.0
+
+    idxs = [factor_to_index(f, meta) for f in non_nums]
+    return idxs, coeff
+
+def expressions_to_index_lists(
+    N, layers, exprs: Sequence[sp.Expr], keep_coeffs: bool = True
+):
+    """
+    API principal: convierte cada expresión en su lista de índices.
+    - Si keep_coeffs=True, también devuelve array de coeficientes (float32).
+    """
+    meta = build_meta_from_symbols(N, layers)
+    all_idxs: List[List[int]] = []
+    coeffs: List[float] = []
+    for e in exprs:
+        idxs, c = expr_to_index_list_and_coeff(e, meta)
+        all_idxs.append(idxs)
+        if keep_coeffs:
+            coeffs.append(c)
+
+    if keep_coeffs:
+        return all_idxs, np.asarray(coeffs, dtype=np.float32), meta
+    else:
+        return all_idxs, meta
+
+# ===== /TEST ======
+
 
 def extract_ladder_expressions(trace_expr):
     '''
