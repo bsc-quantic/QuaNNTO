@@ -151,8 +151,11 @@ def complete_trace_expression(N, layers, photon_additions, n_outputs, include_ob
             expanded_expr.append(expand(sup_dag*p*sup))
             expanded_expr.append(expand(sup_dag*(x*x)*sup))
             expanded_expr.append(expand(sup_dag*(p*p)*sup))
+            expanded_expr.append(expand(sup_dag*(x*p)*sup))
             expanded_expr.append(expand(sup_dag*(x*x*x)*sup))
             expanded_expr.append(expand(sup_dag*(p*p*p)*sup))
+            expanded_expr.append(expand(sup_dag*(x*p*p)*sup))
+            expanded_expr.append(expand(sup_dag*(x*x*p)*sup))
         else:
             for i in range(n_outputs):
                 if obs == 'position':

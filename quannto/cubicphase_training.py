@@ -40,9 +40,11 @@ with open(f"datasets/cubicphase_gamma{gamma}_trainsize{dataset_size}_rng{alpha_l
 train_dataset = [inputs, outputs]
 
 colors = colormaps['tab10']
-expvals = ['⟨x⟩', '⟨p⟩', '⟨x²⟩', '⟨p²⟩', '⟨x³⟩' , '⟨p³⟩']
+expvals = ['⟨x⟩', '⟨p⟩', '⟨x²⟩', '⟨p²⟩', '⟨xp⟩', '⟨x³⟩', '⟨p³⟩', '⟨xp²⟩', '⟨x²p⟩']
+start_expval = 5
+end_expval = 7
 c=0
-for exp_val_idx in range(4, outputs.shape[1]):
+for exp_val_idx in range(start_expval, end_expval):
     plt.plot(inputs, outputs[:,exp_val_idx], c=colors(c), label=expvals[exp_val_idx])
     c += 1
 plt.title(f'Dataset')
@@ -99,7 +101,7 @@ legend_labels = [f'N={qnn.N}, L={qnn.layers}, a† in modes {np.array(qnn.photon
 #legend_labels = [f'N={qnn.N}, L={qnn.layers}, {len(qnn.photon_add)} photons/layer, α ∈ {in_norm_range}' for (qnn, in_norm_range) in zip(qnns, in_norm_ranges)]
 
 c=0
-for exp_val_idx in range(4, outputs.shape[1]):
+for exp_val_idx in range(start_expval, end_expval):
     plt.plot(inputs, outputs[:,exp_val_idx], c=colors(c), label=expvals[exp_val_idx])
     c += 1
     
@@ -113,7 +115,7 @@ for (qnn_test_outputs, legend_label) in zip(qnn_outs, legend_labels):
              linestyle='None',
              color='black',
              label=legend_label)
-    for exp_val_idx in range(4, outputs.shape[1]):
+    for exp_val_idx in range(start_expval, end_expval):
         plt.plot(inputs, qnn_test_outputs[:,exp_val_idx], marker=markers[m], c=colors(c), alpha=0.3, linestyle='dashed')
         c += 1
     m+=1
@@ -138,7 +140,7 @@ for (train_loss, legend_label) in zip(train_losses, legend_labels):
 plt.ylim(bottom=0.0)
 plt.xlabel('Epochs')
 plt.ylabel('Loss value')
-plt.title(f'LOGARITHMIC TRAINING AND VALIDATION LOSS')
+plt.title(f'LOGARITHMIC LOSS')
 plt.grid(linestyle='--', linewidth=0.4)
 plt.legend()
 plt.savefig("figures/logloss_"+model_name+"_N"+str(modes)+"_L"+str(layers)+"_ph"+str(photon_additions)+"_in"+str(input_range)+".png")
