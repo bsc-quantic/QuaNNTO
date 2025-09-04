@@ -1,6 +1,7 @@
 import numpy as np
 import tensorflow as tf
 import jax.numpy as jnp
+from sklearn.decomposition import PCA
 
 def trigonometric_feature_expressivity(features, num_final_features):
     transf_feats = np.zeros((len(features), num_final_features))
@@ -155,5 +156,50 @@ def autoencoder_mnist(latent_dim, categories):
     # Return the compressed inputs of the training dataset
     #return x_train_compressed, np.array([[y_elem] for y_elem in y_train])
     return x_test_compressed, np.array([[y_elem] for y_elem in y_test])
+
+def pca_mnist(latent_dim, categories):
+    """
+    Drop-in replacement for the autoencoder function, using PCA instead.
+    - latent_dim: number of principal components
+    - categories: passed to your filter_dataset_categories helper
+    Returns:
+        x_test_compressed: (N_test, latent_dim)
+        y_test_column:     (N_test, 1)
+    """
+    # Load MNIST dataset
+    (x_train, y_train), (x_test, y_test) = tf.keras.datasets.mnist.load_data()
+    (x_train, y_train) = filter_dataset_categories(x_train, y_train, categories)
+    (x_test, y_test) = filter_dataset_categories(x_test, y_test, categories)
+    print(f"PCA DATASET SIZE: {len(x_test)}")
+
+    # Normalize pixel values to the range [0, 1]
+    x_train = x_train.astype('float32') / 255.
+    x_test = x_test.astype('float32') / 255.
+
+    # Keep these lines to match your original structure
+    x_train = np.expand_dims(x_train, axis=-1)  # (N, 28, 28, 1)
+    x_test = np.expand_dims(x_test, axis=-1)    # (N, 28, 28, 1)
+
+    # Flatten images to vectors for PCA: (N, 784)
+    x_train_flat = x_train.reshape(len(x_train), -1)
+    x_test_flat = x_test.reshape(len(x_test), -1)
+
+    # Fit PCA with 'latent_dim' components (AE bottleneck -> PCA comps)
+    pca = PCA(n_components=latent_dim, svd_solver='randomized', random_state=42)
+    pca.fit(x_train_flat)
+
+    # "Encode" = transform to principal component space
+    x_train_compressed = pca.transform(x_train_flat)
+    x_test_compressed = pca.transform(x_test_flat)
+
+    # Optional: quick reconstruction error / variance info
+    # x_test_recon = pca.inverse_transform(x_test_compressed)
+    # mse_test = np.mean((x_test_flat - x_test_recon) ** 2)
+    # print(f"PCA cumulative explained variance: {pca.explained_variance_ratio_.sum():.4f}")
+    # print(f"PCA reconstruction MSE (test): {mse_test:.6f}")
+
+    # Return compressed test representations and column vector labels
+    return x_test_compressed, np.array([[y] for y in y_test])
+
 
     
