@@ -55,8 +55,8 @@ def factor_to_index(f, meta) -> int:
     """Mapea un factor simbólico (rK, iK, S_r[p,q], S_i[p,q]) a índice en v."""
     rows, cols = meta["rows"], meta["cols"]
     off_r, off_i, off_Sr, off_Si = meta["off_r"], meta["off_i"], meta["off_Sr"], meta["off_Si"]
-
-    # Caso rK / iK (tus d_r/d_i)
+    
+    # Caso rK / iK (tus d_r/d_i)    
     if isinstance(f, sp.Symbol):
         m = _num_re.match(f.name)
         if m:
@@ -92,10 +92,21 @@ def expr_to_index_list_and_coeff(expr, meta) -> Tuple[List[int], float]:
     - indices: lista de índices (uno por factor simbólico no numérico).
     - coeff: producto de los factores numéricos (float). Si no hay, 1.0.
     """
-    # Separa numéricos / no numéricos
+    # Transforms type sp.Pow to sp.Mul
+    if isinstance(expr, sp.Pow):
+        base, exp = expr.as_base_exp()
+        expr = sp.Mul(*([base]*int(exp)), evaluate=False)
+        
+    # Separates numerical and symbolic
     if isinstance(expr, sp.Mul):
         nums = [a for a in expr.args if a.is_number]
-        non_nums = [a for a in expr.args if not a.is_number]
+        non_nums = []
+        for a in expr.args:
+            if isinstance(a, sp.Pow):
+                base, exp = a.as_base_exp()
+                non_nums.extend([base]*exp)
+            elif not a.is_number:
+                non_nums.append(a)
         coeff = float(sp.Mul(*nums)) if nums else 1.0
     elif expr.is_number:
         return [], float(expr)
