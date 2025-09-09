@@ -148,12 +148,6 @@ class QNN:
         self.num_terms_per_trace = jnp.array([len(expr) for expr in self.unnorm_expr_terms_out])
         print(f"Number of terms for each trace: {self.num_terms_per_trace}")
         
-        d = symbols(f'r0:{layers*N}', commutative=True)
-        d_conj = symbols(f'i0:{layers*N}', commutative=True)
-        dim = 2*N
-        S_r = MatrixSymbol('S_r', dim, layers*dim)
-        S_i = MatrixSymbol('S_i', dim, layers*dim)
-        
         self.exp_vals_inds = jnp.arange(len(self.jax_modes), dtype=jnp.int32)
         self.num_terms_in_trace = jnp.array([len(output_terms) for output_terms in self.modes])
         self.max_terms = jnp.max(self.num_terms_in_trace)
@@ -165,15 +159,20 @@ class QNN:
         trace_terms_coefs_inds = []
         trace_terms_coefs = []
         trace_terms_meta = []
-        for subexpr_terms in self.unnorm_expr_terms_out:
-            all_inds, coefs, meta = expressions_to_index_lists(N, layers, subexpr_terms)
-            num_inds = len(all_inds[0])
-            for pad in range(len(subexpr_terms), self.max_terms):
-                all_inds.append([-1]*num_inds)
-            trace_terms_coefs_inds.append(all_inds)
-            trace_terms_coefs.append(coefs)
-            trace_terms_meta.append(meta)
-        self.jax_traceterms_coefs_inds = jnp.array(trace_terms_coefs_inds, dtype=jnp.int32)
+        if len(self.photon_add) > 0:
+            for subexpr_terms in self.unnorm_expr_terms_out:
+                all_inds, coefs, meta = expressions_to_index_lists(N, layers, subexpr_terms)
+                num_inds = len(all_inds[0])
+                for pad in range(len(subexpr_terms), self.max_terms):
+                    all_inds.append([-1]*num_inds)
+                trace_terms_coefs_inds.append(all_inds)
+                trace_terms_coefs.append(coefs)
+                trace_terms_meta.append(meta)
+            self.jax_traceterms_coefs_inds = jnp.array(trace_terms_coefs_inds, dtype=jnp.int32)
+        else:
+            ones_coefs = np.ones_like(self.trace_terms_ranges)
+            ones_coefs[self.trace_terms_ranges == -1] = 0
+            self.jax_ones_coefs = jnp.array(ones_coefs)
         t2 = time.time()
         print(f"Time to lambdify trace terms: {t2-t1}")
         
@@ -463,7 +462,7 @@ class QNN:
 
         # 4. Compute coefficients for trace expression and normalization terms
         #ladder_superpos_start = time.time()
-        traces_terms_coefs = self.compute_coefficients()
+        traces_terms_coefs = self.compute_coefficients() if len(self.photon_add) > 0 else self.jax_ones_coefs
         #self.qnn_profiling.ladder_superpos_times.append(time.time() - ladder_superpos_start)
         
         # 5. Compute the expectation values acting as outputs
@@ -473,18 +472,6 @@ class QNN:
         
         # 6. Multiply by trace coefficients and normalize (last expectation value)
         return self.trace_const * exp_vals[:-1] / exp_vals[-1]
-    
-    def single_ladder_exp_val(self, trace_idx, tr_term_idx, means_vector):
-        '''
-        Computes the expectation value of a single ladder operator over a certain mode based
-        on the means vector (position and momentum expectation values).
-        
-        :param means_vector: Expectation values of position and momentum of each mode (xxpp order)
-        :return: Normalized ladder operator expectation value
-        '''
-        term_mode = self.jax_modes[trace_idx][tr_term_idx][0]
-        term_type = self.jax_types[trace_idx][tr_term_idx][0]
-        return self.oneoversqrt2 * (means_vector[term_mode] + 1j*(-2*term_type + 1)*means_vector[self.N+term_mode])
     
     def wick_expansion_expval(self, trace_idx, tr_term_idx, quadratic_exp_vals, means_vector):
         """
@@ -559,31 +546,38 @@ class QNN:
         '''
         len_term = self.jax_lens[trace_idx, tr_term_idx]
 
-        # case0: Tr[ρ] → return 1
-        def case0(_):
-            return 1.0+0.0j   # or jnp.array(1.0, dtype=...)
+        # Case -1: Non-existent term
+        def casenull(_):
+            return 0.0+0.0j
 
-        # case1: single ladder → call single_ladder_exp_val
+        # Case 0: No ladder op Tr[ρ] → return 1
+        def case0(_):
+            return 1.0+0.0j
+
+        # Case 1: Single ladder op Tr[a# ρ] → means vector
         def case1(_):
             mode = self.jax_modes[trace_idx, tr_term_idx, 0]
             typ  = self.jax_types[trace_idx, tr_term_idx, 0]
-            #return self.single_ladder_exp_val(trace_idx, tr_term_idx, means_vector) #FIXME: Indices fixed to 0 but not for PMs
             return self.oneoversqrt2 * (means_vector[mode] + 1j*(-2*typ + 1)*means_vector[self.N+mode])
 
-        # case2: wick expansion
+        # Case 2: Pair or more ladder ops Tr[a#a#... ρ] → Wick expansion
         def case2(_):
             return self.wick_expansion_expval(
                 trace_idx, tr_term_idx, quadratic_exp_vals, means_vector
             )
-
-        # first branch off len_term == 0 vs len_term > 0
+        
         return lax.cond(
-            len_term == 0,
-            case0,
+            len_term == -1,
+            casenull,
             lambda _: lax.cond(
-                len_term == 1,
-                case1,
-                case2,
+                len_term == 0,
+                case0,
+                lambda _: lax.cond(
+                    len_term == 1,
+                    case1,
+                    case2,
+                    operand=None
+                ),
                 operand=None
             ),
             operand=None
