@@ -92,11 +92,18 @@ def build_and_train_model(model_name, N, layers, n_inputs, n_outputs, photon_add
         global loss_values
         global best_validation_loss
         global validation_loss
+        global best_pars
         print(f"Best basinhopping iteration error so far: {best_loss_values[-1]}")
         print(f"Current basinhopping iteration error: {f}\n==========\n")
-        if best_validation_loss[-1] > validation_loss[-1]:# and best_loss_values[-1] > loss_values[-1]:
-            best_loss_values = loss_values.copy()
-            best_validation_loss = validation_loss.copy()
+        if valid_set != None:
+            if best_validation_loss[-1] > validation_loss[-1]:# and best_loss_values[-1] > loss_values[-1]:
+                best_pars = x.copy()
+                best_loss_values = loss_values.copy()
+                best_validation_loss = validation_loss.copy()
+        else:
+            if best_loss_values[-1] > loss_values[-1]:# and best_loss_values[-1] > loss_values[-1]:
+               best_pars = x.copy()
+               best_loss_values = loss_values.copy()
         loss_values = [9999]
         validation_loss = [9999]
     qnn = QNN(model_name, N, layers, n_inputs, n_outputs,
@@ -116,6 +123,8 @@ def build_and_train_model(model_name, N, layers, n_inputs, n_outputs, photon_add
     best_validation_loss = [9999]
     global validation_loss
     validation_loss = [9999]
+    global best_pars
+    best_pars = []    
     
     training_QNN = partial(qnn.train_QNN, inputs_dataset=train_inputs, outputs_dataset=train_outputs, loss_function=loss_function)
     if valid_set != None:
@@ -137,9 +146,10 @@ def build_and_train_model(model_name, N, layers, n_inputs, n_outputs, photon_add
     print(f'Total training time: {time.time() - training_start} seconds')
     
     print(f'\nOPTIMIZATION ERROR FOR N={N}, L={layers}')
-    print(opt_result.fun)
+    print(best_loss_values[-1])
     
-    qnn.build_QNN(opt_result.x)
+    #qnn.build_QNN(opt_result.lowest_optimization_result.x)
+    qnn.build_QNN(best_pars)
 
     qnn.print_qnn()
     #print(qnn.qnn_profiling.avg_benchmark())
@@ -203,28 +213,32 @@ def train_symplectic_rank(name, N, layers, n_inputs, n_outputs, photon_additions
         '''
         global best_loss_values
         global loss_values
+        global best_pars
         print(f"Best basinhopping iteration value: {best_loss_values[-1]}")
         print(f"Current basinhopping iteration value: {f}\n==========\n")
         if best_loss_values[-1] > loss_values[-1]:# and best_loss_values[-1] > loss_values[-1]:
             best_loss_values = loss_values.copy()
+            best_pars = x.copy()
         loss_values = [9999]
     
     global best_loss_values
     best_loss_values = [9999]
     global loss_values
     loss_values = [9999]
+    global best_pars
+    best_pars = []
     
     train_symplectic_rank = partial(qnn.train_symp_rank)
     
     training_start = time.time()
     minimizer_kwargs = {"method": "L-BFGS-B", "bounds": bounds, "callback": callback}
-    result = opt.basinhopping(train_symplectic_rank, init_pars, niter=hopping_iters, minimizer_kwargs=minimizer_kwargs, callback=callback_hopping)
+    opt_result = opt.basinhopping(train_symplectic_rank, init_pars, niter=hopping_iters, minimizer_kwargs=minimizer_kwargs, callback=callback_hopping)
     print(f'Total training time: {time.time() - training_start} seconds')
     
     print(f'\nOPTIMIZED SYMPLECTIC RANK VALUE FOR N={N}, L={layers}')
-    print(result.fun)
+    print(best_loss_values[-1])
     
-    qnn.build_QNN(result.x)
+    qnn.build_QNN(best_pars)
     qnn.print_qnn()
     #print(qnn.qnn_profiling.avg_benchmark())
     
