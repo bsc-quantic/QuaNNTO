@@ -2,7 +2,6 @@ import numpy as np
 import time
 import jsonpickle
 import time
-from sympy import lambdify
 from functools import reduce
 import jax
 from jax import lax
@@ -131,7 +130,10 @@ class QNN:
         
         self.unnorm_expr_terms_out = []
         for outs in range(len(self.trace_expr)):
-            unnorm_expr_terms = list(self.trace_expr[outs].args) if (len(photon_add) > 0 or (observable!='number' and observable!='witness')) else list(self.trace_expr[outs].args[1:])
+            if isinstance(self.trace_expr[outs], sp.Add):
+                unnorm_expr_terms = list(self.trace_expr[outs].args)
+            else:
+                unnorm_expr_terms = [self.trace_expr[outs]]
             unnorm_subs_expr_terms = []
             for term in unnorm_expr_terms:
                 new_term = term.subs(ladder_subs)

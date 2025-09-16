@@ -148,10 +148,10 @@ def extract_ladder_expressions(trace_expr):
     :param trace_expr: Symbolic expression of creation and annihilation operators
     :return: Pair of lists containing the modes the ladder operators act onto and their type
     '''
-    if len(trace_expr.args) > 0 and str(trace_expr.args[0]) == 'aux':
-        trace_args = trace_expr.args[1:]
+    if isinstance(trace_expr, sp.Add):
+        trace_args = list(trace_expr.args)
     else:
-        trace_args = trace_expr.args
+        trace_args = [trace_expr]
     ladder_modes = []
     ladder_types = []
     if len(trace_expr.args) == 0:
@@ -211,7 +211,6 @@ def complete_trace_expression(N, layers, photon_additions, n_outputs, include_ob
     # Creation (c) and annihilation (a) operators for each mode
     c = symbols(f'c0:{N}', commutative=False)
     a = symbols(f'a0:{N}', commutative=False)
-    aux = symbols('aux') if len(photon_additions) == 0 else 0
     
     sup = 1
     for l in range(layers-1, -1, -1):
@@ -240,45 +239,45 @@ def complete_trace_expression(N, layers, photon_additions, n_outputs, include_ob
         expanded_expr = []
         if obs == 'witness':
             # NORM
-            #expanded_expr.append(expand(sup_dag*(a[0]*c[0])*sup + aux))
+            #expanded_expr.append(expand(sup_dag*(a[0]*c[0])*sup))
             # First-order moments
             for j in range(N):
-                #expanded_expr.append(expand(sup_dag*(a[0]*a[j]*c[0])*sup + aux))
-                expanded_expr.append(expand(sup_dag*(a[j])*sup + aux))
+                #expanded_expr.append(expand(sup_dag*(a[0]*a[j]*c[0])*sup))
+                expanded_expr.append(expand(sup_dag*(a[j])*sup))
             # Second-order moments
             for j in range(N):
                 for k in range(j,N):
-                    #expanded_expr.append(expand(sup_dag*(a[0]*a[j]*a[k]*c[0])*sup + aux))
-                    expanded_expr.append(expand(sup_dag*(a[j]*a[k])*sup + aux))
+                    #expanded_expr.append(expand(sup_dag*(a[0]*a[j]*a[k]*c[0])*sup))
+                    expanded_expr.append(expand(sup_dag*(a[j]*a[k])*sup))
             for j in range(N):
                 for k in range(j,N):
-                    #expanded_expr.append(expand(sup_dag*(a[0]*c[j]*a[k]*c[0])*sup + aux))
-                    expanded_expr.append(expand(sup_dag*(c[j]*a[k])*sup + aux))
+                    #expanded_expr.append(expand(sup_dag*(a[0]*c[j]*a[k]*c[0])*sup))
+                    expanded_expr.append(expand(sup_dag*(c[j]*a[k])*sup))
             # Third-order moments
             """ for j in range(N):
                 for k in range(N):
                     for l in range(N):
-                        expanded_expr.append(expand(sup_dag*(a[j]*a[k]*a[l])*sup + aux))
-                        expanded_expr.append(expand(sup_dag*(c[j]*a[k]*a[l])*sup + aux))
-                        expanded_expr.append(expand(sup_dag*(c[j]*c[k]*a[l])*sup + aux))
-                        expanded_expr.append(expand(sup_dag*(c[j]*c[k]*c[l])*sup + aux)) """
+                        expanded_expr.append(expand(sup_dag*(a[j]*a[k]*a[l])*sup))
+                        expanded_expr.append(expand(sup_dag*(c[j]*a[k]*a[l])*sup))
+                        expanded_expr.append(expand(sup_dag*(c[j]*c[k]*a[l])*sup))
+                        expanded_expr.append(expand(sup_dag*(c[j]*c[k]*c[l])*sup)) """
         elif obs == 'witness': # FIXME
-            #expanded_expr.append(expand(sup_dag*(c[0]*a[0]*c[1]*a[1])*sup + aux)) #〈N1N2〉
-            #expanded_expr.append(expand(sup_dag*(c[0]*a[0])*sup + aux)) #〈N1〉
-            #expanded_expr.append(expand(sup_dag*(c[1]*a[1])*sup + aux)) #〈N2〉
-            #expanded_expr.append(expand(sup_dag*(a[0]*c[0]*a[0]*c[0])*sup + aux)) #〈aN1a+〉
-            expanded_expr.append(expand(sup_dag*(a[0]*c[0])*sup + aux)) #〈aa+〉
-            expanded_expr.append(expand(sup_dag*(a[0]*a[0]*c[0])*sup + aux)) #〈a a a+〉
-            expanded_expr.append(expand(sup_dag*(a[0]*c[0]*c[0])*sup + aux)) #〈a a+ a+〉
-            #expanded_expr.append(expand(sup_dag*(a[0]*a[0]*c[0]*a[0]*c[0]*c[0])*sup + aux)) #〈aaN1a+a+〉
-            expanded_expr.append(expand(sup_dag*(a[0]*a[0]*c[0]*c[0])*sup + aux)) #〈aaa+a+〉
-            expanded_expr.append(expand(sup_dag*(a[0]*a[0]*a[0]*c[0]*c[0])*sup + aux)) #〈aa a a+a+〉
-            expanded_expr.append(expand(sup_dag*(a[0]*a[0]*c[0]*c[0]*c[0])*sup + aux)) #〈aa a+ a+a+〉
-            #expanded_expr.append(expand(sup_dag*(c[0]*c[0]*a[0]*a[0])*sup + aux)) #〈a+N1a〉
-            #expanded_expr.append(expand(sup_dag*(c[0]*a[0])*sup + aux)) #〈a+a〉
-            expanded_expr.append(expand(sup_dag*(a[0]*a[0]*a[0]*c[0]*c[0]*c[0])*sup + aux)) #〈aaaa+a+a+〉
-            expanded_expr.append(expand(sup_dag*(a[0]*a[0]*a[0]*a[0]*c[0]*c[0]*c[0])*sup + aux)) #〈aaa a a+a+a+〉
-            expanded_expr.append(expand(sup_dag*(a[0]*a[0]*a[0]*c[0]*c[0]*c[0]*c[0])*sup + aux)) #〈aaa a+ a+a+a+〉
+            #expanded_expr.append(expand(sup_dag*(c[0]*a[0]*c[1]*a[1])*sup)) #〈N1N2〉
+            #expanded_expr.append(expand(sup_dag*(c[0]*a[0])*sup)) #〈N1〉
+            #expanded_expr.append(expand(sup_dag*(c[1]*a[1])*sup)) #〈N2〉
+            #expanded_expr.append(expand(sup_dag*(a[0]*c[0]*a[0]*c[0])*sup)) #〈aN1a+〉
+            expanded_expr.append(expand(sup_dag*(a[0]*c[0])*sup)) #〈aa+〉
+            expanded_expr.append(expand(sup_dag*(a[0]*a[0]*c[0])*sup)) #〈a a a+〉
+            expanded_expr.append(expand(sup_dag*(a[0]*c[0]*c[0])*sup)) #〈a a+ a+〉
+            #expanded_expr.append(expand(sup_dag*(a[0]*a[0]*c[0]*a[0]*c[0]*c[0])*sup)) #〈aaN1a+a+〉
+            expanded_expr.append(expand(sup_dag*(a[0]*a[0]*c[0]*c[0])*sup)) #〈aaa+a+〉
+            expanded_expr.append(expand(sup_dag*(a[0]*a[0]*a[0]*c[0]*c[0])*sup)) #〈aa a a+a+〉
+            expanded_expr.append(expand(sup_dag*(a[0]*a[0]*c[0]*c[0]*c[0])*sup)) #〈aa a+ a+a+〉
+            #expanded_expr.append(expand(sup_dag*(c[0]*c[0]*a[0]*a[0])*sup)) #〈a+N1a〉
+            #expanded_expr.append(expand(sup_dag*(c[0]*a[0])*sup)) #〈a+a〉
+            expanded_expr.append(expand(sup_dag*(a[0]*a[0]*a[0]*c[0]*c[0]*c[0])*sup)) #〈aaaa+a+a+〉
+            expanded_expr.append(expand(sup_dag*(a[0]*a[0]*a[0]*a[0]*c[0]*c[0]*c[0])*sup)) #〈aaa a a+a+a+〉
+            expanded_expr.append(expand(sup_dag*(a[0]*a[0]*a[0]*c[0]*c[0]*c[0]*c[0])*sup)) #〈aaa a+ a+a+a+〉
         elif obs == 'third-order':
             expanded_expr.append(expand(sup_dag*a[0]*sup))
             expanded_expr.append(expand(sup_dag*c[0]*sup))
@@ -300,11 +299,7 @@ def complete_trace_expression(N, layers, photon_additions, n_outputs, include_ob
                     expr = (sup_dag*a[i]*sup - sup_dag*c[i]*sup)
                 elif obs == 'number':
                     # Number operator
-                    expr = sup_dag*c[i]*a[i]*sup + aux
-                    """ if len(photon_additions) == 0:
-                        expr = sup_dag*c[i]*a[i]*sup + aux
-                    else:
-                        expr = sup_dag*c[i]*a[i]*sup """
+                    expr = sup_dag*c[i]*a[i]*sup
                 expanded_expr.append(expand(expr))
     else:
         expanded_expr = expand(sup_dag*sup)
