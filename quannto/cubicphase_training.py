@@ -11,17 +11,16 @@ from .loss_functions import *
 np.random.seed(42)
 
 # === HYPERPARAMETERS DEFINITION ===
-modes = [2]*3
-#photon_additions = [[],[0],[0,0],[0,1],[0]]
-photon_additions = [[],[0],[0,1]]
-layers = [1]*3
+modes = [2]*2
+photon_additions = [[],[0]]
+layers = [1]*len(modes)
 is_input_reupload = False
 n_inputs = 1
 n_outputs = 1
 observable = 'third-order'
 in_norm_ranges = [(-2, 2)]*len(modes)
 out_norm_ranges = [(-2, 2)]*len(modes)
-loss_function = mse
+loss_function = mse_energy_penalty
 basinhopping_iters = 0
 params = None
 
@@ -30,19 +29,20 @@ gamma = 0.2
 dataset_size = 50
 input_range = (-2, 2)
 alpha_list = np.linspace(input_range[0], input_range[1], dataset_size)
-model_name = f'cubicphase_gamma{gamma}_trainsize{dataset_size}_rng{alpha_list[0]}to{alpha_list[-1]}'
+model_name = f'fock_cubicphase_gamma{gamma}_trainsize{dataset_size}_rng{alpha_list[0]}to{alpha_list[-1]}'
 
 # Load training dataset of the cubic phase gate to be learned
-with open(f"datasets/cubicphase_gamma{gamma}_trainsize{dataset_size}_rng{alpha_list[0]}to{alpha_list[-1]}_inputs.npy", "rb") as f:
+with open(f"datasets/fock_cubicphase_gamma{gamma}_trainsize{dataset_size}_rng{alpha_list[0]}to{alpha_list[-1]}_inputs.npy", "rb") as f:
     inputs = np.load(f)
-with open(f"datasets/cubicphase_gamma{gamma}_trainsize{dataset_size}_rng{alpha_list[0]}to{alpha_list[-1]}_outputs.npy", "rb") as f:
+with open(f"datasets/fock_cubicphase_gamma{gamma}_trainsize{dataset_size}_rng{alpha_list[0]}to{alpha_list[-1]}_outputs.npy", "rb") as f:
     outputs = np.load(f)
 train_dataset = [inputs, outputs]
 
 colors = colormaps['tab10']
-expvals = ['⟨x⟩', '⟨p⟩', '⟨x²⟩', '⟨p²⟩', '⟨xp⟩', '⟨x³⟩', '⟨p³⟩', '⟨xp²⟩', '⟨x²p⟩']
-start_expval = 5
-end_expval = 7
+#expvals = ['⟨x⟩', '⟨p⟩', '⟨x²⟩', '⟨p²⟩', '⟨xp⟩', '⟨x³⟩', '⟨p³⟩', '⟨xp²⟩', '⟨x²p⟩']
+expvals = ["a","a†","a²","a†²","a³","a†³","na","a†n","n","n²"]
+start_expval = 8
+end_expval = 10
 c=0
 for exp_val_idx in range(start_expval, end_expval):
     plt.plot(inputs, outputs[:,exp_val_idx], c=colors(c), label=expvals[exp_val_idx])
@@ -116,7 +116,7 @@ for (qnn_test_outputs, legend_label) in zip(qnn_outs, legend_labels):
              color='black',
              label=legend_label)
     for exp_val_idx in range(start_expval, end_expval):
-        plt.plot(inputs, qnn_test_outputs[:,exp_val_idx], marker=markers[m], c=colors(c), alpha=0.3, linestyle='dashed')
+        plt.plot(inputs, qnn_test_outputs[:,exp_val_idx], marker=markers[m], c=colors(c), alpha=0.25, linestyle='None')
         c += 1
     m+=1
 plt.title(f'QONN EVALUATION')

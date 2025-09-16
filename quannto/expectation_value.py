@@ -280,17 +280,16 @@ def complete_trace_expression(N, layers, photon_additions, n_outputs, include_ob
             expanded_expr.append(expand(sup_dag*(a[0]*a[0]*a[0]*a[0]*c[0]*c[0]*c[0])*sup + aux)) #〈aaa a a+a+a+〉
             expanded_expr.append(expand(sup_dag*(a[0]*a[0]*a[0]*c[0]*c[0]*c[0]*c[0])*sup + aux)) #〈aaa a+ a+a+a+〉
         elif obs == 'third-order':
-            x = a[0] + c[0]
-            p = a[0] - c[0]
-            expanded_expr.append(expand(sup_dag*x*sup))
-            expanded_expr.append(expand(sup_dag*p*sup))
-            expanded_expr.append(expand(sup_dag*(x*x)*sup))
-            expanded_expr.append(expand(sup_dag*(p*p)*sup))
-            expanded_expr.append(expand(sup_dag*(x*p)*sup))
-            expanded_expr.append(expand(sup_dag*(x*x*x)*sup))
-            expanded_expr.append(expand(sup_dag*(p*p*p)*sup))
-            expanded_expr.append(expand(sup_dag*(x*p*p)*sup))
-            expanded_expr.append(expand(sup_dag*(x*x*p)*sup))
+            expanded_expr.append(expand(sup_dag*a[0]*sup))
+            expanded_expr.append(expand(sup_dag*c[0]*sup))
+            expanded_expr.append(expand(sup_dag*a[0]*a[0]*sup))
+            expanded_expr.append(expand(sup_dag*c[0]*c[0]*sup))
+            expanded_expr.append(expand(sup_dag*a[0]*a[0]*a[0]*sup))
+            expanded_expr.append(expand(sup_dag*c[0]*c[0]*c[0]*sup))
+            expanded_expr.append(expand(sup_dag*c[0]*a[0]*a[0]*sup))
+            expanded_expr.append(expand(sup_dag*c[0]*c[0]*a[0]*sup))
+            expanded_expr.append(expand(sup_dag*c[0]*a[0]*sup))
+            expanded_expr.append(expand(sup_dag*c[0]*a[0]*c[0]*a[0]*sup))
         else:
             for i in range(n_outputs):
                 if obs == 'position':
