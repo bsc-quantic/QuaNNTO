@@ -2,7 +2,11 @@ import numpy as np
 from .data_processors import softmax_discretization
 
 def mse(expected, obtained):
-    return ((expected - obtained)**2).sum() / len(obtained)
+    return (np.abs(expected - obtained)**2).sum() / len(obtained)
+
+def mse_energy_penalty(expected, obtained):
+    penalty_lambda = 0.2
+    return (1 / len(obtained)) * ((np.abs(expected - obtained)**2).sum() + penalty_lambda * np.abs(obtained[:,8].sum()))
 
 def exp_val(obtained):
     return obtained
