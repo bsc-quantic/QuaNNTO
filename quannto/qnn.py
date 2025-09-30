@@ -58,7 +58,8 @@ class QNN:
     '''
     Class for continuous variables quantum (optics) neural network building, training, evaluation and profiling.
     '''
-    def __init__(self, model_name, N, layers, n_in, n_out, photon_add=[0], observable='position', is_input_reupload=False,
+    def __init__(self, model_name, N, layers, n_in, n_out, photon_add=[0], observable='position',
+                 is_input_reupload=False, include_initial_squeezing=False, include_initial_mixing=True,
                  in_preprocessors=[], out_preprocessors=[], postprocessors=[]):
         # The number of modes N must be greater or equal to the number of inputs and outputs
         assert N >= n_in
@@ -76,6 +77,8 @@ class QNN:
         self.out_preprocessors = out_preprocessors
         self.postprocessors = postprocessors
         self.is_input_reupload = is_input_reupload
+        self.include_initial_squeezing = include_initial_squeezing
+        self.include_initial_mixing = include_initial_mixing
         
         # Some useful constants
         self.oneoversqrt2 = 1/np.sqrt(2)
@@ -128,7 +131,6 @@ class QNN:
         max_lpms = np.maximum(np.max(self.lens_modes), 2)
         loop_pms = [loop_perfect_matchings(lens) for lens in range(2, max_lpms+1)]
         self.jax_lpms = pad_3d_list_of_lists(loop_pms, 2*max_lpms)
-        print(self.jax_lpms)
         
         # Remove all ladder operators from symbolic expressions of the trace and normalization
         a = symbols(f'a0:{N}', commutative=False)
@@ -251,6 +253,11 @@ class QNN:
         self.tunable_parameters = jnp.copy(parameters)
         S_dim = 2*self.N
         
+        # Initial squeezing
+        self.Z0 = jnp.zeros((2*self.N, 2*self.N), dtype=jnp.complex128)
+        # Initial passive Gaussian mixer
+        self.Q0 = jnp.zeros((2*self.N, 2*self.N), dtype=jnp.complex128)
+        
         # Symplectic matrix and displacement vectors for each layer
         self.S_l = jnp.zeros((self.layers, 2*self.N, 2*self.N), dtype=jnp.complex128)
         self.D_l = jnp.zeros((self.layers, 2*self.N), dtype=jnp.complex128)
@@ -265,6 +272,17 @@ class QNN:
         self.G = jnp.eye(S_dim, dtype=jnp.complex128)
         
         current_par_idx = 0
+        if self.include_initial_squeezing:
+            sqz_parameters = jnp.exp(jnp.abs(parameters[current_par_idx : current_par_idx + self.N]))
+            sqz_inv = 1.0/sqz_parameters
+            self.Z0 = jnp.diag(jnp.concatenate((sqz_parameters, sqz_inv)))
+            current_par_idx += self.N
+        
+        if self.include_initial_mixing:
+            self.Q0 = self.build_symp_orth_mat(parameters[current_par_idx : current_par_idx + self.N**2])
+            current_par_idx += self.N**2
+            self.G = self.Q0 @ self.G
+        
         for l in range(self.layers-1, -1, -1):
             # Build symplectic-orthogonal (unitary) matrices and diagonal symplectic matrix
             Q1, Z, Q2, current_par_idx = self.build_quadratic_gaussians(parameters, current_par_idx)
@@ -294,9 +312,7 @@ class QNN:
                 self.D_concat = self.D_concat.at[start:end].set(val)
 
         if self.observable == 'witness':
-            #self.trace_const = jnp.array([1, 1, parameters[current_par_idx]])
             self.trace_const = jnp.ones(self.N*(self.N+1) + self.N)
-            current_par_idx += 1
     
     def build_reuploading_disp(self, inputs):
         '''
@@ -363,14 +379,13 @@ class QNN:
     def compute_coefficients(self):
         d_r = self.build_disp_coefs()
         d_i = jnp.conjugate(d_r)
-        """ print(d_r)
-        input('displ') """
+        
         S_r = self.S_concat
         S_i = jnp.array(S_r)
-        #S_i[0:self.N, self.N:2*self.N] = -S_i[0:self.N, self.N:2*self.N] # UPPER-RIGHT BLOCK
-        #S_i[self.N:2*self.N, 0:self.N] = np.conj(S_i[0:self.N, self.N:2*self.N]) # LOWER-LEFT BLOCK
-        S_i = S_i.at[0:self.N, self.N:2*self.N].set(-S_i[0:self.N, self.N:2*self.N])
-        S_i = S_i.at[self.N:2*self.N, 0:self.N].set(jnp.conjugate(S_i[0:self.N, self.N:2*self.N]))
+        S_i = jnp.transpose(self.S_concat.reshape((2*self.N, self.layers, 2*self.N)), (1,0,2))
+        S_i = S_i.at[:, 0:self.N, self.N:2*self.N].set(-S_i[:, 0:self.N, self.N:2*self.N])
+        S_i = S_i.at[:, self.N:2*self.N, 0:self.N].set(jnp.conjugate(S_i[:, 0:self.N, self.N:2*self.N]))
+        S_i = np.transpose(S_i, (1,0,2)).reshape((2*self.N, 2*self.layers*self.N))
                 
         full_coef_vector = jnp.concatenate(
             [d_r.ravel(), d_i.ravel(), S_r.ravel(), S_i.ravel()]
@@ -483,40 +498,36 @@ class QNN:
         :return: EXpectation values of the observables related to QONN outputs
         '''
         # 0. Build the QONN components using the tunable parameters
-        #build_start = time.time()
         self.build_QNN(params)
-        #self.qnn_profiling.build_qnn_times.append(time.time() - build_start)
         
         # 1. Prepare initial state: initial vacuum state displaced according to the inputs
-        #input_prep_start = time.time()
         V = 0.5*jnp.eye(2*self.N)
         mean_vector = jnp.zeros((2*self.N,), dtype=input.dtype)
         mean_vector = QNN.apply_linear_gaussian(jnp.sqrt(2) * input, mean_vector)
         
-        # 1.1. When using input reuploading: build displacement with inputs
-        #if self.is_input_reupload:
-        #    self.build_reuploading_disp(input)
-        #self.qnn_profiling.input_prep_times.append(time.time() - input_prep_start)
+        # 1.1. FIXME When using input reuploading: build displacement with inputs
+        if self.is_input_reupload:
+            self.build_reuploading_disp(input)
+            
+        # 1.2. Add initial squeezing if specified
+        if self.include_initial_squeezing:
+            mean_vector, V = QNN.apply_quadratic_gaussian(self.Z0, mean_vector, V)
+            
+        # 1.3. Add initial mixing if specified
+        if self.include_initial_mixing:
+            mean_vector, V = QNN.apply_quadratic_gaussian(self.Q0, mean_vector, V)
 
         # 2. Apply the Gaussian transformation acting as weights matrix and bias vector
-        #gauss_start = time.time()
         mean_vector, V = self.apply_gaussian_transformations(mean_vector, V)
-        #self.qnn_profiling.gauss_times.append(time.time() - gauss_start)
         
-        # 3. Compute the expectation values of all possible ladder operators pairs over the final Gaussian state
-        #K_exp_vals_start = time.time()
+        # 3. Compute the expectation values of all combinations of ladder operators pairs over the final Gaussian state
         K_exp_vals = self.compute_quad_exp_vals(V, mean_vector)
-        #self.qnn_profiling.K_exp_vals_times.append(time.time() - K_exp_vals_start)
 
         # 4. Compute coefficients for trace expression and normalization terms
-        #ladder_superpos_start = time.time()
         traces_terms_coefs = self.compute_coefficients() if len(self.photon_add) > 0 else self.jax_ones_coefs
-        #self.qnn_profiling.ladder_superpos_times.append(time.time() - ladder_superpos_start)
         
         # 5. Compute the expectation values acting as outputs
-        #nongauss_start = time.time()
         exp_vals = self.compute_exp_val_loop(traces_terms_coefs, K_exp_vals, mean_vector)
-        #self.qnn_profiling.nongauss_times.append(time.time() - nongauss_start)
         
         # 6. Multiply by trace coefficients and normalize (last expectation value)
         #return exp_vals
