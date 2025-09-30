@@ -12,24 +12,25 @@ from .loss_functions import *
 np.random.seed(42)
 
 # === HYPERPARAMETERS DEFINITION ===
-modes = [2]*2
-#photon_additions = [[],[0],[0,0],[0,1],[0]]
-photon_additions = [[0],[0,1]]
-layers = [1]*len(modes)
+modes = [2,2,2,2]
+photon_additions = [[0],[0,0],[0,1],[0]]
+layers = [1,1,1,2]
 is_input_reupload = False
+include_initial_squeezing = True
+include_initial_mixing = True
 n_inputs = 1
 n_outputs = 1
 observable = 'position'
 in_norm_ranges = [(-1, 1)]*len(modes)
-out_norm_ranges = [(-2, 2)]*len(modes)
+out_norm_ranges = [(-1, 1)]*len(modes)
 loss_function = mse
-basinhopping_iters = 1
+basinhopping_iters = 0
 params = None
 
 # === TARGET FUNCTION SETTINGS ===
-target_function = five_function_1in_1out
-input_range = (-5, 5)
-trainset_noise = 5
+target_function = sin_1in_1out
+input_range = (0, 6.3)
+trainset_noise = 0.1
 trainset_size = 50
 testset_size = 200
 validset_size = 50
@@ -97,7 +98,8 @@ for (N, l, ph_add, in_norm_range, out_norm_range) in zip(modes, layers, photon_a
 
     model_name = target_function.__name__ + "_N" + str(N) + "_L" + str(l) + "_ph" + str(ph_add) + "_in" + str(in_norm_range) + "_out" + str(out_norm_range)
     # Build the QNN and train it with the generated dataset
-    qnn, train_loss, valid_loss = build_and_train_model(model_name, N, l, n_inputs, n_outputs, ph_add, observable, is_input_reupload,
+    qnn, train_loss, valid_loss = build_and_train_model(model_name, N, l, n_inputs, n_outputs, ph_add, observable,
+                                                        is_input_reupload, include_initial_squeezing, include_initial_mixing,
                                                         train_dataset, valid_dataset, loss_function, basinhopping_iters,
                                                         in_preprocessors, out_preprocessors, postprocessors, init_pars=params)
     qnns.append(qnn)
@@ -108,6 +110,7 @@ for (N, l, ph_add, in_norm_range, out_norm_range) in zip(modes, layers, photon_a
     with open(f"valid_losses/{model_name}.npy", "wb") as f:
         np.save(f, np.array(valid_loss))
     qnn_loss.append(train_loss[-1])
+    
     qnn_test_outputs = qnn.test_model(test_dataset, loss_function)
     with open(f"testing/{model_name}.npy", "wb") as f:
         np.save(f, np.array(qnn_test_outputs))
@@ -116,9 +119,9 @@ for (N, l, ph_add, in_norm_range, out_norm_range) in zip(modes, layers, photon_a
     
 # PLOT RESULTS
 #legend_labels = [f'N={qnn.N}, L={qnn.layers}, Photon addition in modes {np.array(qnn.photon_add) + 1}, disp range {in_norm_range}' for (qnn, in_norm_range) in zip(qnns, in_norm_ranges)]
-#legend_labels = [f'N={qnn.N}, L={qnn.layers}, Photon addition in modes {np.array(qnn.photon_add) + 1}' for qnn in qnns]
+legend_labels = [f'N={qnn.N}, L={qnn.layers}, a† in modes {np.array(qnn.photon_add) + 1}' for qnn in qnns]
 #legend_labels = [f'N={qnn.N}, L={qnn.layers}, {len(qnn.photon_add)} photons/layer' for qnn in qnns]
-legend_labels = [f'N={qnn.N}, L={qnn.layers}, {len(qnn.photon_add)} photons/layer, α ∈ {in_norm_range}' for (qnn, in_norm_range) in zip(qnns, in_norm_ranges)]
+#legend_labels = [f'N={qnn.N}, L={qnn.layers}, {len(qnn.photon_add)} photons/layer, α ∈ {in_norm_range}' for (qnn, in_norm_range) in zip(qnns, in_norm_ranges)]
 
 plt.plot(test_dataset[0], test_dataset[1], 'o', markerfacecolor='g', markeredgecolor='none', alpha=0.25, label='Expected results')
 c = 0
@@ -167,7 +170,7 @@ plt.title(f'TRAINING AND VALIDATION LOSS')
 plt.grid(linestyle='--', linewidth=0.4)
 plt.legend()
 plt.savefig("figures/loss_"+model_name+"_N"+str(modes)+"_L"+str(layers)+"_ph"+str(photon_additions)+"_in"+str(input_range)+".png")
-plt.show()
+#plt.show()
 plt.clf()
 
 print(f'MINIMAL LOSSES ACHIEVED: {qnn_loss}')
