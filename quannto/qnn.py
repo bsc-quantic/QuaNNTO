@@ -110,6 +110,13 @@ class QNN:
         modes_norm, types_norm = extract_ladder_expressions(self.norm_trace_expr)
         self.modes.append(modes_norm)
         self.types.append(types_norm)
+        """ print("TRACE EXPRESSIONS")
+        print(self.trace_expr)
+        print("NORM EXPRESSION")
+        print(self.norm_trace_expr)
+        print("ALL MODES + NORM (END)")
+        print(self.modes)
+        input('1') """
         
         self.np_modes, self.lens_modes = to_np_array(self.modes)
         self.np_types, self.lens_types = to_np_array(self.types)
@@ -121,6 +128,7 @@ class QNN:
         max_lpms = np.maximum(np.max(self.lens_modes), 2)
         loop_pms = [loop_perfect_matchings(lens) for lens in range(2, max_lpms+1)]
         self.jax_lpms = pad_3d_list_of_lists(loop_pms, 2*max_lpms)
+        print(self.jax_lpms)
         
         # Remove all ladder operators from symbolic expressions of the trace and normalization
         a = symbols(f'a0:{N}', commutative=False)
@@ -150,13 +158,25 @@ class QNN:
                 self.norm_subs_expr_terms.append(new_term)
             self.unnorm_expr_terms_out.append(self.norm_subs_expr_terms)
         self.num_terms_per_trace = jnp.array([len(expr) for expr in self.unnorm_expr_terms_out])
-        print(f"Number of terms for each trace: {self.num_terms_per_trace}")
+        """ print(f"Number of terms for each trace: {self.num_terms_per_trace}")
+        for i in range(len(self.jax_modes)):
+            print("TRACE MODES+TYPES")
+            print(self.modes[i], self.types[i])
+            print(self.unnorm_expr_terms_out[i])
+            print(self.jax_modes[i])
+            print(self.jax_types[i])
+            print("===")
+            print() """
         
         self.exp_vals_inds = jnp.arange(len(self.jax_modes), dtype=jnp.int32)
         self.num_terms_in_trace = jnp.array([len(output_terms) for output_terms in self.modes])
         self.max_terms = jnp.max(self.num_terms_in_trace)
         trace_terms_rngs, _ = to_np_array([[[i for i in range(num_terms)] for num_terms in self.num_terms_in_trace]])
         self.trace_terms_ranges = jnp.array(trace_terms_rngs[0])
+        """ print()
+        print(self.exp_vals_inds)
+        print(self.trace_terms_ranges)
+        input('w8') """
         
         # Compile trace expression terms with respect to symplectic and displacement parameters
         t1 = time.time()
@@ -260,7 +280,8 @@ class QNN:
             self.S_concat = QNN.update_S(self.S_concat, l, block, S_dim)
             
             # Build displacements (linear Gaussian)
-            if not self.is_input_reupload:
+            #if not self.is_input_reupload:
+            if self.is_input_reupload:
                 self.D_l = self.D_l.at[l].set(np.sqrt(2) * parameters[current_par_idx : current_par_idx + 2*self.N])
                 current_par_idx += 2*self.N
                 start = l * S_dim
@@ -334,7 +355,7 @@ class QNN:
         imag_part = D[:, self.N:]        # shape (layers, N)
 
         # 3) Form the complex displacement matrix
-        disp_matrix = real_part + 1j * imag_part  # shape (layers, N), dtype=complex
+        disp_matrix = self.oneoversqrt2 * (real_part + 1j * imag_part)  # shape (layers, N), dtype=complex
 
         # 4) Flatten to a 1‐D array of length layers * N
         return disp_matrix.reshape((self.layers * self.N,))
@@ -342,9 +363,15 @@ class QNN:
     def compute_coefficients(self):
         d_r = self.build_disp_coefs()
         d_i = jnp.conjugate(d_r)
+        """ print(d_r)
+        input('displ') """
         S_r = self.S_concat
-        S_i = jnp.conjugate(S_r)
-        
+        S_i = jnp.array(S_r)
+        #S_i[0:self.N, self.N:2*self.N] = -S_i[0:self.N, self.N:2*self.N] # UPPER-RIGHT BLOCK
+        #S_i[self.N:2*self.N, 0:self.N] = np.conj(S_i[0:self.N, self.N:2*self.N]) # LOWER-LEFT BLOCK
+        S_i = S_i.at[0:self.N, self.N:2*self.N].set(-S_i[0:self.N, self.N:2*self.N])
+        S_i = S_i.at[self.N:2*self.N, 0:self.N].set(jnp.conjugate(S_i[0:self.N, self.N:2*self.N]))
+                
         full_coef_vector = jnp.concatenate(
             [d_r.ravel(), d_i.ravel(), S_r.ravel(), S_i.ravel()]
         )
@@ -367,7 +394,7 @@ class QNN:
             
         return jax.vmap(_trace_coefs, in_axes=(0, None))(self.exp_vals_inds, full_coef_vector)
     
-    def exp_val_ladder_jk(self, j, k, V):
+    def exp_val_ladder_jk(self, j, k, V, means):
         '''
         Computes the expectation value of two annihilation operators (in mode j and k) of a Gaussian state based 
         on the first two statistical moments of the state. This corresponds to the first identity I1.
@@ -381,7 +408,7 @@ class QNN:
         '''
         return 0.5*(V[j,k] - V[self.N+j, self.N+k] + 1j*(V[j, self.N+k] + V[self.N+j, k]))
 
-    def exp_val_ladder_jdagger_k(self, j, k, V):
+    def exp_val_ladder_jdagger_k(self, j, k, V, means):
         '''
         Computes the expectation value of one annihilation and one creation operators (in mode j and k) 
         of a Gaussian state based on the first two statistical moments of the state.
@@ -396,8 +423,24 @@ class QNN:
         '''
         delta = jnp.where(j == k, 1, 0)
         return 0.5*(V[j,k] + V[self.N+j, self.N+k] + 1j*(V[j, self.N+k] - V[self.N+j, k]) - delta)
+                
+    def exp_val_ladder_j_kdagger(self, j, k, V, means):
+        '''
+        Computes the expectation value of one annihilation and one creation operators (in mode j and k) 
+        of a Gaussian state based on the first two statistical moments of the state.
+        This corresponds to the second identity I2.
 
-    def exp_val_ladder_jdagger_kdagger(self, j, k, V):
+        :param j: Mode of the creation operator
+        :param k: Mode of the annihilation operator
+        :param V: Covariance matrix of the Gaussian state
+        :param means: Means vector of the Gaussian state
+        :param N: Number of modes of the quantum system
+        :return: Expectation value of one creation and one annihilation operators of a Gaussian state
+        '''
+        delta = jnp.where(j == k, 1, 0)
+        return 0.5*(V[j,k] + V[self.N+j, self.N+k] + 1j*(V[j, self.N+k] - V[self.N+j, k]) + delta)
+
+    def exp_val_ladder_jdagger_kdagger(self, j, k, V, means):
         '''
         Computes the expectation value of two creation operators (in mode j and k) of a Gaussian state based 
         on the first two statistical moments of the state. This corresponds to the fourth identity I4.
@@ -411,7 +454,7 @@ class QNN:
         '''
         return 0.5*(V[j,k] - V[self.N+j, self.N+k] - 1j*(V[j, self.N+k] + V[self.N+j, k]))
     
-    def compute_quad_exp_vals(self, V):
+    def compute_quad_exp_vals(self, V, means):
         '''
         Computes the expectation value of all combinations of ladder operators pairs of all existing modes
         of a Gaussian state based on its covariance matrix and means vector.
@@ -423,10 +466,11 @@ class QNN:
         js = jnp.arange(self.N)
         ks = jnp.arange(self.N)
         
-        K00 = jax.vmap(jax.vmap(self.exp_val_ladder_jk, in_axes=(None, 0, None)), in_axes=(0, None, None))(js, ks, V)
-        K01 = jax.vmap(jax.vmap(self.exp_val_ladder_jdagger_k, in_axes=(None, 0, None)), in_axes=(0, None, None))(js, ks, V)
+        K00 = jax.vmap(jax.vmap(self.exp_val_ladder_jk, in_axes=(None, 0, None, None)), in_axes=(0, None, None, None))(js, ks, V, means)
+        K01 = jax.vmap(jax.vmap(self.exp_val_ladder_jdagger_k, in_axes=(None, 0, None, None)), in_axes=(0, None, None, None))(js, ks, V, means)
         K10 = K01.T + jnp.eye(self.N, dtype=K01.dtype)
-        K11 = jax.vmap(jax.vmap(self.exp_val_ladder_jdagger_kdagger, in_axes=(None, 0, None)), in_axes=(0, None, None))(js, ks, V)
+        #K10 = jax.vmap(jax.vmap(self.exp_val_ladder_j_kdagger, in_axes=(None, 0, None, None)), in_axes=(0, None, None, None))(js, ks, V, means)
+        K11 = jax.vmap(jax.vmap(self.exp_val_ladder_jdagger_kdagger, in_axes=(None, 0, None, None)), in_axes=(0, None, None, None))(js, ks, V, means)
 
         return jnp.stack([K00, K01, K10, K11], axis=0)
     
@@ -450,8 +494,8 @@ class QNN:
         mean_vector = QNN.apply_linear_gaussian(jnp.sqrt(2) * input, mean_vector)
         
         # 1.1. When using input reuploading: build displacement with inputs
-        if self.is_input_reupload:
-            self.build_reuploading_disp(input)
+        #if self.is_input_reupload:
+        #    self.build_reuploading_disp(input)
         #self.qnn_profiling.input_prep_times.append(time.time() - input_prep_start)
 
         # 2. Apply the Gaussian transformation acting as weights matrix and bias vector
@@ -461,7 +505,7 @@ class QNN:
         
         # 3. Compute the expectation values of all possible ladder operators pairs over the final Gaussian state
         #K_exp_vals_start = time.time()
-        K_exp_vals = self.compute_quad_exp_vals(V)
+        K_exp_vals = self.compute_quad_exp_vals(V, mean_vector)
         #self.qnn_profiling.K_exp_vals_times.append(time.time() - K_exp_vals_start)
 
         # 4. Compute coefficients for trace expression and normalization terms
@@ -475,7 +519,71 @@ class QNN:
         #self.qnn_profiling.nongauss_times.append(time.time() - nongauss_start)
         
         # 6. Multiply by trace coefficients and normalize (last expectation value)
+        #return exp_vals
         return self.trace_const * exp_vals[:-1] / exp_vals[-1]
+        
+    def eval_QNN_nojax(self, params, input):
+        '''
+        Evaluates the QONN for a given input.
+        
+        :param input: Input to be predicted by the QONN
+        :return: EXpectation values of the observables related to QONN outputs
+        '''
+        # 0. Build the QONN components using the tunable parameters
+        #build_start = time.time()
+        self.build_QNN(params)
+        #self.qnn_profiling.build_qnn_times.append(time.time() - build_start)
+        
+        # 1. Prepare initial state: initial vacuum state displaced according to the inputs
+        #input_prep_start = time.time()
+        V = 0.5*jnp.eye(2*self.N)
+        mean_vector = jnp.zeros((2*self.N,), dtype=input.dtype)
+        
+        mean_vector = QNN.apply_linear_gaussian(jnp.sqrt(2) * input, mean_vector)
+        print("INITIAL GAUSSIAN STATE")
+        print(np.round(np.real_if_close(mean_vector), 4))
+        print(np.round(np.real_if_close(V), 4))
+        
+        
+        # 1.1. When using input reuploading: build displacement with inputs
+        #if self.is_input_reupload:
+        #    self.build_reuploading_disp(input)
+        #self.qnn_profiling.input_prep_times.append(time.time() - input_prep_start)
+
+        # 2. Apply the Gaussian transformation acting as weights matrix and bias vector
+        #gauss_start = time.time()
+        mean_vector, V = self.apply_gaussian_transformations(mean_vector, V)
+        print("FINAL GAUSSIAN STATE")
+        print(np.round(np.real_if_close(mean_vector), 4))
+        print(np.round(np.real_if_close(V), 4))
+        print("IN FOCK BASIS")
+        print(np.round(np.real_if_close(self.u_bar.to_ladder @ mean_vector), 4))
+        print(np.round(np.real_if_close(self.u_bar.to_ladder_op(V)), 4))
+        #self.qnn_profiling.gauss_times.append(time.time() - gauss_start)
+        
+        # 3. Compute the expectation values of all possible ladder operators pairs over the final Gaussian state
+        #K_exp_vals_start = time.time()
+        K_exp_vals = self.compute_quad_exp_vals(V, mean_vector)
+        print(np.round(K_exp_vals,4))
+        #self.qnn_profiling.K_exp_vals_times.append(time.time() - K_exp_vals_start)
+
+        # 4. Compute coefficients for trace expression and normalization terms
+        #ladder_superpos_start = time.time()
+        traces_terms_coefs = self.compute_coefficients() if len(self.photon_add) > 0 else self.jax_ones_coefs
+        print()
+        print('++++++++++ S, norm, coefs, expvals, trace terms ++++++++++')
+        print(np.round(self.S_concat,4))
+        print(self.norm_trace_expr.args)
+        print(np.round(traces_terms_coefs[1],4))
+        #self.qnn_profiling.ladder_superpos_times.append(time.time() - ladder_superpos_start)
+        
+        # 5. Compute the expectation values acting as outputs
+        #nongauss_start = time.time()
+        exp_vals = self.compute_exp_val_loop(traces_terms_coefs, K_exp_vals, mean_vector)
+        #self.qnn_profiling.nongauss_times.append(time.time() - nongauss_start)
+        
+        # 6. Multiply by trace coefficients and normalize (last expectation value)
+        return exp_vals
     
     def wick_expansion_expval(self, trace_idx, tr_term_idx, quadratic_exp_vals, means_vector):
         """
@@ -598,6 +706,9 @@ class QNN:
         :return: Final expectation value of the output
         '''
         expvals = jax.vmap(self.get_expectation_value, in_axes=(None, 0, None, None))(trace_idx, self.trace_terms_ranges[trace_idx], quadratic_exp_vals, means_vector)
+        """ print(np.round(expvals,4))
+        print(np.round(coefs * expvals,4))
+        print("--------------------") """
         tr_value = jnp.sum(coefs * expvals)
         return tr_value
     
@@ -615,6 +726,7 @@ class QNN:
         exp_vals = jax.vmap(self.compute_terms_in_trace, in_axes=(0, 0, None, None))(self.exp_vals_inds, terms_coefs, quadratic_exp_vals, means_vector)
         return exp_vals
 
+    @partial(jax.jit, static_argnums=(0,4))
     def train_QNN(self, parameters, inputs_dataset, outputs_dataset, loss_function):
         '''
         Evaluates all dataset items with the QONN current state and computes the loss function 
@@ -626,94 +738,17 @@ class QNN:
         :param loss_function: Function to evaluate the loss of the QONN predictions
         :return: Losses of the QONN predictions
         '''
-        # BATCH EVALUATION
-        epoch_start_time = time.time()
-        shuffled_inds = np.random.permutation(len(inputs_dataset))
-        shuffled_inputs_dataset = inputs_dataset[shuffled_inds]
-        qnn_outputs = np.real_if_close(
-            jax.vmap(self.eval_QNN, in_axes=(None, 0))(parameters, shuffled_inputs_dataset), tol=1e6
-        )
-        self.qnn_profiling.epoch_times.append(time.time() - epoch_start_time)
-        return loss_function(outputs_dataset[shuffled_inds], qnn_outputs)
-        
-    """ def train_QNN(self, parameters, inputs_dataset, outputs_dataset, loss_function):
-        '''
-        Evaluates all dataset items with the QONN current state and computes the loss function 
-        values for each item. This function is the one to be minimized and refers to one epoch.
-        
-        :param parameters: QONN tunable parameters
-        :param inputs_dataset: Inputs of the dataset to be learned
-        :param outputs_dataset: Outputs to be learned
-        :param loss_function: Function to evaluate the loss of the QONN predictions
-        :return: Losses of the QONN predictions
-        '''
-        # BATCH EVALUATION
-        epoch_start_time = time.time()
-        shuffled_inds = np.random.permutation(len(inputs_dataset))
-        shuffled_inputs_dataset = inputs_dataset[shuffled_inds]
-        
-        # =====
-        self.build_QNN(parameters)
-        # =====
-        
-        t0_lower = time.time()
-        lowered = self.eval_QNN.lower(self, parameters, shuffled_inputs_dataset[0])
-        ir_time = time.time() - t0_lower
-        print("IR Time: ", ir_time)
-        hlo = lowered.compiler_ir(dialect="hlo")
-        print(f"HLO size for EVAL QNN is {len(hlo.as_hlo_text())/1e6} MB")
-        input('w8')
-        lowered = self.compute_coefficients.lower(self)
-        #print("===== StableHLO =====")
-        #print(lowered.compiler_ir(dialect='stablehlo'))
-        ir_time = time.time() - t0_lower
-        print("IR Time: ", ir_time)
-        hlo = lowered.compiler_ir(dialect="hlo")
-        print(f"HLO size for COMPUTE COEFFICIENTS is {len(hlo.as_hlo_text())/1e6} MB")
-        input('w8')
-        
-        print(self.exp_vals_inds)
-        print(self.exp_vals_inds.shape)
-        # =====
-        V = 0.5*jnp.eye(2*self.N)
-        mean_vector = jnp.zeros((2*self.N,), dtype=shuffled_inputs_dataset[0].dtype)
-        mean_vector = QNN.apply_linear_gaussian(jnp.sqrt(2) * shuffled_inputs_dataset[0], mean_vector)
+        B = inputs_dataset.shape[0]
+        perm = jax.random.permutation(jax.random.PRNGKey(42), B)
 
-        mean_vector, V = self.apply_gaussian_transformations(mean_vector, V)
-        
-        K_exp_vals = self.compute_quad_exp_vals(V)
+        x = inputs_dataset[perm]
+        y = outputs_dataset[perm]
 
-        traces_terms_coefs = self.compute_coefficients()
-        #traces_terms_coefs = jnp.zeros((len(self.num_terms_per_trace), np.max(self.num_terms_per_trace)))
-        print(traces_terms_coefs.shape)
-        print(traces_terms_coefs)
-        print(self.unnorm_expr_terms_out)
-        print(self.D_concat)
-        print(self.S_concat)
-        print("=====")
-        # =====
-        
-        t1_lower = time.time()
-        #lowered = self.eval_QNN.lower(self, parameters, shuffled_inputs_dataset[0])
-        lowered = self.compute_exp_val_loop.lower(self, traces_terms_coefs, K_exp_vals, mean_vector)
-        #print("===== StableHLO =====")
-        #print(lowered.compiler_ir(dialect='stablehlo'))
-        ir_time = time.time() - t1_lower
-        print("IR Time: ", ir_time)
-        hlo = lowered.compiler_ir(dialect="hlo")
-        print(f"HLO size for EXP VAL is {len(hlo.as_hlo_text())/1e6} MB")
-        input('w8')
-        
-        t0_compile = time.time()
-        compiled = lowered.compile()
-        compile_time = time.time() - t0_compile
-        print("First compile time: ", compile_time)
-        qnn_outputs = np.real_if_close(
-            jax.vmap(self.eval_QNN, in_axes=(None, 0))(parameters, shuffled_inputs_dataset), tol=1e6
-        )
-        self.qnn_profiling.epoch_times.append(time.time() - epoch_start_time)
-        
-        return loss_function(outputs_dataset[shuffled_inds], qnn_outputs) """
+        # batch eval: map eval_QNN over leading axis of inputs
+        batched_eval = jax.vmap(lambda xi: self.eval_QNN(parameters, xi), in_axes=0, out_axes=0)
+        y_hat = batched_eval(x)
+
+        return loss_function(y, y_hat)
     
     def train_symp_rank(self, parameters):
         '''
@@ -766,6 +801,17 @@ class QNN:
         qnn_outputs = np.real_if_close(
             jax.vmap(self.eval_QNN, in_axes=(None, 0))(self.tunable_parameters, test_inputs), tol=1e6
         )
+        #jax.debug.breakpoint()
+        """ print(self.trace_expr)
+        print(self.norm_trace_expr)
+        print(np.round(test_inputs[-3:],4))
+        print(np.round(qnn_outputs[-3:],4))
+        plt.plot(test_inputs[:,0], qnn_outputs[:,1])
+        plt.xlabel('α')
+        plt.ylabel('|Ψ|²')
+        plt.grid()
+        plt.show()
+        input('a') """
         
         mean_error = loss_function(test_outputs, qnn_outputs)
         print(f"LOSS VALUE FOR TESTING SET: {mean_error}")
