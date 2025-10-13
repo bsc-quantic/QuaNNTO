@@ -15,32 +15,27 @@ import numpy as np
 
 # ===== TEST =====
 
-_num_re = re.compile(r"^([ri])(\d+)$")  # r123 / i45
+_num_re = re.compile(r"^([d])(\d+)$")  # d<number>
 
 def build_meta_from_symbols(N, layers):
     dim = 2*N
-    d_r = symbols(f'r0:{layers*N}', commutative=True)
-    d_i = symbols(f'i0:{layers*N}', commutative=True)
+    d = symbols(f'd0:{layers*2*N}', commutative=True)
     # Symplectic matrix 2Nx2N
-    S_r = MatrixSymbol('S_r', dim, layers*dim)
     S_i = MatrixSymbol('S_i', dim, layers*dim)
     """A partir de tus símbolos, calcula offsets/tamaños del vector concatenado."""
-    rows, cols = S_r.shape
+    rows, cols = S_i.shape
     assert S_i.shape == (rows, cols)
-    size_r = len(d_r)
-    size_i = len(d_i)
+    size_d = len(d)
     size_S = rows * cols
 
-    off_r  = 0
-    off_i  = off_r + size_r
-    off_Sr = off_i + size_i
-    off_Si = off_Sr + size_S
+    off_d  = 0
+    off_Si = off_d + size_d
     total  = off_Si + size_S
 
     return dict(
         rows=rows, cols=cols,
-        size_r=size_r, size_i=size_i, size_S=size_S,
-        off_r=off_r, off_i=off_i, off_Sr=off_Sr, off_Si=off_Si,
+        size_d=size_d, size_S=size_S,
+        off_d=off_d, off_Si=off_Si,
         total=total
     )
 
@@ -52,9 +47,9 @@ def _is_matrix_element(x) -> bool:
     return hasattr(x, "parent") and hasattr(x, "i") and hasattr(x, "j")
 
 def factor_to_index(f, meta) -> int:
-    """Mapea un factor simbólico (rK, iK, S_r[p,q], S_i[p,q]) a índice en v."""
+    """Mapea un factor simbólico (rK, iK, S_i[p,q]) a índice en v."""
     rows, cols = meta["rows"], meta["cols"]
-    off_r, off_i, off_Sr, off_Si = meta["off_r"], meta["off_i"], meta["off_Sr"], meta["off_Si"]
+    off_d, off_Si = meta["off_d"], meta["off_Si"]
     
     # Caso rK / iK (tus d_r/d_i)    
     if isinstance(f, sp.Symbol):
@@ -62,22 +57,17 @@ def factor_to_index(f, meta) -> int:
         if m:
             base, k = m.groups()
             k = int(k)
-            if base == "r":
-                if not (0 <= k < meta["size_r"]): raise IndexError(f"r{k} fuera de rango")
-                return off_r + k
-            else:
-                if not (0 <= k < meta["size_i"]): raise IndexError(f"i{k} fuera de rango")
-                return off_i + k
+            if base == "d":
+                if not (0 <= k < meta["size_d"]): raise IndexError(f"r{k} fuera de rango")
+                return off_d + k
 
-    # Caso MatrixElement: S_r[p,q] o S_i[p,q]
+    # Caso MatrixElement: S_i[p,q]
     if _is_matrix_element(f):
         name = str(f.parent)
         p, q = int(f.i), int(f.j)
         if not (0 <= p < rows and 0 <= q < cols):
             raise IndexError(f"Índices fuera de rango para {name}: ({p},{q}) con shape=({rows},{cols})")
         flat = _flat_rc_row_major(p, q, cols)
-        if name == "S_r":
-            return off_Sr + flat
         if name == "S_i":
             return off_Si + flat
 
@@ -192,60 +182,54 @@ def extract_ladder_expressions(trace_expr):
             ladder_types.append(tr_types)
     return ladder_modes, ladder_types
 
-def complete_trace_expression(N, layers, photon_additions, n_outputs, include_obs=False, obs='position'):
+def complete_trace_expression(N, layers, ladder_modes, is_addition, n_outputs, include_obs=False, obs='position'):
     '''
     Builds the non-Gaussian state symbolic expression of a multi-photon added
     QNN based on superposition of ladder operators applied to the Gaussian state.
 
     :param N: Number of modes of the QNN
     :param layers: Number of layers of the QNN
-    :param photon_additions: Photon additions made over the modes at each layer
+    :param ladder_modes: Photon additions made over the modes at each layer
     :param n_outputs: Number of QNN outputs
     :param include_obs: Whether to build the trace expression with or without the observable (default=False)
     :param obs: Observable to be measured (QNN output)
     :return: Symbolic expressions of the different QNN outputs (or normalization factor)
     '''
     dim = 2*N
-    # Displacement vector (complex number 'r' and its conjugate 'i') for each mode
-    d_r = symbols(f'r0:{layers*N}', commutative=True)
-    d_i = symbols(f'i0:{layers*N}', commutative=True)
-    # Symplectic matrix 2Nx2N
-    S_r = MatrixSymbol('S_r', dim, layers*dim)
+    # Displacement vector (complex number 'r' and its conjugate 'i') in Fock for each mode
+    d = symbols(f'd0:{layers*dim}', commutative=True)
+    # Symplectic matrix in Fock 2Nx2N
     S_i = MatrixSymbol('S_i', dim, layers*dim)
     # Creation (c) and annihilation (a) operators for each mode
     c = symbols(f'c0:{N}', commutative=False)
     a = symbols(f'a0:{N}', commutative=False)
     
     sup = 1
-    for l in range(layers-1, -1, -1):
-        for i in range(len(photon_additions)):
-            # Displacement terms
-            #expr = 0
-            expr = d_i[l*N + photon_additions[i]] # FIXME
-            for j in range(N):
-                # Creation and annihilation terms with their symplectic coefficient
-                expr += S_i[N+j, l*dim + photon_additions[i]]*a[j]
-                expr += S_i[j, l*dim + photon_additions[i]]*c[j]
-            sup *= expr
     sup_dag = 1
     for l in range(layers):
-        for i in range(len(photon_additions)):
+        for i in range(len(ladder_modes)):
+            # Expectation value indexing in function of the ladder operator
+            if is_addition:
+                idx = N + ladder_modes[i]
+                idx_dag = ladder_modes[i]
+            else:
+                idx = ladder_modes[i]
+                idx_dag = N + ladder_modes[i]
             # Displacement terms
-            expr_dag = d_r[l*N + photon_additions[i]] # FIXME
+            expr = d[l*dim + idx]
+            expr_dag = d[l*dim + idx_dag]
+            # Creation and annihilation terms with their symplectic coefficient
             for j in range(N):
-                # Creation and annihilation terms with their symplectic coefficient
-                expr_dag += S_i[N+j, l*dim + (N+photon_additions[i])]*a[j]
-                expr_dag += S_i[j, l*dim + (N+photon_additions[i])]*c[j]
-            sup_dag *= expr_dag
-    
-    # Exchange ph.addition operators by ph.subtraction operators
-    #aux = sup_dag
-    #sup_dag = sup
-    #sup = aux
+                expr += S_i[idx, l*dim + j]*a[j]
+                expr += S_i[idx, l*dim + N+j]*c[j]
+                expr_dag += S_i[idx_dag, l*dim + j]*a[j]
+                expr_dag += S_i[idx_dag, l*dim + N+j]*c[j]
+            sup = expr * sup
+            sup_dag = sup_dag * expr_dag
     
     if include_obs:
         expanded_expr = []
-        elif obs == 'witness': # FIXME
+        if obs == 'witness': # FIXME
             #expanded_expr.append(expand(sup_dag*(c[0]*a[0]*c[1]*a[1])*sup)) #〈N1N2〉
             #expanded_expr.append(expand(sup_dag*(c[0]*a[0])*sup)) #〈N1〉
             #expanded_expr.append(expand(sup_dag*(c[1]*a[1])*sup)) #〈N2〉
@@ -283,14 +267,11 @@ def complete_trace_expression(N, layers, photon_additions, n_outputs, include_ob
             expanded_expr.append(expand(sup_dag*c[0]*a[0]*c[0]*a[0]*sup))
         else:
             for i in range(n_outputs):
-                if obs == 'position':
-                    # Position operator
-                    expr = (sup_dag*a[i]*sup + sup_dag*c[i]*sup)
-                elif obs == 'momentum':
-                    # Momentum operator
-                    expr = (sup_dag*a[i]*sup - sup_dag*c[i]*sup)
+                if obs == 'position' or obs == 'momentum':
+                    # 1st order observables
+                    expr = sup_dag*a[i]*sup
                 elif obs == 'number':
-                    # Number operator
+                    # 2nd order observable
                     expr = sup_dag*c[i]*a[i]*sup
                 expanded_expr.append(expand(expr))
     else:

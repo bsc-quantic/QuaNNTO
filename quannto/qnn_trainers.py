@@ -8,7 +8,7 @@ from .loss_functions import mse
 from .qnn import QNN
 
 
-def build_and_train_model(model_name, N, layers, n_inputs, n_outputs, photon_additions, observable, is_input_reupload, include_initial_squeezing, include_initial_mixing,
+def build_and_train_model(model_name, N, layers, n_inputs, n_outputs, ladder_modes, is_addition, observable, include_initial_squeezing, include_initial_mixing,
                           train_set, valid_set, loss_function=mse, hopping_iters=2, in_preprocs=[], out_prepocs=[], postprocs=[], init_pars=None, save=True):
     '''
     Creates and trains a QNN model with the given hyperparameters and dataset by optimizing the 
@@ -19,9 +19,8 @@ def build_and_train_model(model_name, N, layers, n_inputs, n_outputs, photon_add
     :param layers: Number of layers
     :param n_inputs: Number of QONN inputs
     :param n_outputs: Number of QONN outputs
-    :param photon_additions: Photon additions over system modes' that are desired (per layer)
+    :param ladder_modes: Photon additions over system modes' that are desired (per layer)
     :param observable: Name of the observable to be measured ('position', 'momentum', 'number' or 'witness')
-    :param is_input_reupload: Boolean variable telling whether the QONN has to have input-reuploading or not
     :param train_set: List of inputs and outputs to be learned
     :param valid_set: Validation set to be evaluated every epoch testing the generalization of the QONN
     :param loss_function: Function that computes the loss between the predicted and the expected value (default 'mse')
@@ -33,9 +32,7 @@ def build_and_train_model(model_name, N, layers, n_inputs, n_outputs, photon_add
     :param save: Boolean determining whether to save the model (default=True)
     :return: Trained QNN model
     '''
-    n_pars = layers*(2*N**2 + 3*N)
-    if is_input_reupload:
-        n_pars -= layers*2*N
+    n_pars = layers*(2*N**2 + 3*N)# + 3 # 2nd mode real input displacement # + (N + 1) # Linear readout weights + bias
     if include_initial_squeezing:
         n_pars += N
     if include_initial_mixing:
@@ -47,16 +44,18 @@ def build_and_train_model(model_name, N, layers, n_inputs, n_outputs, photon_add
         assert len(init_pars) == n_pars
     
     passive_bounds = (None, None)
+    init_sqz_bounds = (-np.log(5.5), np.log(5.5)) # Initial squeezing
+    #init_sqz_bounds = (np.log(0.001), np.log(1000))
     #sqz_bounds = (np.log(1), np.log(1))
-    #sqz_bounds = (np.log(0.2), np.log(5))
-    sqz_bounds = (np.log(0.001), np.log(1000))
+    sqz_bounds = (-np.log(5.5), np.log(5.5))
+    #sqz_bounds = (np.log(0.001), np.log(1000))
     #sqz_bounds = (None, None)
     #disp_bounds = (-2/np.sqrt(2), 2/np.sqrt(2))
     #disp_bounds = (-50, 50)
     disp_bounds = (None, None)
     bounds = []
     if include_initial_squeezing:
-        bounds += [sqz_bounds for _ in range(N)] # Initial squeezing
+        bounds += [init_sqz_bounds for _ in range(N)] # Initial squeezing
     if include_initial_mixing:
         bounds += [passive_bounds for _ in range(N**2)] # Initial mixing
     for _ in range(layers):
@@ -65,8 +64,12 @@ def build_and_train_model(model_name, N, layers, n_inputs, n_outputs, photon_add
         # Squeezing bounds
         bounds += [sqz_bounds for _ in range(N)]
         # Displacement bounds
-        if not is_input_reupload:
-            bounds += [disp_bounds for _ in range(2*N)]
+        bounds += [disp_bounds for _ in range(2*N)]
+    #bounds += [(None, None)]*(N+1) # Linear readout weights + bias
+    #bounds += [disp_bounds]*3 # Initial displacement on mode 2
+    
+    print(f'Number of tunable parameters: {n_pars}')
+    assert len(bounds) == n_pars, f"Number of bounds {len(bounds)} does not match number of parameters {n_pars}."
     
     def callback(xk):
         '''
@@ -111,8 +114,8 @@ def build_and_train_model(model_name, N, layers, n_inputs, n_outputs, photon_add
                best_loss_values = loss_values.copy()
         loss_values = [9999]
         validation_loss = [9999]
-    qnn = QNN(model_name, N, layers, n_inputs, n_outputs, photon_additions, observable,
-              is_input_reupload, include_initial_squeezing, include_initial_mixing,
+    qnn = QNN(model_name, N, layers, n_inputs, n_outputs, ladder_modes, is_addition, observable,
+              include_initial_squeezing, include_initial_mixing,
               in_preprocs, out_prepocs, postprocs)
     train_inputs = reduce(lambda x, func: func(x), qnn.in_preprocessors, train_set[0])
     train_outputs = reduce(lambda x, func: func(x), qnn.out_preprocessors, train_set[1])
@@ -158,16 +161,8 @@ def build_and_train_model(model_name, N, layers, n_inputs, n_outputs, photon_add
     qnn.build_QNN(best_pars)
 
     qnn.print_qnn()
-    #print(qnn.qnn_profiling.avg_benchmark())
-    #qnn.qnn_profiling.avg_epochs()
-    print(qnn.S_l)
-    print("+++++")
-    print(qnn.S_concat)
-    print("+++++")
-    print(qnn.u_bar.to_ladder)
     
     if save:
-        qnn.qnn_profiling.clear_times()
         qnn.save_model(qnn.model_name + ".txt")
         
     if best_loss_values[0] == 9999:

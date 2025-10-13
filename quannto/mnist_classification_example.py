@@ -14,26 +14,28 @@ from .loss_functions import *
 np.random.seed(42)
 
 # === HYPERPARAMETERS DEFINITION ===
-N = 5
-photon_additions = []
+N = 4
+photon_additions = [0]
 layers = 1
-is_input_reupload = False
-n_inputs = 2
-n_outputs = 5
+is_addition = False
+include_initial_squeezing = True
+include_initial_mixing = True
+n_inputs = 3
+n_outputs = 4
 observable = 'position'
-in_norm_range = (-3, 3)
-out_norm_range = (0.1, 25)
+in_norm_range = (-1, 1)
+out_norm_range = (0, 100)
 loss_function = cross_entropy
 basinhopping_iters = 0
 
 # === DATASET SETTINGS ===
-categories = [0, 1, 2, 3, 4]
+categories = [0, 1, 2, 3]
 num_cats = len(categories)
 dataset_size = 75*num_cats
 validset_size = 20*num_cats
 model_name = f"mnist_{N}modes_{layers}layers_{n_inputs}lat_{num_cats}cats_{observable}_ph{len(photon_additions)}"
 
-if os.path.isfile(f"datasets/mnist_encoding_{n_inputs}lat_{num_cats}cats_inputs.npy"):
+""" if os.path.isfile(f"datasets/mnist_encoding_{n_inputs}lat_{num_cats}cats_inputs.npy"):
     with open(f"datasets/mnist_encoding_{n_inputs}lat_{num_cats}cats_inputs.npy", "rb") as f:
         inputs = np.load(f)
     with open(f"datasets/mnist_encoding_{n_inputs}lat_{num_cats}cats_outputs.npy", "rb") as f:
@@ -49,6 +51,24 @@ else:
     with open(f"datasets/mnist_encoding_{N}modes_{n_inputs}lat_{num_cats}cats_inputs.npy", "wb") as f:
         np.save(f, dataset[0])
     with open(f"datasets/mnist_encoding_{N}modes_{n_inputs}lat_{num_cats}cats_outputs.npy", "wb") as f:
+        np.save(f, dataset[1]) """
+        
+if os.path.isfile(f"datasets/mnist_pca_{n_inputs}lat_{num_cats}cats_inputs.npy"):
+    with open(f"datasets/mnist_pca_{n_inputs}lat_{num_cats}cats_inputs.npy", "rb") as f:
+        inputs = np.load(f)
+    with open(f"datasets/mnist_pca_{n_inputs}lat_{num_cats}cats_outputs.npy", "rb") as f:
+        outputs = np.load(f)
+    dataset = [inputs, outputs]
+    data_ranges = np.array([(np.min(dataset[0][:,col]), np.max(dataset[0][:,col])) for col in range(len(dataset[0][0]))])
+else:
+    while True:
+        dataset = pca_mnist(n_inputs, categories)
+        data_ranges = np.array([(np.min(dataset[0][:,col]), np.max(dataset[0][:,col])) for col in range(len(dataset[0][0]))])
+        if np.all(data_ranges[:,-1] > 0):
+            break
+    with open(f"datasets/mnist_pca_{N}modes_{n_inputs}lat_{num_cats}cats_inputs.npy", "wb") as f:
+        np.save(f, dataset[0])
+    with open(f"datasets/mnist_pca_{N}modes_{n_inputs}lat_{num_cats}cats_outputs.npy", "wb") as f:
         np.save(f, dataset[1])
     
 print("ENCODED INPUTS RANGE:")
@@ -82,7 +102,8 @@ test_dataset = (dataset[0][dataset_size+validset_size:], one_hot_encoding(datase
 test_outputs_cats = dataset[1][dataset_size+validset_size:]
 test_outputs_cats = test_outputs_cats.reshape((len(test_outputs_cats)))
 # Build the QNN and train it with the generated dataset
-qnn, train_loss, valid_loss = build_and_train_model(model_name, N, layers, n_inputs, n_outputs, photon_additions, observable, is_input_reupload, 
+qnn, train_loss, valid_loss = build_and_train_model(model_name, N, layers, n_inputs, n_outputs, photon_additions, is_addition, observable, 
+                                                    include_initial_squeezing, include_initial_mixing,
                                                     train_dataset, valid_dataset, loss_function, basinhopping_iters, in_preprocessors, out_preprocessors, postprocessors)
 
 with open(f"losses/{model_name}.npy", "wb") as f:

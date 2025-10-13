@@ -11,17 +11,19 @@ from .loss_functions import *
 np.random.seed(42)
 
 # === HYPERPARAMETERS DEFINITION ===
-modes = [2]*2
-photon_additions = [[],[0]]
+modes = [2]
+photon_additions = [[0]]
 layers = [1]*len(modes)
-is_input_reupload = False
+is_addition = False
+include_initial_squeezing = True
+include_initial_mixing = False
 n_inputs = 1
 n_outputs = 1
 observable = 'third-order'
 in_norm_ranges = [(-2, 2)]*len(modes)
 out_norm_ranges = [(-2, 2)]*len(modes)
 loss_function = mse_energy_penalty
-basinhopping_iters = 0
+basinhopping_iters = 1
 params = None
 
 # === DATASET SETTINGS ===
@@ -45,7 +47,7 @@ start_expval = 8
 end_expval = 10
 c=0
 for exp_val_idx in range(start_expval, end_expval):
-    plt.plot(inputs, outputs[:,exp_val_idx], c=colors(c), label=expvals[exp_val_idx])
+    plt.plot(inputs, np.real_if_close(outputs[:,exp_val_idx]), c=colors(c), label=expvals[exp_val_idx])
     c += 1
 plt.title(f'Dataset')
 plt.xlabel('x')
@@ -79,7 +81,8 @@ for (N, l, ph_add, in_norm_range, out_norm_range) in zip(modes, layers, photon_a
 
     model_name = model_name + "_N" + str(N) + "_L" + str(l) + "_ph" + str(ph_add)# + "_in" + str(in_norm_range) + "_out" + str(out_norm_range)
     # Build the QNN and train it with the generated dataset
-    qnn, train_loss, valid_loss = build_and_train_model(model_name, N, l, n_inputs, n_outputs, ph_add, observable, is_input_reupload,
+    qnn, train_loss, valid_loss = build_and_train_model(model_name, N, l, n_inputs, n_outputs, ph_add, is_addition, observable,
+                                                        include_initial_squeezing, include_initial_mixing,
                                                         train_dataset, None, loss_function, basinhopping_iters,
                                                         in_preprocessors, out_preprocessors, postprocessors, init_pars=params)
     qnns.append(qnn)
@@ -95,10 +98,7 @@ for (N, l, ph_add, in_norm_range, out_norm_range) in zip(modes, layers, photon_a
     qnn_outs.append(qnn_test_outputs.copy())
     
 # PLOT RESULTS
-#legend_labels = [f'N={qnn.N}, L={qnn.layers}, Photon addition in modes {np.array(qnn.photon_add) + 1}, disp range {in_norm_range}' for (qnn, in_norm_range) in zip(qnns, in_norm_ranges)]
-legend_labels = [f'N={qnn.N}, L={qnn.layers}, a† in modes {np.array(qnn.photon_add) + 1}' for qnn in qnns]
-#legend_labels = [f'N={qnn.N}, L={qnn.layers}, {len(qnn.photon_add)} photons/layer' for qnn in qnns]
-#legend_labels = [f'N={qnn.N}, L={qnn.layers}, {len(qnn.photon_add)} photons/layer, α ∈ {in_norm_range}' for (qnn, in_norm_range) in zip(qnns, in_norm_ranges)]
+legend_labels = [f'N={qnn.N}, L={qnn.layers}, {nongauss_op} in modes {np.array(qnn.ladder_modes) + 1}' for qnn in qnns] # α ∈ {in_norm_range}
 
 c=0
 for exp_val_idx in range(start_expval, end_expval):
