@@ -65,15 +65,15 @@ def binning(data, data_range, num_categories):
     return cat
 
 def softmax_discretization(outputs):
-    prob_outputs = np.array([np.e**out for out in outputs])
-    norm_outputs = np.sum(prob_outputs, axis=1)
-    return np.array([prob_outputs[i]/norm_outputs[i] for i in range(len(prob_outputs))])
+    prob_outputs = jnp.array([jnp.e**out for out in outputs], dtype=jnp.complex128)
+    norm_outputs = jnp.sum(prob_outputs, axis=1)
+    return jnp.array([prob_outputs[i]/norm_outputs[i] for i in range(len(prob_outputs))])
 
 def one_hot_encoding(values, num_cats):
-    one_hot_set = np.zeros((len(values), num_cats))
+    one_hot_set = np.zeros((len(values), num_cats), dtype=np.complex128)
     for i in range(len(values)):
         one_hot_set[i][values[i][0]] = 1
-    return one_hot_set
+    return jnp.array(one_hot_set)
 
 def greatest_probability(probs):
     m = np.zeros((len(probs), 1))
