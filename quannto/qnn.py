@@ -41,7 +41,7 @@ class QNN:
         self.include_initial_mixing = include_initial_mixing
         
         # Some useful constants
-        self.oneoversqrt2 = 1/np.sqrt(2)
+        self.oneoversqrt2 = 1/jnp.sqrt(2)
         
         # Quadratures - Fock space transformation utils
         self.u_bar = CanonicalLadderTransformations(N)
@@ -193,19 +193,22 @@ class QNN:
         # Initial passive Gaussian mixer
         self.Q0 = jnp.zeros((2*self.N, 2*self.N), dtype=jnp.complex128)
         
-        # Symplectic matrix and displacement vectors for each layer
+        # Symplectic matrix and displacement vectors for each layer for phase and Fock spaces
         self.S_l = jnp.zeros((self.layers, 2*self.N, 2*self.N), dtype=jnp.complex128)
         self.D_l = jnp.zeros((self.layers, 2*self.N), dtype=jnp.complex128)
+        self.S_fock = jnp.zeros((self.layers, 2*self.N, 2*self.N), dtype=jnp.complex128)
+        self.D_fock = jnp.zeros((self.layers, 2*self.N), dtype=jnp.complex128)
+        
         # Bloch-Messiah decomposition of the symplectic matrix for each layer
         self.Q1_gauss = jnp.zeros((self.layers, 2*self.N, 2*self.N), dtype=jnp.complex128)
         self.Q2_gauss = jnp.zeros((self.layers, 2*self.N, 2*self.N), dtype=jnp.complex128)
         self.Z_gauss = jnp.zeros((self.layers, 2*self.N, 2*self.N), dtype=jnp.complex128)
         # Concatenation of symplectic matrix and displacement vectors of each layer
         self.S_concat = jnp.zeros((2*self.N, 2*self.layers*self.N), dtype=jnp.complex128)
-        self.D_fock = jnp.zeros((2*self.layers*self.N), dtype=jnp.complex128)
         self.D_concat = jnp.zeros((2*self.layers*self.N), dtype=jnp.complex128)
         # Final Gaussian transformation when commuting with photon additions (product of all Gaussians)
         self.G = jnp.eye(S_dim, dtype=jnp.complex128)
+        self.G_fock = jnp.eye(S_dim, dtype=jnp.complex128)
         
         current_par_idx = 0
         if self.include_initial_squeezing:
@@ -228,24 +231,25 @@ class QNN:
             # Build final quadratic Gaussian transformation
             self.S_l = self.S_l.at[l].set(self.Q2_gauss[l] @ self.Z_gauss[l] @ self.Q1_gauss[l])
             self.G = self.G @ self.S_l[l]
+            self.S_fock = self.S_fock.at[l].set(jnp.linalg.inv(self.u_bar.to_ladder_op(self.S_l[l])))
+            self.G_fock = self.S_fock[l] @ self.G_fock
+            
             # Build concatenated symplectic matrices in Fock space for trace expressions' coefficients
-            block = jnp.linalg.inv(self.u_bar.to_ladder_op(self.G))
-            self.S_concat = QNN.update_S(self.S_concat, l, block, S_dim)
+            self.S_concat = QNN.update_S(self.S_concat, l, self.G_fock, S_dim)
             
             # Build displacements (linear Gaussian)
             self.D_l = self.D_l.at[l].set(parameters[current_par_idx : current_par_idx + 2*self.N])
             current_par_idx += 2*self.N
             start = l * S_dim
             end   = (l + 1) * S_dim
-            if l == (self.layers - 1):
-                d_fock = self.D_l[l, 0:self.N] + 1j*self.D_l[l, self.N:2*self.N]
-                dc_fock = d_fock.conj()
-                val = jnp.concat((d_fock, dc_fock))
-            else:
+            d_fock = self.D_l[l, 0:self.N] + 1j*self.D_l[l, self.N:2*self.N]
+            d_fock_vec = jnp.concat((d_fock, d_fock.conj()))
+            self.D_fock = self.D_fock.at[l].set(d_fock_vec)
+            l_disp = -self.S_fock[l] @ d_fock_vec
+            if l < (self.layers - 1):
                 next_slice = self.D_concat[(l + 1) * S_dim : (l + 2) * S_dim]
-                val = self.D_l[l] + self.S_l[l] @ next_slice
-            self.D_fock = self.D_fock.at[start:end].set(val)
-            self.D_concat = self.D_concat.at[start:end].set(-block @ val)
+                l_disp = l_disp + self.S_fock[l] @ next_slice
+            self.D_concat = self.D_concat.at[start:end].set(l_disp)
 
         if self.observable == 'witness':
             self.trace_const = jnp.ones(self.N*(self.N+1) + self.N)
@@ -272,8 +276,10 @@ class QNN:
         '''
         Applies all Gaussian transformations of the QONN to the initial quantum state.
         '''
+        new_means = mean_vector
+        new_V = V
         for l in range(self.layers):
-            new_means, new_V = QNN.apply_quadratic_gaussian(self.S_l[l], mean_vector, V)
+            new_means, new_V = QNN.apply_quadratic_gaussian(self.S_l[l], new_means, new_V)
             new_means = QNN.apply_linear_gaussian(self.D_l[l], new_means)
         return new_means, new_V
         
