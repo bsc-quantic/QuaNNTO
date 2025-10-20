@@ -12,26 +12,27 @@ from .loss_functions import *
 np.random.seed(42)
 
 # === HYPERPARAMETERS DEFINITION ===
-modes = [2]
-qnns_ladder_modes = [[0]]
-layers = [2]
+modes = [2,2]
+qnns_ladder_modes = [[0],[0]]
+layers = [1]
 is_addition = False
 include_initial_squeezing = True
-include_initial_mixing = False
+include_initial_mixing = True
+is_passive_gaussian = False
 n_inputs = 1
 n_outputs = 1
 observable = 'position'
-in_norm_ranges = [(-1, 1)]*len(modes)
-out_norm_ranges = [(-1, 1)]*len(modes)
+in_norm_ranges = [(-2, 2)]*len(modes)
+out_norm_ranges = [(-2, 2)]*len(modes)
 loss_function = mse
-basinhopping_iters = 1
+basinhopping_iters = 4
 params = None
 
 # === TARGET FUNCTION SETTINGS ===
 target_function = trig_fun
-input_range = (-1, 1.75)
+input_range = (-1, 1.5)
 trainset_noise = 0.1
-trainset_size = 80
+trainset_size = 100
 testset_size = 200
 validset_size = 50
 
@@ -53,7 +54,8 @@ train_dataset = bubblesort(np.reshape(train_dataset[1], (trainset_size)), np.res
 train_dataset = (train_dataset[1].reshape((trainset_size, 1)), train_dataset[0].reshape((trainset_size, 1)))
 
 # Generate a validation dataset of the target function
-valid_dataset = generate_dataset_of(target_function, n_inputs, n_outputs, validset_size, input_range)
+#valid_dataset = generate_dataset_of(target_function, n_inputs, n_outputs, validset_size, input_range)
+valid_dataset = None
 
 # Generate a linear dataset without noise to plot the real function
 real_function = generate_linear_dataset_of(target_function, n_inputs, n_outputs, trainset_size*100, input_range)
@@ -69,7 +71,7 @@ plt.ylabel('f(x)')
 plt.grid(linestyle='--', linewidth=0.4)
 plt.legend(loc='upper right')
 plt.savefig("figures/trainset_"+target_function.__name__+"_size"+str(trainset_size)+"_range"+str(input_range)+".png")
-plt.show()
+#plt.show()
 plt.clf()
 
 # Generate a linearly-spaced testing dataset of the target function and test the trained QNN
@@ -97,7 +99,7 @@ for (N, l, ladder_modes, in_norm_range, out_norm_range) in zip(modes, layers, qn
     model_name = target_function.__name__ + "_N" + str(N) + "_L" + str(l) + "_ph" + str(ladder_modes) + "_in" + str(in_norm_range) + "_out" + str(out_norm_range)
     # Build the QNN and train it with the generated dataset
     qnn, train_loss, valid_loss = build_and_train_model(model_name, N, l, n_inputs, n_outputs, ladder_modes, is_addition, observable,
-                                                        include_initial_squeezing, include_initial_mixing,
+                                                        include_initial_squeezing, include_initial_mixing, is_passive_gaussian,
                                                         train_dataset, valid_dataset, loss_function, basinhopping_iters,
                                                         in_preprocessors, out_preprocessors, postprocessors, init_pars=params)
     qnns.append(qnn)

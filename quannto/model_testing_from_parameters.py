@@ -13,10 +13,11 @@ np.random.seed(42)
 # === HYPERPARAMETERS DEFINITION ===
 modes = 2
 ladder_modes = [0]
-layers = 1
-is_addition = False
+layers = 2
+is_addition = True
 include_initial_squeezing = False
 include_initial_mixing = False
+is_passive_gaussian = False
 n_inputs = 1
 n_outputs = 1
 observable = 'position'
@@ -31,6 +32,14 @@ if include_initial_mixing:
     n_pars += modes**2
 params = np.random.rand(n_pars)
 """ params = np.array([0.37454012, 0.95071431, 0.73199394, 0.59865848, 0.15601864, 0.15599452,
+ 0.05808361, 0.86617615, 0.60111501, 0.70807258, 0.02058449, 0.96990985,
+ 0.83244264, 0.21233911]) """
+params = np.array([0.18182497, 0.18340451, 0.30424224, 0.52475643,
+ 0.43194502, 0.29122914, 0.61185289, 0.13949386, 0.29214465, 0.36636184,
+ 0.45606998, 0.78517596, 0.19967378, 0.51423444, 0.37454012, 0.95071431, 0.73199394, 0.59865848, 0.15601864, 0.15599452,
+ 0.05808361, 0.86617615, 0.60111501, 0.70807258, 0.02058449, 0.96990985,
+ 0.83244264, 0.21233911])
+"""params = np.array([0.37454012, 0.95071431, 0.73199394, 0.59865848, 0.15601864, 0.15599452,
  0.05808361, 0.86617615, 0.60111501, 0.70807258, 0.02058449, 0.96990985,
  0.83244264, 0.21233911, 0.18182497, 0.18340451, 0.30424224, 0.52475643,
  0.43194502, 0.29122914, 0.61185289, 0.13949386, 0.29214465, 0.36636184,
@@ -73,7 +82,7 @@ model_name = "model_N" + str(modes) + "_L" + str(layers) + "_" + target_function
 
 # Build the QNN with the trained parameters
 qnn = QNN(model_name, modes, layers, n_inputs, n_outputs, ladder_modes, is_addition, observable,
-          include_initial_squeezing, include_initial_mixing,
+          include_initial_squeezing, include_initial_mixing, is_passive_gaussian,
           in_preprocessors, out_preprocessors, postprocessors)
 qnn.tunable_parameters = jnp.array(params)
 

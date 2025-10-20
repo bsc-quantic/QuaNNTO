@@ -18,7 +18,7 @@ class QNN:
     Class for continuous variables quantum (optics) neural network building, training, evaluation and profiling.
     '''
     def __init__(self, model_name, N, layers, n_in, n_out, ladder_modes=[0], is_addition=True, observable='position',
-                 include_initial_squeezing=False, include_initial_mixing=False,
+                 include_initial_squeezing=False, include_initial_mixing=False, is_passive_gaussian=False,
                  in_preprocessors=[], out_preprocessors=[], postprocessors=[]):
         # The number of modes N must be greater or equal to the number of inputs and outputs
         assert N >= n_in
@@ -39,6 +39,7 @@ class QNN:
         self.is_input_reupload = False
         self.include_initial_squeezing = include_initial_squeezing
         self.include_initial_mixing = include_initial_mixing
+        self.is_passive_gaussian = is_passive_gaussian
         
         # Some useful constants
         self.oneoversqrt2 = 1/jnp.sqrt(2)
@@ -222,14 +223,20 @@ class QNN:
             current_par_idx += self.N**2
         
         for l in range(self.layers-1, -1, -1):
-            # Build symplectic-orthogonal (unitary) matrices and diagonal symplectic matrix
-            Q1, Z, Q2, current_par_idx = self.build_quadratic_gaussians(parameters, current_par_idx)
-            self.Q1_gauss = self.Q1_gauss.at[l].set(Q1)
-            self.Q2_gauss = self.Q2_gauss.at[l].set(Q2)
-            self.Z_gauss = self.Z_gauss.at[l].set(Z)
-
-            # Build final quadratic Gaussian transformation
-            self.S_l = self.S_l.at[l].set(self.Q2_gauss[l] @ self.Z_gauss[l] @ self.Q1_gauss[l])
+            if self.is_passive_gaussian:
+                Q1 = self.build_symp_orth_mat(parameters[current_par_idx : current_par_idx + self.N**2])
+                current_par_idx += self.N**2
+                self.Q1_gauss = self.Q1_gauss.at[l].set(Q1)
+                self.S_l = self.S_l.at[l].set(self.Q1_gauss[l])
+            else:
+            # Build symplectic-orthogonal matrices for passive Gaussian and diagonal symplectic matrix for squeezing
+                Q1, Z, Q2, current_par_idx = self.build_quadratic_gaussians(parameters, current_par_idx)
+                self.Q1_gauss = self.Q1_gauss.at[l].set(Q1)
+                self.Q2_gauss = self.Q2_gauss.at[l].set(Q2)
+                self.Z_gauss = self.Z_gauss.at[l].set(Z)
+                # Build final quadratic Gaussian transformation
+                self.S_l = self.S_l.at[l].set(self.Q2_gauss[l] @ self.Z_gauss[l] @ self.Q1_gauss[l])
+                
             self.G = self.G @ self.S_l[l]
             self.S_fock = self.S_fock.at[l].set(jnp.linalg.inv(self.u_bar.to_ladder_op(self.S_l[l])))
             self.G_fock = self.S_fock[l] @ self.G_fock
@@ -589,8 +596,15 @@ class QNN:
         '''
         print(f"PARAMETERS:\n{self.tunable_parameters}")
         for layer in range(self.layers):
-            print(f"=== LAYER {layer+1} ===\nQ1 = {self.Q1_gauss[layer]}\nZ = {self.Z_gauss[layer]}\nQ2 = {self.Q2_gauss[layer]}")
-            print(f"Symplectic matrix:\n{self.S_l[layer]}")
+            if self.include_initial_squeezing:
+                print(f"=== INITIAL SQUEEZING ===\nZ0 = {self.Z0}")
+            if self.include_initial_mixing:
+                print(f"=== INITIAL PASSIVE (PRE-MIXER) ===\nQ0 = {self.Q0}")
+            if self.is_passive_gaussian:
+                print(f"=== PASSIVE LAYER {layer+1} ===\nQ1 = {self.Q1_gauss[layer]}")
+            else:
+                print(f"=== ACTIVE LAYER {layer+1} ===\nQ1 = {self.Q1_gauss[layer]}\nZ = {self.Z_gauss[layer]}\nQ2 = {self.Q2_gauss[layer]}")
+                print(f"Symplectic matrix:\n{self.S_l[layer]}")
             check_symp_orth(self.S_l[layer])
             print(f"Displacement vector:\n{self.D_l[layer]}")
             print(f"Symplectic coefficients:\n{self.S_concat[:,layer*2*self.N : (layer+1)*2*self.N]}")

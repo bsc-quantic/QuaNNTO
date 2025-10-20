@@ -20,19 +20,20 @@ layers = 1
 is_addition = False
 include_initial_squeezing = True
 include_initial_mixing = True
+is_passive_gaussian = True
 n_inputs = 2
 n_outputs = 2
 observable = 'position'
-in_norm_range = (-2, 2)
-out_norm_range = (0.1, 2)
+in_norm_range = (-1, 1)
+out_norm_range = (1, 2)
 loss_function = cross_entropy
-basinhopping_iters = 0
+basinhopping_iters = 2
 
 # === DATASET SETTINGS ===
-dataset_name = 'moons'
-#dataset_name = 'circles'
+#dataset_name = 'moons'
+dataset_name = 'circles'
 #dataset_name = 'banknote_auth'
-trainset_size = 150
+trainset_size = 120
 validset_size = 50
 num_cats = 2
 dataset_size_per_cat = trainset_size // 2
@@ -92,7 +93,8 @@ test_outputs_cats = dataset[1]
 test_outputs_cats = test_outputs_cats.reshape((len(test_outputs_cats)))
 
 # Build the QNN and train it with the generated dataset
-qnn, train_loss, valid_loss = build_and_train_model(model_name, N, layers, n_inputs, n_outputs, ladder_modes, is_addition, observable, include_initial_squeezing, include_initial_mixing, 
+qnn, train_loss, valid_loss = build_and_train_model(model_name, N, layers, n_inputs, n_outputs, ladder_modes, is_addition, observable,
+                                                    include_initial_squeezing, include_initial_mixing, is_passive_gaussian,
                                                     train_dataset, valid_dataset, loss_function, basinhopping_iters, in_preprocessors, out_preprocessors, postprocessors)
 
 with open(f"losses/{model_name}.npy", "wb") as f:

@@ -16,10 +16,11 @@ np.random.seed(42)
 # === HYPERPARAMETERS DEFINITION ===
 N = 4
 photon_additions = [0]
-layers = 1
+layers = 2
 is_addition = False
 include_initial_squeezing = True
 include_initial_mixing = True
+is_passive_gaussian = False
 n_inputs = 3
 n_outputs = 4
 observable = 'position'
@@ -97,13 +98,14 @@ postprocessors = []
 
 # === BUILD, TRAIN AND TEST QNN ===
 train_dataset = (dataset[0][:dataset_size], one_hot_encoding(dataset[1][:dataset_size], num_cats))
-valid_dataset = (dataset[0][dataset_size : dataset_size+validset_size], one_hot_encoding(dataset[1][dataset_size : dataset_size+validset_size], num_cats))
+#valid_dataset = (dataset[0][dataset_size : dataset_size+validset_size], one_hot_encoding(dataset[1][dataset_size : dataset_size+validset_size], num_cats))
+valid_dataset = None
 test_dataset = (dataset[0][dataset_size+validset_size:], one_hot_encoding(dataset[1][dataset_size+validset_size:], num_cats))
 test_outputs_cats = dataset[1][dataset_size+validset_size:]
 test_outputs_cats = test_outputs_cats.reshape((len(test_outputs_cats)))
 # Build the QNN and train it with the generated dataset
 qnn, train_loss, valid_loss = build_and_train_model(model_name, N, layers, n_inputs, n_outputs, photon_additions, is_addition, observable, 
-                                                    include_initial_squeezing, include_initial_mixing,
+                                                    include_initial_squeezing, include_initial_mixing, is_passive_gaussian,
                                                     train_dataset, valid_dataset, loss_function, basinhopping_iters, in_preprocessors, out_preprocessors, postprocessors)
 
 with open(f"losses/{model_name}.npy", "wb") as f:

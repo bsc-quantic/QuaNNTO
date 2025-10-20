@@ -11,12 +11,13 @@ from .loss_functions import *
 np.random.seed(42)
 
 # === HYPERPARAMETERS DEFINITION ===
-modes = [2]
-photon_additions = [[0]]
-layers = [1]*len(modes)
+modes = [2,2]
+photon_additions = [[0],[0]]
+layers = [1,2]
 is_addition = False
 include_initial_squeezing = True
-include_initial_mixing = False
+include_initial_mixing = True
+is_passive_gaussian = False
 n_inputs = 1
 n_outputs = 1
 observable = 'third-order'
@@ -82,7 +83,7 @@ for (N, l, ph_add, in_norm_range, out_norm_range) in zip(modes, layers, photon_a
     model_name = model_name + "_N" + str(N) + "_L" + str(l) + "_ph" + str(ph_add)# + "_in" + str(in_norm_range) + "_out" + str(out_norm_range)
     # Build the QNN and train it with the generated dataset
     qnn, train_loss, valid_loss = build_and_train_model(model_name, N, l, n_inputs, n_outputs, ph_add, is_addition, observable,
-                                                        include_initial_squeezing, include_initial_mixing,
+                                                        include_initial_squeezing, include_initial_mixing, is_passive_gaussian,
                                                         train_dataset, None, loss_function, basinhopping_iters,
                                                         in_preprocessors, out_preprocessors, postprocessors, init_pars=params)
     qnns.append(qnn)

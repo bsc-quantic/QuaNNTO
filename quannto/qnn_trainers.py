@@ -9,7 +9,7 @@ from .qnn import QNN
 
 
 def build_and_train_model(model_name, N, layers, n_inputs, n_outputs, ladder_modes, is_addition, observable, include_initial_squeezing, include_initial_mixing,
-                          train_set, valid_set, loss_function=mse, hopping_iters=2, in_preprocs=[], out_prepocs=[], postprocs=[], init_pars=None, save=True):
+                          is_passive_gaussian, train_set, valid_set, loss_function=mse, hopping_iters=2, in_preprocs=[], out_prepocs=[], postprocs=[], init_pars=None, save=True):
     '''
     Creates and trains a QNN model with the given hyperparameters and dataset by optimizing the 
     tunable parameters of the QNN.
@@ -37,6 +37,8 @@ def build_and_train_model(model_name, N, layers, n_inputs, n_outputs, ladder_mod
         n_pars += N
     if include_initial_mixing:
         n_pars += N**2
+    if is_passive_gaussian:
+        n_pars -= layers*(N**2 + N)
     
     if type(init_pars) == type(None):
         init_pars = np.random.rand(n_pars) # TODO: Consider parameterize momentum too
@@ -45,13 +47,7 @@ def build_and_train_model(model_name, N, layers, n_inputs, n_outputs, ladder_mod
     
     passive_bounds = (None, None)
     init_sqz_bounds = (-np.log(5.5), np.log(5.5)) # Initial squeezing
-    #init_sqz_bounds = (np.log(0.001), np.log(1000))
-    #sqz_bounds = (np.log(1), np.log(1))
     sqz_bounds = (-np.log(5.5), np.log(5.5))
-    #sqz_bounds = (np.log(0.001), np.log(1000))
-    #sqz_bounds = (None, None)
-    #disp_bounds = (-2/np.sqrt(2), 2/np.sqrt(2))
-    #disp_bounds = (-50, 50)
     disp_bounds = (None, None)
     bounds = []
     if include_initial_squeezing:
@@ -59,12 +55,18 @@ def build_and_train_model(model_name, N, layers, n_inputs, n_outputs, ladder_mod
     if include_initial_mixing:
         bounds += [passive_bounds for _ in range(N**2)] # Initial mixing
     for _ in range(layers):
-        # Passive optics bounds
-        bounds += [passive_bounds for _ in range(2*N**2)]
-        # Squeezing bounds
-        bounds += [sqz_bounds for _ in range(N)]
-        # Displacement bounds
-        bounds += [disp_bounds for _ in range(2*N)]
+        if is_passive_gaussian:
+            # Passive optics bounds for Q1
+            bounds += [passive_bounds for _ in range(N**2)]
+            # Displacement bounds
+            bounds += [disp_bounds for _ in range(2*N)]
+        else:
+            # Passive optics bounds for Q1, Q2
+            bounds += [passive_bounds for _ in range(2*N**2)]
+            # Squeezing bounds
+            bounds += [sqz_bounds for _ in range(N)]
+            # Displacement bounds
+            bounds += [disp_bounds for _ in range(2*N)]
     #bounds += [(None, None)]*(N+1) # Linear readout weights + bias
     #bounds += [disp_bounds]*3 # Initial displacement on mode 2
     
@@ -115,7 +117,7 @@ def build_and_train_model(model_name, N, layers, n_inputs, n_outputs, ladder_mod
         loss_values = [9999]
         validation_loss = [9999]
     qnn = QNN(model_name, N, layers, n_inputs, n_outputs, ladder_modes, is_addition, observable,
-              include_initial_squeezing, include_initial_mixing,
+              include_initial_squeezing, include_initial_mixing, is_passive_gaussian,
               in_preprocs, out_prepocs, postprocs)
     train_inputs = reduce(lambda x, func: func(x), qnn.in_preprocessors, train_set[0])
     train_outputs = reduce(lambda x, func: func(x), qnn.out_preprocessors, train_set[1])
