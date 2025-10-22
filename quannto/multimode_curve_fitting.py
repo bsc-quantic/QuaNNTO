@@ -1,4 +1,5 @@
 from functools import partial
+import matplotlib
 import matplotlib.pyplot as plt
 from matplotlib import colormaps
 import os.path
@@ -12,12 +13,12 @@ from .loss_functions import *
 np.random.seed(42)
 
 # === HYPERPARAMETERS DEFINITION ===
-modes = [2,2]
-qnns_ladder_modes = [[0],[0]]
-layers = [1]
+modes = [2,2,2]#,2,3,4]
+qnns_ladder_modes = [[[]], [[0]], [[0,1]]]#, [[0],[0]], [[0,1,2]], [[0,1,2,3]]]
+layers = [1,1,1]#,2,1,1]
 is_addition = False
-include_initial_squeezing = True
-include_initial_mixing = True
+include_initial_squeezing = False
+include_initial_mixing = False
 is_passive_gaussian = False
 n_inputs = 1
 n_outputs = 1
@@ -25,7 +26,7 @@ observable = 'position'
 in_norm_ranges = [(-2, 2)]*len(modes)
 out_norm_ranges = [(-2, 2)]*len(modes)
 loss_function = mse
-basinhopping_iters = 4
+basinhopping_iters = 0
 params = None
 
 # === TARGET FUNCTION SETTINGS ===
@@ -54,8 +55,8 @@ train_dataset = bubblesort(np.reshape(train_dataset[1], (trainset_size)), np.res
 train_dataset = (train_dataset[1].reshape((trainset_size, 1)), train_dataset[0].reshape((trainset_size, 1)))
 
 # Generate a validation dataset of the target function
-#valid_dataset = generate_dataset_of(target_function, n_inputs, n_outputs, validset_size, input_range)
-valid_dataset = None
+valid_dataset = generate_dataset_of(target_function, n_inputs, n_outputs, validset_size, input_range)
+#valid_dataset = None
 
 # Generate a linear dataset without noise to plot the real function
 real_function = generate_linear_dataset_of(target_function, n_inputs, n_outputs, trainset_size*100, input_range)
@@ -78,7 +79,8 @@ plt.clf()
 test_dataset = generate_linear_dataset_of(target_function, n_inputs, n_outputs, testset_size, input_range)
 # === BUILD, TRAIN AND TEST QNN MODELS WITH DIFFERENT MODES ===
 #colors = plt.cm.rainbow(np.linspace(0, 1, len(modes)))
-colors = colormaps['tab10']
+#colors = colormaps['tab10']
+colors = matplotlib.cm.tab10(range(len(modes)))
 train_losses = []
 valid_losses = []
 qnn_loss = []
@@ -122,12 +124,12 @@ if is_addition:
     nongauss_op = "â†"
 else:
     nongauss_op = "â"
-legend_labels = [f'N={qnn.N}, L={qnn.layers}, {nongauss_op} in modes {np.array(qnn.ladder_modes) + 1}' for qnn in qnns] # α ∈ {in_norm_range}
+legend_labels = [f'N={qnn.N}, L={qnn.layers}, {nongauss_op} in modes {np.array(qnn.ladder_modes[0]) + 1}' for qnn in qnns] # α ∈ {in_norm_range}
 
-plt.plot(test_dataset[0], test_dataset[1], 'o', markerfacecolor='g', markeredgecolor='none', alpha=0.25, label='Expected results')
-c=3
+plt.plot(test_dataset[0], test_dataset[1], 'o', markerfacecolor='g', markeredgecolor='none', alpha=0.35, label='Expected results')
+c=0
 for (qnn_test_outputs, legend_label) in zip(qnn_outs, legend_labels):
-    plt.plot(test_dataset[0], qnn_test_outputs, c=colors(c), linestyle='dashed', label=legend_label)
+    plt.plot(test_dataset[0], qnn_test_outputs, c=colors[c], linestyle='dashed', label=legend_label)
     c+=1
 plt.title(f'TESTING SET')
 plt.xlabel('Input')
@@ -141,11 +143,11 @@ plt.savefig("figures/test_res_"+model_name+"_N"+str(modes)+"_L"+str(layers)+"_ph
 plt.show()
 plt.clf()
 
-c=3
+c=0
 for (train_loss, valid_loss, legend_label) in zip(train_losses, valid_losses, legend_labels):
     x_log = np.log(np.array(range(1,len(train_loss)+1)))
-    plt.plot(np.log(np.array(train_loss)+1), c=colors(c), label=f'Train loss {legend_label}')#, {input_range} disp')
-    plt.plot(np.log(np.array(valid_loss)+1), c=colors(c), linestyle='dashed', label=f'Validation loss {legend_label}')#, {input_range} disp')
+    plt.plot(np.log(np.array(train_loss)+1), c=colors[c], label=f'Train loss {legend_label}')#, {input_range} disp')
+    plt.plot(np.log(np.array(valid_loss)+1), c=colors[c], linestyle='dashed', label=f'Validation loss {legend_label}')#, {input_range} disp')
     c+=1
 
 plt.ylim(bottom=0.0)
@@ -158,10 +160,10 @@ plt.savefig("figures/log_loss_"+model_name+"_N"+str(modes)+"_L"+str(layers)+"_ph
 plt.show()
 plt.clf()
 
-c=3
+c=0
 for (train_loss, valid_loss, qnn) in zip(train_losses, valid_losses, qnns):
-    plt.plot(np.array(train_loss), c=colors(c), label=f'Train loss {legend_label}')
-    plt.plot(np.array(valid_loss), c=colors(c), linestyle='dashed', label=f'Validation loss {legend_label}')
+    plt.plot(np.array(train_loss), c=colors[c], label=f'Train loss {legend_label}')
+    plt.plot(np.array(valid_loss), c=colors[c], linestyle='dashed', label=f'Validation loss {legend_label}')
     c+=1
     
 plt.ylim(bottom=0.0)

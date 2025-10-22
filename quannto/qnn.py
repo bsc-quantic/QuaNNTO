@@ -51,15 +51,13 @@ class QNN:
         self.trace_expr = complete_trace_expression(self.N, layers, ladder_modes, is_addition, self.n_out, include_obs=True, obs=observable)
         # Normalization expression of the wavefunction related to photon additions
         self.norm_trace_expr = complete_trace_expression(self.N, layers, ladder_modes, is_addition, self.n_out, include_obs=False)
+        self.trace_expr.append(self.norm_trace_expr)
         
         # Observables constant coefficient
         self.trace_const = 1 if observable=='number' else (1/np.sqrt(2)) if observable=='position' else (-1j/np.sqrt(2)) if observable=='momentum' else 0
         
-        if observable=='third-order':
-            #x_const = 1/np.sqrt(2)
-            #p_const = (-1j/np.sqrt(2))
-            #self.trace_const = jnp.array([x_const, p_const, x_const**2, p_const**2, x_const*p_const, x_const**3, p_const**3, x_const*p_const**2, x_const**2*p_const])
-            self.trace_const = jnp.ones(len(self.trace_expr))
+        if observable=='cubicphase' or observable=='catstates':
+            self.trace_const = jnp.ones(len(self.trace_expr) - 1)
         
         # Extract ladder operators terms for expectation value expression(s)
         self.modes, self.types = [], []
@@ -67,11 +65,6 @@ class QNN:
             modes, types = extract_ladder_expressions(self.trace_expr[outs])
             self.modes.append(modes)
             self.types.append(types)
-        # Extract ladder operators terms for normalization expression
-        modes_norm, types_norm = extract_ladder_expressions(self.norm_trace_expr)
-        self.modes.append(modes_norm)
-        self.types.append(types_norm)
-        
         self.np_modes, self.lens_modes = to_np_array(self.modes)
         self.np_types, self.lens_types = to_np_array(self.types)
         self.jax_modes = jnp.array(self.np_modes)
@@ -101,17 +94,9 @@ class QNN:
                 unnorm_subs_expr_terms.append(new_term)
             self.unnorm_expr_terms_out.append(unnorm_subs_expr_terms)
         
-        norm_expr_terms = list(self.norm_trace_expr.args)
-        if len(norm_expr_terms) == 0:
-            self.unnorm_expr_terms_out.append([1])
-        else:
-            self.norm_subs_expr_terms = []
-            for norm_term in norm_expr_terms:
-                new_term = norm_term.subs(ladder_subs)
-                self.norm_subs_expr_terms.append(new_term)
-            self.unnorm_expr_terms_out.append(self.norm_subs_expr_terms)
         self.num_terms_per_trace = jnp.array([len(expr) for expr in self.unnorm_expr_terms_out])
         print(f"Number of terms for each trace: {self.num_terms_per_trace}")
+        
         self.exp_vals_inds = jnp.arange(len(self.jax_modes), dtype=jnp.int32)
         self.num_terms_in_trace = jnp.array([len(output_terms) for output_terms in self.modes])
         self.max_terms = jnp.max(self.num_terms_in_trace)
@@ -122,7 +107,7 @@ class QNN:
         trace_terms_coefs_inds = []
         trace_terms_coefs = []
         trace_terms_meta = []
-        if len(self.ladder_modes) > 0:
+        if len(self.ladder_modes) > 0 and self.layers > 1:
             for subexpr_terms in self.unnorm_expr_terms_out:
                 all_inds, coefs, meta = expressions_to_index_lists(N, layers, subexpr_terms)
                 num_inds = len(all_inds[0])
@@ -205,8 +190,8 @@ class QNN:
         self.Q2_gauss = jnp.zeros((self.layers, 2*self.N, 2*self.N), dtype=jnp.complex128)
         self.Z_gauss = jnp.zeros((self.layers, 2*self.N, 2*self.N), dtype=jnp.complex128)
         # Concatenation of symplectic matrix and displacement vectors of each layer
-        self.S_concat = jnp.zeros((2*self.N, 2*self.layers*self.N), dtype=jnp.complex128)
-        self.D_concat = jnp.zeros((2*self.layers*self.N), dtype=jnp.complex128)
+        self.S_concat = jnp.zeros((2*self.N, 2*(self.layers-1)*self.N), dtype=jnp.complex128)
+        self.D_concat = jnp.zeros((2*(self.layers-1)*self.N), dtype=jnp.complex128)
         # Final Gaussian transformation when commuting with photon additions (product of all Gaussians)
         self.G = jnp.eye(S_dim, dtype=jnp.complex128)
         self.G_fock = jnp.eye(S_dim, dtype=jnp.complex128)
@@ -241,22 +226,23 @@ class QNN:
             self.S_fock = self.S_fock.at[l].set(jnp.linalg.inv(self.u_bar.to_ladder_op(self.S_l[l])))
             self.G_fock = self.S_fock[l] @ self.G_fock
             
-            # Build concatenated symplectic matrices in Fock space for trace expressions' coefficients
-            self.S_concat = QNN.update_S(self.S_concat, l, self.G_fock, S_dim)
-            
             # Build displacements (linear Gaussian)
             self.D_l = self.D_l.at[l].set(parameters[current_par_idx : current_par_idx + 2*self.N])
             current_par_idx += 2*self.N
-            start = l * S_dim
-            end   = (l + 1) * S_dim
             d_fock = self.D_l[l, 0:self.N] + 1j*self.D_l[l, self.N:2*self.N]
             d_fock_vec = jnp.concat((d_fock, d_fock.conj()))
             self.D_fock = self.D_fock.at[l].set(d_fock_vec)
-            l_disp = -self.S_fock[l] @ d_fock_vec
-            if l < (self.layers - 1):
-                next_slice = self.D_concat[(l + 1) * S_dim : (l + 2) * S_dim]
-                l_disp = l_disp + self.S_fock[l] @ next_slice
-            self.D_concat = self.D_concat.at[start:end].set(l_disp)
+            
+            # Build concatenated symplectic matrices and displacements in Fock space for trace expressions' coefficients
+            if l > 0:
+                self.S_concat = QNN.update_S(self.S_concat, l - 1, self.G_fock, S_dim)
+                start = (l - 1) * S_dim
+                end   = l * S_dim
+                l_disp = -self.S_fock[l] @ d_fock_vec
+                if l < (self.layers - 2):
+                    next_slice = self.D_concat[(l + 1) * S_dim : (l + 2) * S_dim]
+                    l_disp = l_disp + self.S_fock[l] @ next_slice
+                self.D_concat = self.D_concat.at[start:end].set(l_disp)
 
         if self.observable == 'witness':
             self.trace_const = jnp.ones(self.N*(self.N+1) + self.N)
@@ -420,7 +406,8 @@ class QNN:
         K_exp_vals = self.compute_quad_exp_vals(V, mean_vector)
 
         # 4. Compute coefficients for trace expression and normalization terms
-        traces_terms_coefs = self.compute_coefficients() if len(self.ladder_modes) > 0 else self.jax_ones_coefs
+        #traces_terms_coefs = self.compute_coefficients() if len(self.ladder_modes) > 0 else self.jax_ones_coefs
+        traces_terms_coefs = self.compute_coefficients() if self.layers > 1 else self.jax_ones_coefs
         
         # 5. Compute the expectation values acting as outputs
         exp_vals = self.compute_exp_val_loop(traces_terms_coefs, K_exp_vals, mean_vector)
@@ -607,8 +594,9 @@ class QNN:
                 print(f"Symplectic matrix:\n{self.S_l[layer]}")
             check_symp_orth(self.S_l[layer])
             print(f"Displacement vector:\n{self.D_l[layer]}")
-            print(f"Symplectic coefficients:\n{self.S_concat[:,layer*2*self.N : (layer+1)*2*self.N]}")
-            print(f"Displacement coefficients:\n{self.D_concat[layer*2*self.N : (layer+1)*2*self.N]}")
+            if layer > 0:
+                print(f"Symplectic coefficients:\n{self.S_concat[:,(layer-1)*2*self.N : layer*2*self.N]}")
+                print(f"Displacement coefficients:\n{self.D_concat[(layer-1)*2*self.N : layer*2*self.N]}")
         
     def test_model(self, testing_dataset, loss_function):
         '''

@@ -19,9 +19,9 @@ _num_re = re.compile(r"^([d])(\d+)$")  # d<number>
 
 def build_meta_from_symbols(N, layers):
     dim = 2*N
-    d = symbols(f'd0:{layers*2*N}', commutative=True)
+    d = symbols(f'd0:{(layers-1)*2*N}', commutative=True)
     # Symplectic matrix 2Nx2N
-    S_i = MatrixSymbol('S_i', dim, layers*dim)
+    S_i = MatrixSymbol('S_i', dim, (layers-1)*dim)
     """A partir de tus símbolos, calcula offsets/tamaños del vector concatenado."""
     rows, cols = S_i.shape
     assert S_i.shape == (rows, cols)
@@ -197,24 +197,24 @@ def complete_trace_expression(N, layers, ladder_modes, is_addition, n_outputs, i
     '''
     dim = 2*N
     # Displacement vector (complex number 'r' and its conjugate 'i') in Fock for each mode
-    d = symbols(f'd0:{layers*dim}', commutative=True)
+    d = symbols(f'd0:{(layers-1)*dim}', commutative=True)
     # Symplectic matrix in Fock 2Nx2N
-    S_i = MatrixSymbol('S_i', dim, layers*dim)
+    S_i = MatrixSymbol('S_i', dim, (layers-1)*dim)
     # Creation (c) and annihilation (a) operators for each mode
     c = symbols(f'c0:{N}', commutative=False)
     a = symbols(f'a0:{N}', commutative=False)
     
     sup = 1
     sup_dag = 1
-    for l in range(layers):
-        for i in range(len(ladder_modes)):
+    for l in range(layers - 1):
+        for i in range(len(ladder_modes[l])):
             # Expectation value indexing in function of the ladder operator
             if is_addition:
-                idx = N + ladder_modes[i]
-                idx_dag = ladder_modes[i]
+                idx = N + ladder_modes[l][i]
+                idx_dag = ladder_modes[l][i]
             else:
-                idx = ladder_modes[i]
-                idx_dag = N + ladder_modes[i]
+                idx = ladder_modes[l][i]
+                idx_dag = N + ladder_modes[l][i]
             # Displacement terms
             expr = d[l*dim + idx]
             expr_dag = d[l*dim + idx_dag]
@@ -226,6 +226,14 @@ def complete_trace_expression(N, layers, ladder_modes, is_addition, n_outputs, i
                 expr_dag += S_i[idx_dag, l*dim + N+j]*c[j]
             sup = expr * sup
             sup_dag = sup_dag * expr_dag
+    
+    for i in ladder_modes[-1]:
+        if is_addition:
+            sup = c[i]*sup
+            sup_dag = sup_dag*a[i]
+        else:
+            sup = a[i]*sup
+            sup_dag = sup_dag*c[i]
     
     if include_obs:
         expanded_expr = []
@@ -254,15 +262,15 @@ def complete_trace_expression(N, layers, ladder_modes, is_addition, n_outputs, i
             #expanded_expr.append(expand(sup_dag*(c[0]*c[0]*c[0]*a[0]*a[0]*a[0])*sup)) #〈aaaa+a+a+〉
             #expanded_expr.append(expand(sup_dag*(a[0]*a[0]*a[0]*a[0]*c[0]*c[0]*c[0])*sup)) #〈aaa a a+a+a+〉
             #expanded_expr.append(expand(sup_dag*(a[0]*a[0]*a[0]*c[0]*c[0]*c[0]*c[0])*sup)) #〈aaa a+ a+a+a+〉
-        elif obs == 'third-order':
+        elif obs == 'cubicphase':
             expanded_expr.append(expand(sup_dag*a[0]*sup))
-            expanded_expr.append(expand(sup_dag*c[0]*sup))
             expanded_expr.append(expand(sup_dag*a[0]*a[0]*sup))
-            expanded_expr.append(expand(sup_dag*c[0]*c[0]*sup))
             expanded_expr.append(expand(sup_dag*a[0]*a[0]*a[0]*sup))
-            expanded_expr.append(expand(sup_dag*c[0]*c[0]*c[0]*sup))
-            expanded_expr.append(expand(sup_dag*c[0]*a[0]*a[0]*sup))
             expanded_expr.append(expand(sup_dag*c[0]*c[0]*a[0]*sup))
+            expanded_expr.append(expand(sup_dag*c[0]*a[0]*sup))
+            expanded_expr.append(expand(sup_dag*c[0]*a[0]*c[0]*a[0]*sup))
+        elif obs == 'catstates':
+            expanded_expr.append(expand(sup_dag*a[0]*a[0]*sup))
             expanded_expr.append(expand(sup_dag*c[0]*a[0]*sup))
             expanded_expr.append(expand(sup_dag*c[0]*a[0]*c[0]*a[0]*sup))
         else:

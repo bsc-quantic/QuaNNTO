@@ -32,6 +32,8 @@ def build_and_train_model(model_name, N, layers, n_inputs, n_outputs, ladder_mod
     :param save: Boolean determining whether to save the model (default=True)
     :return: Trained QNN model
     '''
+    assert layers == len(ladder_modes)
+    
     n_pars = layers*(2*N**2 + 3*N)# + 3 # 2nd mode real input displacement # + (N + 1) # Linear readout weights + bias
     if include_initial_squeezing:
         n_pars += N

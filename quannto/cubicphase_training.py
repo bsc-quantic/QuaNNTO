@@ -12,15 +12,15 @@ np.random.seed(42)
 
 # === HYPERPARAMETERS DEFINITION ===
 modes = [2,2]
-photon_additions = [[0],[0]]
-layers = [1,2]
+photon_additions = [[[0]],[[0,1]]]
+layers = [1,1]
 is_addition = False
-include_initial_squeezing = True
-include_initial_mixing = True
+include_initial_squeezing = False
+include_initial_mixing = False
 is_passive_gaussian = False
 n_inputs = 1
 n_outputs = 1
-observable = 'third-order'
+observable = 'cubicphase'
 in_norm_ranges = [(-2, 2)]*len(modes)
 out_norm_ranges = [(-2, 2)]*len(modes)
 loss_function = mse_energy_penalty
@@ -43,9 +43,9 @@ train_dataset = [inputs, outputs]
 
 colors = colormaps['tab10']
 #expvals = ['⟨x⟩', '⟨p⟩', '⟨x²⟩', '⟨p²⟩', '⟨xp⟩', '⟨x³⟩', '⟨p³⟩', '⟨xp²⟩', '⟨x²p⟩']
-expvals = ["a","a†","a²","a†²","a³","a†³","na","a†n","n","n²"]
-start_expval = 8
-end_expval = 10
+expvals = ["a","a²","a³","a†n","n","n²"]
+start_expval = 4
+end_expval = 6
 c=0
 for exp_val_idx in range(start_expval, end_expval):
     plt.plot(inputs, np.real_if_close(outputs[:,exp_val_idx]), c=colors(c), label=expvals[exp_val_idx])
@@ -99,6 +99,10 @@ for (N, l, ph_add, in_norm_range, out_norm_range) in zip(modes, layers, photon_a
     qnn_outs.append(qnn_test_outputs.copy())
     
 # PLOT RESULTS
+if is_addition:
+    nongauss_op = "â†"
+else:
+    nongauss_op = "â"
 legend_labels = [f'N={qnn.N}, L={qnn.layers}, {nongauss_op} in modes {np.array(qnn.ladder_modes) + 1}' for qnn in qnns] # α ∈ {in_norm_range}
 
 c=0

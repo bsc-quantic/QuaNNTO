@@ -101,12 +101,12 @@ def compute_cubic_expectations_fockspace(alpha, gamma, n_max):
 
     return {
         "a":  a_mean,
-        "a†":  adag_mean,
+        #"a†":  adag_mean,
         "a2": a2,
-        "a†2": adag2,
+        #"a†2": adag2,
         "a3": a3,
-        "a†3": adag3,
-        "na": n_a,
+        #"a†3": adag3,
+        #"na": n_a,
         "a†n": adag_n,
         "n": n,
         "n2": n2
@@ -126,7 +126,7 @@ inputs_dataset = []
 outputs_dataset = []
 for α in alpha_list:
     obs = compute_cubic_expectations_fockspace(α, gamma, n_max)
-    y = np.array([obs[k] for k in ("a","a†","a2","a†2","a3","a†3","na","a†n", "n", "n2")])
+    y = np.array([obs[k] for k in ("a","a2","a3","a†n", "n", "n2")])
     dataset.append(([α], y))
     inputs_dataset.append([α])
     outputs_dataset.append(y)
