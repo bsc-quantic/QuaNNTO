@@ -1,2 +1,2 @@
-# QuaNNto
-Quantum Neural Network Optics
+# QuaNNTO
+Quantum Neural Networks with Trainable Optics
