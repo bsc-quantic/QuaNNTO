@@ -8,9 +8,9 @@ from strawberryfields.ops import Ket
 def coherent_ket(alpha, cutoff):
     """|alpha> in the Fock basis up to 'cutoff' (standard convention)."""
     n = np.arange(cutoff)
-    coeffs = np.exp(-0.5 * abs(alpha)**2) * (alpha**n) / np.sqrt(np.maximum(1, np.array([np.math.factorial(k) for k in n])))
+    coeffs = np.exp(-0.5 * np.abs(alpha)**2) * (alpha**n) / np.sqrt(np.maximum(1, np.array([np.math.factorial(k) for k in n])))
     # factorial(0)=1; the max(1, ...) avoids divide-by-zero in vectorized form (safe anyway)
-    coeffs[0] = np.exp(-0.5 * abs(alpha)**2)  # ensure exact for n=0
+    coeffs[0] = np.exp(-0.5 * np.abs(alpha)**2)  # ensure exact for n=0
     return coeffs.astype(complex)
 
 def cat_even_ket(alpha, cutoff, phi=0.0):
@@ -42,10 +42,29 @@ def moments_from_rho(rho):
     a, adag, n_op = ladder_ops(cutoff)
     # Helper: Tr[rho @ O]
     tr = lambda O: np.trace(rho @ O)
+    
+    a1 = tr(a)
+    
     a2  = tr(a @ a)
     n1  = tr(n_op)           # <n>, real by construction
+    
+    a3 = tr(a @ a @ a)
+    a2adag = tr(a @ a @ adag)
+    
     n2  = tr(n_op @ n_op)
-    return dict(a2=a2, n=n1, n2=n2)
+    a4 = tr(a @ a @ a @ a)
+    a3adag = tr(a @ a @ a @ adag)
+    
+    a5 = tr(a @ a @ a @ a @ a)
+    a4adag = tr(a @ a @ a @ a @ adag)
+    a3adag2 = tr(a @ a @ a @ adag @ adag)
+    
+    n3 = tr(n_op @ n_op @ n_op)
+    a6 = tr(a @ a @ a @ a @ a @ a)
+    a5adag = tr(a @ a @ a @ a @ a @ adag)
+    a4adag2 = tr(a @ a @ a @ a @ adag @ adag)
+    
+    return dict(a1=a1, a2=a2, n1=n1, a3=a3, a2adag=a2adag, n2=n2, a4=a4, a3adag=a3adag, a5=a5, a4adag=a4adag, a3adag2=a3adag2, n3=n3, a6=a6, a5adag=a5adag, a4adag2=a4adag2)
 
 # ---------- Dataset builder ----------
 
@@ -68,15 +87,15 @@ def build_cat_dataset(alpha_list, cutoff=20, phi=0.0):
         state = result.state
         rho = state.reduced_dm(0)  # single-mode density matrix, shape (cutoff, cutoff)
         obs = moments_from_rho(rho)
-        y = np.array([obs["a2"], obs["n"], obs["n2"]], dtype=complex)
+        y = np.array([obs["a1"], obs["a2"], obs["n1"], obs["a3"], obs["a2adag"], obs["n2"], obs["a4"], obs["a3adag"], obs["a5"], obs["a4adag"], obs["a3adag2"], obs["n3"], obs["a6"], obs["a5adag"], obs["a4adag2"]], dtype=complex)
         inputs_dataset.append([alpha])
         outputs_dataset.append(y)
     return inputs_dataset, outputs_dataset
 
 # Grid of real alphas in some range
-dataset_size = 50
+dataset_size = 1
 alpha_range = (-1, 1)
-cutoff=20
+cutoff=18
 phi=0.0
 alphas = np.linspace(alpha_range[0], alpha_range[1], dataset_size)
 inputs_dataset, outputs_dataset = build_cat_dataset(alphas, cutoff=cutoff, phi=phi)  # even cat
@@ -84,6 +103,7 @@ ds = [inputs_dataset, outputs_dataset]
 
 with open(f"datasets/catstate_phi{phi}_trainsize{dataset_size}_rng{alpha_range[0]}to{alpha_range[-1]}_inputs.npy", "wb") as f:
     np.save(f, np.array(inputs_dataset))
+
 with open(f"datasets/catstate_phi{phi}_trainsize{dataset_size}_rng{alpha_range[0]}to{alpha_range[-1]}_outputs.npy", "wb") as f:
     np.save(f, np.array(outputs_dataset))
 
