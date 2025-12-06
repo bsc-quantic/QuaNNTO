@@ -4,8 +4,14 @@ import pandas as pd
 def test_linear_1in_1out(inputs):
     return 5*inputs[0] + 2
 
+def seven_1in_1out(inputs):
+    return 0.5*inputs[0]**7 - 0.3*inputs[0]**6 - 0.25*inputs[0]**5 - 0.4*inputs[0]**4 + 0.7*inputs[0]**3 - 1.7*inputs[0]**2 + 2.4*inputs[0]
+
+def five_1in_1out(inputs):
+    return inputs[0]**5
+
 def five_function_1in_1out(inputs):
-    return 0.25*inputs[0]**5 + 0.4*inputs[0]**4 + 0.7*inputs[0]**3 + 1.7*inputs[0]**2 + 2.4*inputs[0] + 5
+    return 0.25*inputs[0]**5 + 0.4*inputs[0]**4 + 0.7*inputs[0]**3 + 1.7*inputs[0]**2 + 2.4*inputs[0]
 
 def three_function_1in_1out(inputs):
     return 0.5*inputs[0]**3 + 1.3*inputs[0]**2 + 1.8*inputs[0] + 3
@@ -29,8 +35,26 @@ def log_function_1in_1out(inputs):
 def hyperbola_1in_1out(inputs):
     return 1 + 2/inputs[0]
 
+def rational_1in_1out(inputs):
+    return (inputs[0]**2 + inputs[0] - 2) / (inputs[0]**4 + 2)
+
 def exp_1in_1out(inputs):
-    return np.e**inputs[0] + 1
+    return np.e**inputs[0]
+
+def gauss_1in_1out(inputs):
+    return np.e**(-inputs[0]**2)
+
+def sinh_1in_1out(inputs):
+    return np.e**inputs[0] - np.e**(-inputs[0])
+
+def cosh_1in_1out(inputs):
+    return np.e**inputs[0] + np.e**(-inputs[0])
+
+def tanh_1in_1out(inputs):
+    return np.tanh(inputs[0])
+
+def abs_1in_1out(inputs):
+    return np.abs(inputs[0])
 
 def sin_1in_1out(inputs):
     return np.sin(inputs[0])
