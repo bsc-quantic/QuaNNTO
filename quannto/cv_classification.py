@@ -14,26 +14,25 @@ from .loss_functions import *
 np.random.seed(42)
 
 # === HYPERPARAMETERS DEFINITION ===
-N = 2
-ladder_modes = [0]
+N = 3
+ladder_modes = [[0]]
 layers = 1
 is_addition = False
-include_initial_squeezing = True
-include_initial_mixing = True
-is_passive_gaussian = True
+include_initial_squeezing = False
+include_initial_mixing = False
+is_passive_gaussian = False
 n_inputs = 2
 n_outputs = 2
 observable = 'position'
-in_norm_range = (-1, 1)
-out_norm_range = (1, 2)
+in_norm_range = (-3, 3)
+out_norm_range = (1, 5)
 loss_function = cross_entropy
 basinhopping_iters = 2
 
 # === DATASET SETTINGS ===
 #dataset_name = 'moons'
 dataset_name = 'circles'
-#dataset_name = 'banknote_auth'
-trainset_size = 120
+trainset_size = 100
 validset_size = 50
 num_cats = 2
 dataset_size_per_cat = trainset_size // 2
@@ -62,7 +61,7 @@ out_preprocessors.append(partial(rescale_data, data_range=output_range, scale_da
 
 postprocessors = []
 
-# === BUILD, TRAIN AND TEST QNN ===
+# === BUILD TRAINING, VALIDATION AND TESTING DATASET ===
 balanced_trainset = (
     np.concatenate(
         (dataset[0][:dataset_size_per_cat], dataset[0][-dataset_size_per_cat:])
@@ -85,14 +84,13 @@ balanced_validset = (
 valid_dataset = None
 
 test_dataset = (
-    dataset[0][dataset_size_per_cat+validset_size_per_cat : -(dataset_size_per_cat+validset_size_per_cat)],
-    one_hot_encoding(dataset[1][dataset_size_per_cat+validset_size_per_cat : -(dataset_size_per_cat+validset_size_per_cat)], num_cats)
+    dataset[0],
+    one_hot_encoding(dataset[1], num_cats)
 )
-#test_outputs_cats = dataset[1][dataset_size_per_cat+validset_size_per_cat : -(dataset_size_per_cat+validset_size_per_cat)]
 test_outputs_cats = dataset[1]
 test_outputs_cats = test_outputs_cats.reshape((len(test_outputs_cats)))
 
-# Build the QNN and train it with the generated dataset
+# === BUILD, TRAIN AND TEST QNN ===
 qnn, train_loss, valid_loss = build_and_train_model(model_name, N, layers, n_inputs, n_outputs, ladder_modes, is_addition, observable,
                                                     include_initial_squeezing, include_initial_mixing, is_passive_gaussian,
                                                     train_dataset, valid_dataset, loss_function, basinhopping_iters, in_preprocessors, out_preprocessors, postprocessors)
@@ -109,18 +107,22 @@ plt.xlabel('Epochs')
 plt.ylabel('Logarithmic loss value')
 plt.title(f'LOGARITHMIC LOSS FUNCTIONS')
 plt.legend()
-plt.savefig(f"figures/logloss_{model_name}.png")
-#plt.show()
+plt.savefig(f"figures/logloss_{model_name}.pdf")
+plt.show()
 plt.clf()
 
 # Test the trained QONN with the unused samples of the MNIST dataset
-#qnn_test_outputs = qnn.test_model(test_dataset, loss_function)
-qnn_test_outputs = qnn.test_model(dataset, loss_function)
+qnn_test_outputs = qnn.test_model(test_dataset, loss_function)
 with open(f"testing/{model_name}.npy", "wb") as f:
     np.save(f, np.array(qnn_test_outputs))
 qnn_test_prob_outs = softmax_discretization(qnn_test_outputs)
 qnn_test_cat_outs = greatest_probability(qnn_test_prob_outs)
 qnn_test_cat_outs = qnn_test_cat_outs.reshape((len(qnn_test_cat_outs)))
+if is_addition:
+    nongauss_op = "â†"
+else:
+    nongauss_op = "â"
+plot_title = f'QONN of N={qnn.N}, L={qnn.layers}, {nongauss_op} in modes {np.array(qnn.ladder_modes[0]) + 1}'
 
 def plot_qonn_decision(X, y, predict_proba, title="QONN decision boundary"):
     # 1) Scatter original data
@@ -150,14 +152,17 @@ def plot_qonn_decision(X, y, predict_proba, title="QONN decision boundary"):
     plt.ylabel("$x_2$")
     plt.xlim(x_min, x_max)
     plt.ylim(y_min, y_max)
-    plt.savefig(f"figures/{model_name}.png")
-    plt.show()
-#plot_qonn_decision(test_dataset[0], test_outputs_cats, qnn.evaluate_model)
-plot_qonn_decision(dataset[0], test_outputs_cats, qnn.evaluate_model)
+    plt.savefig(f"figures/{model_name}.pdf")
+    
+plot_qonn_decision(test_dataset[0], test_outputs_cats, qnn.evaluate_model, plot_title)
+plt.show()
+plt.clf()
 
 accuracy = np.equal(qnn_test_cat_outs, test_outputs_cats).sum()
 print(f"Accuracy: {accuracy}/{len(qnn_test_cat_outs)} = {accuracy/len(qnn_test_cat_outs)}")
 plot_qnn_testing(qnn, test_outputs_cats, qnn_test_cat_outs)
+plt.show()
+plt.clf()
 
 # Generate the confusion matrix
 cm = confusion_matrix(test_outputs_cats, qnn_test_cat_outs)
@@ -175,8 +180,8 @@ for t in ax.texts:
 plt.title('Confusion Matrix')
 plt.xlabel('Predicted Label')
 plt.ylabel('True Label')
-#plt.show()
-plt.savefig(f"figures/cm_{model_name}.png")
+plt.show()
+plt.savefig(f"figures/cm_{model_name}.pdf")
 plt.clf()
 
 plt.figure(figsize=(8, 6))
@@ -187,6 +192,6 @@ for t in ax.texts:
 plt.title('Confusion Matrix')
 plt.xlabel('Predicted Label')
 plt.ylabel('True Label')
-#plt.show()
-plt.savefig(f"figures/cmacc_{model_name}.png")
+plt.show()
+plt.savefig(f"figures/cmacc_{model_name}.pdf")
 plt.clf()
