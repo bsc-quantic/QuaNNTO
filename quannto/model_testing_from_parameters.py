@@ -12,16 +12,16 @@ np.random.seed(42)
 
 # === HYPERPARAMETERS DEFINITION ===
 modes = 2
-ladder_modes = [0]
-layers = 2
-is_addition = True
+ladder_modes = [[0,0]]
+layers = 1
+is_addition = False
 include_initial_squeezing = False
 include_initial_mixing = False
 is_passive_gaussian = False
 n_inputs = 1
 n_outputs = 1
 observable = 'position'
-in_norm_range = (-2, 2)
+in_norm_range = (-5, 5)
 out_norm_range = (-2, 2)
 loss_function = mse
 # Random parameters
@@ -31,27 +31,6 @@ if include_initial_squeezing:
 if include_initial_mixing:
     n_pars += modes**2
 params = np.random.rand(n_pars)
-""" params = np.array([0.37454012, 0.95071431, 0.73199394, 0.59865848, 0.15601864, 0.15599452,
- 0.05808361, 0.86617615, 0.60111501, 0.70807258, 0.02058449, 0.96990985,
- 0.83244264, 0.21233911]) """
-params = np.array([0.18182497, 0.18340451, 0.30424224, 0.52475643,
- 0.43194502, 0.29122914, 0.61185289, 0.13949386, 0.29214465, 0.36636184,
- 0.45606998, 0.78517596, 0.19967378, 0.51423444, 0.37454012, 0.95071431, 0.73199394, 0.59865848, 0.15601864, 0.15599452,
- 0.05808361, 0.86617615, 0.60111501, 0.70807258, 0.02058449, 0.96990985,
- 0.83244264, 0.21233911])
-"""params = np.array([0.37454012, 0.95071431, 0.73199394, 0.59865848, 0.15601864, 0.15599452,
- 0.05808361, 0.86617615, 0.60111501, 0.70807258, 0.02058449, 0.96990985,
- 0.83244264, 0.21233911, 0.18182497, 0.18340451, 0.30424224, 0.52475643,
- 0.43194502, 0.29122914, 0.61185289, 0.13949386, 0.29214465, 0.36636184,
- 0.45606998, 0.78517596, 0.19967378, 0.51423444]) """
-# Squeezing
-""" params = np.array([ 0.01025137,  0.47277251,  1.44013569,  1.57896821,  0.03567841,  0.19049764,
-  0.2086248,   0.60184093, -2.99487624,  0.07580988,  0.01767892,  0.10691931,
-  0.1692862,   0.3223461 ]) """
-# No squeezing
-""" params = np.array([ 0.16074294,  1.5422531,   0.57696016,  0.70204455,  0.1477138,   1.09022984,
-  0.01934681, -0.16175933,  0.,          0.,          0.02865456,  0.11995181,
-  1.31325591,  0.19158564]) """
 
 # === TARGET FUNCTION SETTINGS ===
 target_function = sin_1in_1out
@@ -96,13 +75,6 @@ print(np.round(qnn.D_concat, 4))
 print(qnn.S_l)
 print(qnn.S_concat)
 qnn.print_qnn()
-print(qnn.eval_QNN_nojax(qnn.tunable_parameters, inputs=np.array([2,0,0,0])))
-input('alpha 0')
-print(qnn.eval_QNN_nojax(qnn.tunable_parameters, inputs=np.array([1,1,0,0])))
-input('alpha 1')
-print(qnn.eval_QNN_nojax(qnn.tunable_parameters, inputs=np.array([2,2,0,0])))
-input('alpha 2')
-
     
 c = 0
 plt.plot(test_dataset[0], test_dataset[1], 'o', markerfacecolor='g', markeredgecolor='none', alpha=0.25, label='Expected results')
@@ -113,6 +85,6 @@ plt.xlim()
 plt.ylabel('Output')
 plt.grid(linestyle='--', linewidth=0.4)
 plt.legend()
-plt.savefig("figures/testing_"+model_name+"_N"+str(modes)+"_L"+str(layers)+"_ph"+str(ladder_modes)+"_in"+str(input_range)+".png")
+plt.savefig("figures/testing_"+model_name+"_N"+str(modes)+"_L"+str(layers)+"_ph"+str(ladder_modes)+"_in"+str(input_range)+".pdf")
 plt.show()
 plt.clf()
