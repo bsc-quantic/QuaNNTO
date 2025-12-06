@@ -140,7 +140,7 @@ def extract_ladder_expressions(trace_expr):
     '''
     if isinstance(trace_expr, sp.Add):
         trace_args = list(trace_expr.args)
-    elif isinstance(trace_expr, sp.Symbol) or isinstance(trace_expr, sp.Mul):
+    elif isinstance(trace_expr, sp.Symbol) or isinstance(trace_expr, sp.Mul) or isinstance(trace_expr, sp.Pow):
         trace_args = [trace_expr]
     elif isinstance(trace_expr, sp.core.numbers.One):
         trace_args = []
@@ -270,9 +270,27 @@ def complete_trace_expression(N, layers, ladder_modes, is_addition, n_outputs, i
             expanded_expr.append(expand(sup_dag*c[0]*a[0]*sup))
             expanded_expr.append(expand(sup_dag*c[0]*a[0]*c[0]*a[0]*sup))
         elif obs == 'catstates':
+            # 1st moments (zero)
+            expanded_expr.append(expand(sup_dag*a[0]*sup))
+            # 2nd moments
             expanded_expr.append(expand(sup_dag*a[0]*a[0]*sup))
             expanded_expr.append(expand(sup_dag*c[0]*a[0]*sup))
+            # 3rd moments (zero)
+            expanded_expr.append(expand(sup_dag*a[0]*a[0]*a[0]*sup))
+            expanded_expr.append(expand(sup_dag*a[0]*a[0]*c[0]*sup))
+            # 4th moments
             expanded_expr.append(expand(sup_dag*c[0]*a[0]*c[0]*a[0]*sup))
+            expanded_expr.append(expand(sup_dag*a[0]*a[0]*a[0]*a[0]*sup))
+            expanded_expr.append(expand(sup_dag*a[0]*a[0]*a[0]*c[0]*sup))
+            # 5th moments (zero)
+            expanded_expr.append(expand(sup_dag*a[0]*a[0]*a[0]*a[0]*a[0]*sup))
+            expanded_expr.append(expand(sup_dag*a[0]*a[0]*a[0]*a[0]*c[0]*sup))
+            expanded_expr.append(expand(sup_dag*a[0]*a[0]*a[0]*c[0]*c[0]*sup))
+            # 6th moments
+            expanded_expr.append(expand(sup_dag*c[0]*a[0]*c[0]*a[0]*c[0]*a[0]*sup))
+            expanded_expr.append(expand(sup_dag*a[0]*a[0]*a[0]*a[0]*a[0]*a[0]*sup))
+            expanded_expr.append(expand(sup_dag*a[0]*a[0]*a[0]*a[0]*a[0]*c[0]*sup))
+            expanded_expr.append(expand(sup_dag*a[0]*a[0]*a[0]*a[0]*c[0]*c[0]*sup))
         else:
             for i in range(n_outputs):
                 if obs == 'position' or obs == 'momentum':
