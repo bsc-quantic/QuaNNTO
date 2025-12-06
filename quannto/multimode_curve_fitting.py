@@ -13,9 +13,9 @@ from .loss_functions import *
 np.random.seed(42)
 
 # === HYPERPARAMETERS DEFINITION ===
-modes = [2,2,2]#,2,3,4]
-qnns_ladder_modes = [[[]], [[0]], [[0,1]]]#, [[0],[0]], [[0,1,2]], [[0,1,2,3]]]
-layers = [1,1,1]#,2,1,1]
+modes = [2,3,4]
+qnns_ladder_modes = [[[1,2]], [[1,2,3]], [[0],[1]]]
+layers = [1,1,2]
 is_addition = False
 include_initial_squeezing = False
 include_initial_mixing = False
@@ -23,15 +23,17 @@ is_passive_gaussian = False
 n_inputs = 1
 n_outputs = 1
 observable = 'position'
-in_norm_ranges = [(-2, 2)]*len(modes)
-out_norm_ranges = [(-2, 2)]*len(modes)
+in_norm_ranges = [(-3, 3)]*len(modes)
+out_norm_ranges = [(1, 3)]*len(modes)
+#in_norm_ranges = [None]*len(modes)
+#out_norm_ranges = [None]*len(modes)
 loss_function = mse
-basinhopping_iters = 0
+basinhopping_iters = 2
 params = None
 
 # === TARGET FUNCTION SETTINGS ===
-target_function = trig_fun
-input_range = (-1, 1.5)
+target_function = sin_1in_1out
+input_range = (-6.3, 6.3)
 trainset_noise = 0.1
 trainset_size = 100
 testset_size = 200
@@ -56,7 +58,7 @@ train_dataset = (train_dataset[1].reshape((trainset_size, 1)), train_dataset[0].
 
 # Generate a validation dataset of the target function
 valid_dataset = generate_dataset_of(target_function, n_inputs, n_outputs, validset_size, input_range)
-#valid_dataset = None
+valid_dataset = None
 
 # Generate a linear dataset without noise to plot the real function
 real_function = generate_linear_dataset_of(target_function, n_inputs, n_outputs, trainset_size*100, input_range)
@@ -72,15 +74,12 @@ plt.ylabel('f(x)')
 plt.grid(linestyle='--', linewidth=0.4)
 plt.legend(loc='upper right')
 plt.savefig("figures/trainset_"+target_function.__name__+"_size"+str(trainset_size)+"_range"+str(input_range)+".png")
-#plt.show()
+plt.show()
 plt.clf()
 
 # Generate a linearly-spaced testing dataset of the target function and test the trained QNN
 test_dataset = generate_linear_dataset_of(target_function, n_inputs, n_outputs, testset_size, input_range)
 # === BUILD, TRAIN AND TEST QNN MODELS WITH DIFFERENT MODES ===
-#colors = plt.cm.rainbow(np.linspace(0, 1, len(modes)))
-#colors = colormaps['tab10']
-colors = matplotlib.cm.tab10(range(len(modes)))
 train_losses = []
 valid_losses = []
 qnn_loss = []
@@ -89,14 +88,15 @@ qnns = []
 for (N, l, ladder_modes, in_norm_range, out_norm_range) in zip(modes, layers, qnns_ladder_modes, in_norm_ranges, out_norm_ranges):
     # Initialize the desired data processors for pre/post-processing
     in_preprocessors = []
-    in_preprocessors.append(partial(rescale_data, data_range=input_range, scale_data_range=in_norm_range))
+    if in_norm_range != None:
+        in_preprocessors.append(partial(rescale_data, data_range=input_range, scale_data_range=in_norm_range))
     in_preprocessors.append(partial(pad_data, length=2*N))
 
     out_preprocessors = []
-    out_preprocessors.append(partial(rescale_data, data_range=output_range, scale_data_range=out_norm_range))
-
     postprocessors = []
-    postprocessors.append(partial(rescale_data, data_range=out_norm_range, scale_data_range=output_range))
+    if out_norm_range != None:
+        out_preprocessors.append(partial(rescale_data, data_range=output_range, scale_data_range=out_norm_range))
+        postprocessors.append(partial(rescale_data, data_range=out_norm_range, scale_data_range=output_range))
 
     model_name = target_function.__name__ + "_N" + str(N) + "_L" + str(l) + "_ph" + str(ladder_modes) + "_in" + str(in_norm_range) + "_out" + str(out_norm_range)
     # Build the QNN and train it with the generated dataset
@@ -124,12 +124,22 @@ if is_addition:
     nongauss_op = "â†"
 else:
     nongauss_op = "â"
-legend_labels = [f'N={qnn.N}, L={qnn.layers}, {nongauss_op} in modes {np.array(qnn.ladder_modes[0]) + 1}' for qnn in qnns] # α ∈ {in_norm_range}
+legend_labels = [f'N={qnn.N}, L={qnn.layers}, {nongauss_op} in modes {np.array(qnn.ladder_modes[0])+1}' for qnn in qnns] # α ∈ {in_norm_range}
 
-plt.plot(test_dataset[0], test_dataset[1], 'o', markerfacecolor='g', markeredgecolor='none', alpha=0.35, label='Expected results')
+colors = matplotlib.cm.tab10(range(len(modes)))
+linestyles = [
+     #(0, (1, 1)),
+     (5, (10, 3)),
+     (0, (3, 1, 1, 1)),
+     (0, (5, 5)),
+     (0, (3, 1, 1, 1, 1, 1)),
+     (0, (5, 1)),
+     (0, (3, 5, 1, 5))]
+
+plt.plot(test_dataset[0], test_dataset[1], c='black', linewidth=6.0, alpha=0.2, label='Expected results')
 c=0
-for (qnn_test_outputs, legend_label) in zip(qnn_outs, legend_labels):
-    plt.plot(test_dataset[0], qnn_test_outputs, c=colors[c], linestyle='dashed', label=legend_label)
+for (qnn_test_outputs, legend_label, linestyle) in zip(qnn_outs, legend_labels, linestyles):
+    plt.plot(test_dataset[0], qnn_test_outputs, c=colors[c], linestyle=linestyle, linewidth=1.8, label=legend_label)
     c+=1
 plt.title(f'TESTING SET')
 plt.xlabel('Input')
@@ -144,10 +154,10 @@ plt.show()
 plt.clf()
 
 c=0
-for (train_loss, valid_loss, legend_label) in zip(train_losses, valid_losses, legend_labels):
+for (train_loss, valid_loss, legend_label, linestyle) in zip(train_losses, valid_losses, legend_labels, linestyles):
     x_log = np.log(np.array(range(1,len(train_loss)+1)))
-    plt.plot(np.log(np.array(train_loss)+1), c=colors[c], label=f'Train loss {legend_label}')#, {input_range} disp')
-    plt.plot(np.log(np.array(valid_loss)+1), c=colors[c], linestyle='dashed', label=f'Validation loss {legend_label}')#, {input_range} disp')
+    plt.plot(np.log(np.array(train_loss)+1), c=colors[c], linestyle=linestyle, label=f'Train loss {legend_label}')#, {input_range} disp')
+    plt.plot(np.log(np.array(valid_loss)+1), c=colors[c], linestyle='dotted', label=f'Validation loss {legend_label}')#, {input_range} disp')
     c+=1
 
 plt.ylim(bottom=0.0)
@@ -161,9 +171,9 @@ plt.show()
 plt.clf()
 
 c=0
-for (train_loss, valid_loss, qnn) in zip(train_losses, valid_losses, qnns):
-    plt.plot(np.array(train_loss), c=colors[c], label=f'Train loss {legend_label}')
-    plt.plot(np.array(valid_loss), c=colors[c], linestyle='dashed', label=f'Validation loss {legend_label}')
+for (train_loss, valid_loss, qnn, linestyle) in zip(train_losses, valid_losses, qnns, linestyles):
+    plt.plot(np.array(train_loss), c=colors[c], linestyle=linestyle, label=f'Train loss {legend_label}')
+    plt.plot(np.array(valid_loss), c=colors[c], linestyle='dotted', label=f'Validation loss {legend_label}')
     c+=1
     
 plt.ylim(bottom=0.0)
@@ -176,4 +186,6 @@ plt.savefig("figures/loss_"+model_name+"_N"+str(modes)+"_L"+str(layers)+"_ph"+st
 #plt.show()
 plt.clf()
 
-print(f'MINIMAL LOSSES ACHIEVED: {qnn_loss}')
+print('=== MINIMAL LOSSES ACHIEVED ===')
+for i in range(len(legend_labels)):
+    print(f'{legend_labels[i]}: {qnn_loss[i]}')
