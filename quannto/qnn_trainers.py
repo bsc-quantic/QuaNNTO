@@ -69,12 +69,9 @@ def build_and_train_model(model_name, N, layers, n_inputs, n_outputs, ladder_mod
             bounds += [sqz_bounds for _ in range(N)]
             # Displacement bounds
             bounds += [disp_bounds for _ in range(2*N)]
-    #bounds += [(None, None)]*(N+1) # Linear readout weights + bias
-    #bounds += [disp_bounds]*3 # Initial displacement on mode 2
     
     print(f'Number of tunable parameters: {n_pars}')
     assert len(bounds) == n_pars, f"Number of bounds {len(bounds)} does not match number of parameters {n_pars}."
-    
     def callback(xk):
         '''
         Prints and stores the MSE error value for each QNN training epoch.
@@ -112,10 +109,12 @@ def build_and_train_model(model_name, N, layers, n_inputs, n_outputs, ladder_mod
                 best_pars = x.copy()
                 best_loss_values = loss_values.copy()
                 best_validation_loss = validation_loss.copy()
+                qnn.save_model(qnn.model_name)
         else:
             if best_loss_values[-1] > loss_values[-1]:# and best_loss_values[-1] > loss_values[-1]:
                best_pars = x.copy()
                best_loss_values = loss_values.copy()
+               qnn.save_model(qnn.model_name+".txt")
         loss_values = [9999]
         validation_loss = [9999]
     qnn = QNN(model_name, N, layers, n_inputs, n_outputs, ladder_modes, is_addition, observable,
@@ -156,9 +155,13 @@ def build_and_train_model(model_name, N, layers, n_inputs, n_outputs, ladder_mod
     
     minimizer_kwargs = {"method": "L-BFGS-B", "bounds": bounds, "callback": callback}
     opt_result = opt.basinhopping(training_QNN, init_pars, niter=hopping_iters, minimizer_kwargs=minimizer_kwargs, callback=callback_hopping)
+    #qnn = QNN.load_model("models/trig_fun_N2_L1_ph[[0]]_in(-3, 3)_out(1, 3).txt")
     print(f'Total training time: {time.time() - training_start} seconds')
-    
-    print(f'\nOPTIMIZATION ERROR FOR N={N}, L={layers}')
+    if is_addition:
+        nongauss_op = "â†"
+    else:
+        nongauss_op = "â"
+    print(f'\nOPTIMIZATION ERROR FOR N={N}, L={layers}, {nongauss_op} modes={np.array(ladder_modes[0])+1}')
     print(best_loss_values[-1])
     
     #qnn.build_QNN(opt_result.lowest_optimization_result.x)
