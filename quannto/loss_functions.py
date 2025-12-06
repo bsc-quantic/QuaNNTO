@@ -19,7 +19,7 @@ def mse(expected: jnp.ndarray,
 
 def mse_energy_penalty(expected: jnp.ndarray,
                       obtained: jnp.ndarray,
-                      penalty_lambda: float = 0.2) -> jnp.ndarray:
+                      penalty_lambda: float = 0.2) -> jnp.ndarray: # FIXME
     """
     expected, obtained: shape (B, D) or (B,) — real or complex
     Returns a scalar jnp.ndarray (dtype float64/float32).
