@@ -1,19 +1,18 @@
 from __future__ import annotations
 import numpy as np
+import sympy as sp
 from sympy import symbols, expand, MatrixSymbol
+from sympy.matrices.expressions.matexpr import MatrixElement
+import jax
+from jax import lax
 import jax.numpy as jnp
 from functools import partial
+from typing import List, Tuple, Sequence
+import re
 
 from .utils import *
 
-# ---------- PRE-CÁLCULO (una sola vez, con SymPy) ----------
-import re
-from typing import List, Tuple, Sequence
-import sympy as sp
-from sympy.matrices.expressions.matexpr import MatrixElement
-import numpy as np
-
-# ===== TEST =====
+ONEOVERSQRT2 = 1.0 / np.sqrt(2.0)
 
 _num_re = re.compile(r"^([d])(\d+)$")  # d<number>
 
@@ -308,6 +307,149 @@ def compute_quad_exp_vals(N, V, means):
     K11 = K00.conj()
 
     return jnp.stack([K00, K01, K10, K11], axis=0)
+
+def wick_expansion_expval(trace_idx, tr_term_idx, N, jax_lens, jax_modes, jax_types, jax_lpms, quadratic_exp_vals, means_vector):
+    """
+    Vectorized over all perfect‐matchings for a given (trace_idx, tr_term_idx).
+    
+    :param trace_idx: Index of the trace expression to be evaluated
+    :param tr_term_idx: Index of the term to be handled in the trace expression
+    :param quadratic_exp_vals: Expectation values of all combinations of ladder operators pairs
+    :param means_vector: Position and momentum expectation values of all modes (xxpp order)
+    :return: Expectation value of the trace expression term using Wick's expansion
+    """
+
+    # 1. Identify the set of loop perfect matchings for the current term
+    lpms_idx = jax_lens[trace_idx, tr_term_idx] - 2
+    all_pms = jax_lpms[lpms_idx]
+
+    # 2. Reshape the loop perfect matchings in pair format
+    p1 = all_pms[:, ::2]
+    p2 = all_pms[:, 1::2]
+
+    # 3. Get ladder modes and types for the current term
+    modes_row = jax_modes[trace_idx, tr_term_idx]
+    types_row = jax_types[trace_idx, tr_term_idx]
+
+    def term_prod(p1_row, p2_row):
+        def valid_pms(_):
+            # 3.1. Identify valid pairs (i.e. exclude padding positions)
+            valid = p1_row >= 0 # False for matchings with -1
+
+            # 3.2. Get modes and types for each pair
+            m1 = modes_row[p1_row.clip(0)]
+            m2 = modes_row[p2_row.clip(0)]
+            t1 = types_row[p1_row.clip(0)]
+            t2 = types_row[p2_row.clip(0)]
+
+            # 3.3. Compute mean and covariance terms for each pair
+            mean_term = ONEOVERSQRT2 * (means_vector[m1] + 1j*(-2*t1 + 1)*means_vector[N+m1])
+            cov_term  = quadratic_exp_vals[t1 + 2*t2, m1, m2]
+
+            # 3.4. Determine expectation value based on whether it is a loop or a pair
+            pair_val = jnp.where(p1_row != p2_row, cov_term, mean_term)
+
+            # 3.5. Exclude invalid pairs from the product
+            pair_val = jnp.where(valid, pair_val, 1.0 + 0.0j)
+
+            # 3.6. Compute product of all pairs in the loop perfect matching set
+            return jnp.prod(pair_val)
+        
+        def null_pm(_):
+            return 0 + 0j
+        
+        return lax.cond(
+            p1_row[0] == -1,
+            null_pm,
+            valid_pms,
+            operand=None
+        )
+
+    # 4. Compute products for all existing sets of loop perfect matchings
+    prods = jax.vmap(term_prod, in_axes=(0,0))(p1, p2)
+
+    # 5. Sum each set's loop perfect matching product to get final expectation value
+    finalsum = jnp.sum(prods)
+    return finalsum
+
+def get_expectation_value(trace_idx, tr_term_idx, N, jax_lens, jax_modes, jax_types, jax_lpms, quadratic_exp_vals, means_vector):
+    '''
+    Dispatches the expectation value calculation method based on the number of
+    ladder operators in the term expression.
+    Cases: no operators (pure Gaussian state - return 1), one operator (use means vector), 
+    two or more operators (Wick's expansion based on loop perfect matchings).
+    
+    :param trace_idx: Index of the trace expression to be evaluated
+    :param tr_term_idx: Index of the term to be handled in the trace expression
+    :param quadratic_exp_vals: Expectation values of all combinations of ladder operators pairs over system's modes
+    :param means_vector: Position and momentum expectation values of all modes (xxpp order)
+    :return: Expectation value of the provided expression
+    '''
+    len_term = jax_lens[trace_idx, tr_term_idx]
+
+    # Case -1: Non-existent term (padded) → return 0
+    def casenull(_):
+        return 0.0+0.0j
+
+    # Case 0: No ladder op Tr[ρ] → return 1
+    def case0(_):
+        return 1.0+0.0j
+
+    # Case 1: Single ladder op Tr[a# ρ] → means vector
+    def case1(_):
+        mode = jax_modes[trace_idx, tr_term_idx, 0]
+        typ  = jax_types[trace_idx, tr_term_idx, 0]
+        return ONEOVERSQRT2 * (means_vector[mode] + 1j*(-2*typ + 1)*means_vector[N+mode])
+
+    # Case 2: Pair or more ladder ops Tr[a#a#... ρ] → Wick expansion
+    def case2(_):
+        return wick_expansion_expval(
+            trace_idx, tr_term_idx, N, jax_lens, jax_modes, jax_types, jax_lpms, quadratic_exp_vals, means_vector
+        )
+    
+    return lax.cond(
+        len_term == -1,
+        casenull,
+        lambda _: lax.cond(
+            len_term == 0,
+            case0,
+            lambda _: lax.cond(
+                len_term == 1,
+                case1,
+                case2,
+                operand=None
+            ),
+            operand=None
+        ),
+        operand=None
+    )
+    
+def compute_terms_in_trace(trace_idx, terms_coefs, N, trace_terms_ranges, jax_lens, jax_modes, jax_types, jax_lpms, quadratic_exp_vals, means_vector):
+    '''
+    Computes each term in the trace by calculating the term expression's expectation value
+    and multiplying it by its corresponding coefficient.
+    
+    :param trace_idx: Index of the trace expression to be evaluated
+    :param terms_coefs: Coefficients of each term in the trace expression
+    :param quadratic_exp_vals: Expectation values of all combinations of ladder operators pairs over system's modes
+    :param means_vector: Position and momentum expectation values of all modes (xxpp order)
+    :return: Final expectation value of the output
+    '''
+    expvals = jax.vmap(get_expectation_value, in_axes=(None, 0, None, None, None, None, None, None, None))(trace_idx, trace_terms_ranges[trace_idx], N, jax_lens, jax_modes, jax_types, jax_lpms, quadratic_exp_vals, means_vector)
+    tr_value = jnp.sum(terms_coefs * expvals)
+    return tr_value
+
+def compute_exp_val_loop(exp_vals_inds, exp_vals_terms_coefs, N, trace_terms_ranges, jax_lens, jax_modes, jax_types, jax_lpms, quadratic_exp_vals, means_vector):
+    '''
+    Computes the expectation value of the expression (trace) that defines the final QONN state.
+
+    :param exp_vals_terms_coefs: Coefficients of the unnormalized terms of the trace expression
+    :param quadratic_exp_vals: Expectation values of all combinations of ladder operators pairs over system's modes
+    :param means_vector: Position and momentum expectation values of all modes (xxpp order)
+    :return: Unnormalized expectation value of each output of the QONN
+    '''
+    exp_vals = jax.vmap(compute_terms_in_trace, in_axes=(0, 0, None, None, None, None, None, None, None, None))(exp_vals_inds, exp_vals_terms_coefs, N, trace_terms_ranges, jax_lens, jax_modes, jax_types, jax_lpms, quadratic_exp_vals, means_vector)
+    return exp_vals
 
 def loop_perfect_matchings(N):
     '''
