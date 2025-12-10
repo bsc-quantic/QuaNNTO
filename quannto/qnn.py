@@ -54,7 +54,7 @@ class QNN:
         self.trace_expr.append(self.norm_trace_expr)
         
         # Observables constant coefficient
-        self.trace_const = 1 if observable=='number' else (1/np.sqrt(2)) if observable=='position' else (-1j/np.sqrt(2)) if observable=='momentum' else 0
+        self.trace_const = 1 if observable=='number' else self.oneoversqrt2 if observable=='position' else -1j*self.oneoversqrt2 if observable=='momentum' else 0
         
         if observable=='cubicphase' or observable=='catstates':
             self.trace_const = jnp.ones(len(self.trace_expr) - 1)
@@ -76,12 +76,11 @@ class QNN:
         loop_pms = [loop_perfect_matchings(lens) for lens in range(2, max_lpms+1)]
         self.jax_lpms = pad_3d_list_of_lists(loop_pms, 2*max_lpms)
         
-        # Remove all ladder operators from symbolic expressions of the trace and normalization
+        # Remove all ladder operators from symbolic expressions of the trace and norm
         a = symbols(f'a0:{N}', commutative=False)
         c = symbols(f'c0:{N}', commutative=False)
         ladder_subs = {c[i]: 1 for i in range(self.N)}
         ladder_subs.update({a[i]: 1 for i in range(self.N)})
-        
         self.unnorm_expr_terms_out = []
         for outs in range(len(self.trace_expr)):
             if isinstance(self.trace_expr[outs], sp.Add):
@@ -160,7 +159,15 @@ class QNN:
         return Q1, Z, Q2, current_par_idx
     
     def update_S(S_concat, l, block, S_dim):
-        # returns a brand‐new array with that column‐block replaced
+        '''
+        Updates the matrix S_concat by concatenating the symplectic matrix block after the l column.
+        
+        :param S_concat: Concatenation of symplectic matrices of each layer
+        :param l: Layer index
+        :param block: Symplectic matrix block to be concatenated
+        :param S_dim: Dimension of each symplectic matrix block
+        :return: Updated concatenation of symplectic matrices
+        '''
         start = l * S_dim
         end   = (l + 1) * S_dim
         return S_concat.at[:, start:end].set(block)
@@ -243,16 +250,15 @@ class QNN:
                     next_slice = self.D_concat[(l + 1) * S_dim : (l + 2) * S_dim]
                     l_disp = l_disp + self.S_fock[l] @ next_slice
                 self.D_concat = self.D_concat.at[start:end].set(l_disp)
-
-        if self.observable == 'witness':
-            self.trace_const = jnp.ones(self.N*(self.N+1) + self.N)
         
     def apply_linear_gaussian(D, mean_vector):
         '''
-        Transforms the means vector of the Gaussian state by adding 
+        Transforms the means vector of a Gaussian state by adding 
         the corresponding linear gaussian to it.
         
         :param D: Vector of displacements of the system's quadratures
+        :param mean_vector: Means vector of the Gaussian state
+        :return: Transformed means vector
         '''
         return mean_vector + jnp.sqrt(2) * D
         
@@ -262,12 +268,19 @@ class QNN:
         given a quadratic Gaussian operator.
         
         :param G: Symplectic matrix of a quadratic Gaussian operator to be applied
+        :param mean_vector: Means vector of the Gaussian state
+        :param V: Covariance matrix of the Gaussian state
+        :return: Transformed means vector and covariance matrix
         '''
         return G @ mean_vector, G @ V @ G.T
         
     def apply_gaussian_transformations(self, mean_vector, V):
         '''
         Applies all Gaussian transformations of the QONN to the initial quantum state.
+        
+        :param mean_vector: Means vector of the initial Gaussian state
+        :param V: Covariance matrix of the initial Gaussian state
+        :return: Transformed means vector and covariance matrix
         '''
         new_means = mean_vector
         new_V = V
@@ -277,6 +290,11 @@ class QNN:
         return new_means, new_V
         
     def compute_coefficients(self):
+        '''
+        Computes the coefficients of each term of each trace expression.
+        
+        :return: All coefficients of each term of each trace expression
+        '''
         # Full coefficient vector for all trace terms
         full_coef_vector = jnp.concatenate(
             [self.D_concat.ravel(), self.S_concat.ravel()]
@@ -303,13 +321,12 @@ class QNN:
     def exp_val_ladder_jk(self, j, k, V, means):
         '''
         Computes the expectation value of two annihilation operators (in mode j and k) of a Gaussian state based 
-        on the first two statistical moments of the state. This corresponds to the first identity I1.
+        on the first two statistical moments of the state.
 
         :param j: Mode of the first annihilation operator
         :param k: Mode of the second annihilation operator
         :param V: Covariance matrix of the Gaussian state
         :param means: Means vector of the Gaussian state
-        :param N: Number of modes of the quantum system
         :return: Expectation value of a pair of annihilation operators of a Gaussian state
         '''
         return 0.5*(V[j,k] - V[self.N+j, self.N+k] + 1j*(V[j, self.N+k] + V[self.N+j, k]))
@@ -318,31 +335,15 @@ class QNN:
         '''
         Computes the expectation value of one annihilation and one creation operators (in mode j and k) 
         of a Gaussian state based on the first two statistical moments of the state.
-        This corresponds to the second identity I2.
 
         :param j: Mode of the creation operator
         :param k: Mode of the annihilation operator
         :param V: Covariance matrix of the Gaussian state
         :param means: Means vector of the Gaussian state
-        :param N: Number of modes of the quantum system
         :return: Expectation value of one creation and one annihilation operators of a Gaussian state
         '''
         delta = jnp.where(j == k, 1, 0)
         return 0.5*(V[j,k] + V[self.N+j, self.N+k] + 1j*(V[j, self.N+k] - V[self.N+j, k]) - delta)
-
-    def exp_val_ladder_jdagger_kdagger(self, j, k, V, means):
-        '''
-        Computes the expectation value of two creation operators (in mode j and k) of a Gaussian state based 
-        on the first two statistical moments of the state. This corresponds to the fourth identity I4.
-
-        :param j: Mode of the first creation operator
-        :param k: Mode of the second creation operator
-        :param V: Covariance matrix of the Gaussian state
-        :param means: Means vector of the Gaussian state
-        :param N: Number of modes of the quantum system
-        :return: Expectation value of a pair of creation operators of a Gaussian state
-        '''
-        return 0.5*(V[j,k] - V[self.N+j, self.N+k] - 1j*(V[j, self.N+k] + V[self.N+j, k]))
     
     def compute_quad_exp_vals(self, V, means):
         '''
@@ -359,36 +360,41 @@ class QNN:
         K00 = jax.vmap(jax.vmap(self.exp_val_ladder_jk, in_axes=(None, 0, None, None)), in_axes=(0, None, None, None))(js, ks, V, means)
         K01 = jax.vmap(jax.vmap(self.exp_val_ladder_jdagger_k, in_axes=(None, 0, None, None)), in_axes=(0, None, None, None))(js, ks, V, means)
         K10 = K01.T + jnp.eye(self.N, dtype=K01.dtype)
-        K11 = jax.vmap(jax.vmap(self.exp_val_ladder_jdagger_kdagger, in_axes=(None, 0, None, None)), in_axes=(0, None, None, None))(js, ks, V, means)
+        K11 = K00.conj()
 
         return jnp.stack([K00, K01, K10, K11], axis=0)
     
     def finalize_observable_expval(self, expvals):
+        '''
+        Computes the final expectation value based on the observables selected for the QONN outputs,
+        their constants and normalization.
+        
+        :param expvals: All trace expressions including the normalization term in the last position
+        '''
         obs_expvals = expvals[:-1]
         norm = expvals[-1]
         if self.observable == 'position':
-            return self.trace_const*(obs_expvals + obs_expvals.conj()) / norm
+            obs_expvals = obs_expvals + obs_expvals.conj()
         elif self.observable == 'momentum':
-            return self.trace_const*(obs_expvals - obs_expvals.conj()) / norm
-        else:
-            return obs_expvals / norm  
+            obs_expvals = obs_expvals - obs_expvals.conj()
+        return self.trace_const * obs_expvals / norm
     
     @partial(jax.jit, static_argnums=(0,))
     def eval_QNN(self, params, inputs_disp):
         '''
         Evaluates the QONN for a given input.
         
-        :param input: Input to be predicted by the QONN
-        :return: EXpectation values of the observables related to QONN outputs
+        :param params: Vector of tunable parameters of the QONN
+        :param inputs_disp: Input values of the QONN loaded as real coherent states
+        :return: Normalized expectation values of the observables related to the QONN outputs
         '''
         # 0. Build the QONN components using the tunable parameters
         self.build_QNN(params)
         
-        tuned_inputs = inputs_disp
-        
         # 1. Prepare initial state: initial vacuum state displaced according to the inputs
-        V = 0.5*jnp.eye(2*self.N)
+        tuned_inputs = inputs_disp
         mean_vector = jnp.zeros((2*self.N,), dtype=tuned_inputs.dtype)
+        V = 0.5*jnp.eye(2*self.N)
         mean_vector = QNN.apply_linear_gaussian(tuned_inputs, mean_vector)
             
         # 1.1. Add initial squeezing if specified
@@ -406,7 +412,6 @@ class QNN:
         K_exp_vals = self.compute_quad_exp_vals(V, mean_vector)
 
         # 4. Compute coefficients for trace expression and normalization terms
-        #traces_terms_coefs = self.compute_coefficients() if len(self.ladder_modes) > 0 else self.jax_ones_coefs
         traces_terms_coefs = self.compute_coefficients() if self.layers > 1 else self.jax_ones_coefs
         
         # 5. Compute the expectation values acting as outputs
@@ -418,45 +423,48 @@ class QNN:
     def wick_expansion_expval(self, trace_idx, tr_term_idx, quadratic_exp_vals, means_vector):
         """
         Vectorized over all perfect‐matchings for a given (trace_idx, tr_term_idx).
+        
+        :param trace_idx: Index of the trace expression to be evaluated
+        :param tr_term_idx: Index of the term to be handled in the trace expression
+        :param quadratic_exp_vals: Expectation values of all combinations of ladder operators pairs
+        :param means_vector: Position and momentum expectation values of all modes (xxpp order)
+        :return: Expectation value of the trace expression term using Wick's expansion
         """
 
-        # 1) pull out the block of matchings for this trace
-        #    shape (Pmax, max_pm_len)
+        # 1. Identify the set of loop perfect matchings for the current term
         lpms_idx = self.jax_lens[trace_idx][tr_term_idx] - 2
         all_pms = self.jax_lpms[lpms_idx]
 
-        # 2) reshape into two arrays of shape (Pmax, Kmax):
-        #    even positions 0,2,4... are i1; 1,3,5... are i2
-        p1 = all_pms[:, ::2]   # shape (Pmax, Kmax)
-        p2 = all_pms[:, 1::2]  # shape (Pmax, Kmax)
+        # 2. Reshape the loop perfect matchings in pair format
+        p1 = all_pms[:, ::2]
+        p2 = all_pms[:, 1::2]
 
-        # 3) pull out the per‐term mode/type vectors (shape (Kmax,))
-        modes_row = self.jax_modes[trace_idx, tr_term_idx]  # (Kmax,)
-        types_row = self.jax_types[trace_idx, tr_term_idx]  # (Kmax,)
+        # 3. Get ladder modes and types for the current term
+        modes_row = self.jax_modes[trace_idx, tr_term_idx]
+        types_row = self.jax_types[trace_idx, tr_term_idx]
 
         def term_prod(p1_row, p2_row):
             def valid_pms(_):
-                # p1_row, p2_row: shape (Kmax,)
-                # 3a) valid‐pair mask
+                # 3.1. Identify valid pairs (i.e. exclude padding positions)
                 valid = p1_row >= 0 # False for matchings with -1
 
-                # 3b) gather mode/type indices
-                m1 = modes_row[p1_row.clip(0)]  # clip to avoid OOB on padding
+                # 3.2. Get modes and types for each pair
+                m1 = modes_row[p1_row.clip(0)]
                 m2 = modes_row[p2_row.clip(0)]
                 t1 = types_row[p1_row.clip(0)]
                 t2 = types_row[p2_row.clip(0)]
 
-                # 3c) compute covariance‐based term and mean‐based term
-                cov_term  = quadratic_exp_vals[t1 + 2*t2, m1, m2]
+                # 3.3. Compute mean and covariance terms for each pair
                 mean_term = self.oneoversqrt2 * (means_vector[m1] + 1j*(-2*t1 + 1)*means_vector[self.N+m1])
+                cov_term  = quadratic_exp_vals[t1 + 2*t2, m1, m2]
 
-                # 3d) select: equal‐index pairs use mean_term, unequal use cov_term
+                # 3.4. Determine expectation value based on whether it is a loop or a pair
                 pair_val = jnp.where(p1_row != p2_row, cov_term, mean_term)
 
-                # 3e) mask out padding positions: set to 1 so prod ignores them
+                # 3.5. Exclude invalid pairs from the product
                 pair_val = jnp.where(valid, pair_val, 1.0 + 0.0j)
 
-                # 3f) product across Kmax
+                # 3.6. Compute product of all pairs in the loop perfect matching set
                 return jnp.prod(pair_val)
             
             def null_pm(_):
@@ -469,26 +477,29 @@ class QNN:
                 operand=None
             )
 
-        # 4) vmapped over all Pmax matchings (axis 0)
-        prods = jax.vmap(term_prod, in_axes=(0,0))(p1, p2)  # shape (Pmax,)
+        # 4. Compute products for all existing sets of loop perfect matchings
+        prods = jax.vmap(term_prod, in_axes=(0,0))(p1, p2)
 
-        # 5) sum over all matchings
+        # 5. Sum each set's loop perfect matching product to get final expectation value
         finalsum = jnp.sum(prods)
         return finalsum
     
     def get_expectation_value(self, trace_idx, tr_term_idx, quadratic_exp_vals, means_vector):
         '''
         Dispatches the expectation value calculation method based on the number of
-        terms. Cases: no operators (pure states - return 1), one operator (use means vector), 
+        ladder operators in the term expression.
+        Cases: no operators (pure Gaussian state - return 1), one operator (use means vector), 
         two or more operators (Wick's expansion based on loop perfect matchings).
         
+        :param trace_idx: Index of the trace expression to be evaluated
+        :param tr_term_idx: Index of the term to be handled in the trace expression
         :param quadratic_exp_vals: Expectation values of all combinations of ladder operators pairs over system's modes
         :param means_vector: Position and momentum expectation values of all modes (xxpp order)
         :return: Expectation value of the provided expression
         '''
         len_term = self.jax_lens[trace_idx, tr_term_idx]
 
-        # Case -1: Non-existent term
+        # Case -1: Non-existent term (padded) → return 0
         def casenull(_):
             return 0.0+0.0j
 
@@ -525,32 +536,31 @@ class QNN:
             operand=None
         )
         
-    def compute_terms_in_trace(self, trace_idx, coefs, quadratic_exp_vals, means_vector):
+    def compute_terms_in_trace(self, trace_idx, terms_coefs, quadratic_exp_vals, means_vector):
         '''
         Computes each term in the trace by calculating the term expression's expectation value
         and multiplying it by its corresponding coefficient.
         
-        :param coefs: Terms' coefficients
+        :param trace_idx: Index of the trace expression to be evaluated
+        :param terms_coefs: Coefficients of each term in the trace expression
         :param quadratic_exp_vals: Expectation values of all combinations of ladder operators pairs over system's modes
         :param means_vector: Position and momentum expectation values of all modes (xxpp order)
         :return: Final expectation value of the output
         '''
         expvals = jax.vmap(self.get_expectation_value, in_axes=(None, 0, None, None))(trace_idx, self.trace_terms_ranges[trace_idx], quadratic_exp_vals, means_vector)
-        tr_value = jnp.sum(coefs * expvals)
+        tr_value = jnp.sum(terms_coefs * expvals)
         return tr_value
     
-    def compute_exp_val_loop(self, terms_coefs, quadratic_exp_vals, means_vector):
+    def compute_exp_val_loop(self, exp_vals_terms_coefs, quadratic_exp_vals, means_vector):
         '''
-        Computes the expectation value of the expression (trace) that defines the QNN operations.
-        
-        :param N: Total number of system's modes
-        :param terms_coefs: Coefficients of the unnormalized terms of the trace expression
-        :param norm_coefs: Coefficients of the normalization trace expression
+        Computes the expectation value of the expression (trace) that defines the QONN operations.
+    
+        :param exp_vals_terms_coefs: Coefficients of the unnormalized terms of the trace expression
         :param quadratic_exp_vals: Expectation values of all combinations of ladder operators pairs over system's modes
         :param means_vector: Position and momentum expectation values of all modes (xxpp order)
-        :return: Normalized expectation value of each output of the QNN
+        :return: Unnormalized expectation value of each output of the QONN
         '''
-        exp_vals = jax.vmap(self.compute_terms_in_trace, in_axes=(0, 0, None, None))(self.exp_vals_inds, terms_coefs, quadratic_exp_vals, means_vector)
+        exp_vals = jax.vmap(self.compute_terms_in_trace, in_axes=(0, 0, None, None))(self.exp_vals_inds, exp_vals_terms_coefs, quadratic_exp_vals, means_vector)
         return exp_vals
 
     @partial(jax.jit, static_argnums=(0,4))
@@ -565,16 +575,17 @@ class QNN:
         :param loss_function: Function to evaluate the loss of the QONN predictions
         :return: Losses of the QONN predictions
         '''
+        # Shuffle dataset
         B = inputs_dataset.shape[0]
         perm = jax.random.permutation(jax.random.PRNGKey(42), B)
 
+        # Evaluate all dataset
         x = inputs_dataset[perm]
         y = outputs_dataset[perm]
-
-        # batch eval: map eval_QNN over leading axis of inputs
         batched_eval = jax.vmap(lambda xi: self.eval_QNN(parameters, xi), in_axes=0, out_axes=0)
         y_hat = batched_eval(x)
 
+        # Compute loss
         return loss_function(y, y_hat)
     
     def print_qnn(self):
@@ -602,7 +613,6 @@ class QNN:
         '''
         Makes predictions of the given QNN using the input testing dataset.
         
-        :param qnn: QNN to be tested
         :param testing_dataset: List of inputs and outputs to be tested
         :param loss_function: Loss function to compute the testing set losses
         :return: QNN predictions of the testing set
@@ -610,7 +620,6 @@ class QNN:
         test_inputs = reduce(lambda x, func: func(x), self.in_preprocessors, testing_dataset[0])
         test_outputs = reduce(lambda x, func: func(x), self.out_preprocessors, testing_dataset[1])
         
-        # Evaluate all testing set
         qnn_outputs = jax.vmap(self.eval_QNN, in_axes=(None, 0))(self.tunable_parameters, test_inputs)
         
         mean_error = loss_function(test_outputs, qnn_outputs)
@@ -623,10 +632,8 @@ class QNN:
         '''
         Makes predictions of the given QNN using the input testing dataset.
         
-        :param qnn: QNN to be tested
-        :param testing_dataset: List of inputs and outputs to be tested
-        :param loss_function: Loss function to compute the testing set losses
-        :return: QNN predictions of the testing set
+        :param test_inputs: Inputs to be evaluated by the QNN
+        :return: Post-processed QNN predictions of the input set
         '''
         test_inputs = reduce(lambda x, func: func(x), self.in_preprocessors, test_inputs)
         
@@ -638,6 +645,11 @@ class QNN:
         return reduce(lambda x, func: func(x), self.postprocessors, qnn_outputs)
     
     def save_model(self, filename):
+        '''
+        Saves the QONN model to a JSON pickle file.
+        
+        :param filename: Path to save the QONN model
+        '''
         f = open("models/"+filename, 'w')
         f.write(jsonpickle.encode(self))
         f.close()
