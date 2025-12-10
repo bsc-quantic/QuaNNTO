@@ -3,7 +3,7 @@
 
 _Article:_ [Hardware-inspired Continuous Variables Quantum Optical Neural Networks](https://arxiv.org/abs/2512.05204)
 
-_QuaNNTO_ is an HPC library for exact simulation of continuous-variable quantum optical neural networks (QONN). The simulation technique is based on Wick-Isserlis expansions and Bogoliubov transformations, which allows an exact computation of expectation values of continuous observables (such as position) on quantum states built by a finite set of Gaussian and creation/annihilation operators, avoiding truncations in the infinite-dimensional Hilbert space that describe the quantum optical system.
+_QuaNNTO_ is an HPC library made with [JAX](https://github.com/jax-ml/jax) for exact simulation of continuous-variable quantum optical neural networks (QONN). The simulation technique is based on Wick-Isserlis expansions and Bogoliubov transformations, which allows an exact computation of expectation values of continuous observables (such as position) on quantum states built by a finite set of Gaussian and creation/annihilation operators, avoiding truncations in the infinite-dimensional Hilbert space that describe the quantum optical system.
 
 The main QONN hyperparameters:
 
