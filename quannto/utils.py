@@ -14,7 +14,6 @@ def hermitian_matrix(m, N):
     :param m: Matrix to be made hermitian
     :return: Hermitian matrix
     '''
-    #return 0.5*(m + m.T)
     c = 0
     mat = np.zeros((N,N))
     for i in range(0, N):
@@ -183,7 +182,6 @@ class CanonicalLadderTransformations:
         """
         ustar_u = CanonicalLadderTransformations.build_ustar_u(unitary)
         return self.to_ladder_dagger @ ustar_u @ self.to_ladder
-
     
 def check_symp_orth(SO):
     '''
@@ -231,33 +229,53 @@ def symplectic_eigenvals(V):
     symp_mat = 1j*create_J(len(V) // 2)@V
     symp_eigvals = LA.eigvals(symp_mat)
     return symp_eigvals
-    
-def reconstruct_stats(exp_vals, N):
-    aj = exp_vals[0 : N]
-    
-    aj_ak_idx = N
-    ajdag_ak_idx = N+(N**2 + N)//2
-    aj_ak = np.zeros((N, N), dtype='complex')
-    ajdag_ak = np.zeros((N, N), dtype='complex')
-    for j in range(N):
-        for k in range(j,N):
-            aj_ak[j, k] = aj_ak[k, j] = exp_vals[aj_ak_idx]
-            ajdag_ak[j, k] = exp_vals[ajdag_ak_idx]
-            ajdag_ak[k, j] = ajdag_ak[j, k].conjugate()
-            aj_ak_idx += 1
-            ajdag_ak_idx += 1
 
-    xj = np.array([np.sqrt(2) * ak.real for ak in aj])
-    pj = np.array([np.sqrt(2) * ak.imag for ak in aj])
-    sj = np.concatenate((xj, pj))
+def to_np_array(lists):
+    '''
+    Creates NumPy arrays of fixed length from nested lists of dynamic sizes
+    along with another array containing each list's actual dimensions.
     
-    xjxk = np.array([[aj_ak[j,k].real + ajdag_ak[j,k].real + (0.5 if j==k else 0) for k in range(N)] for j in range(N)])
-    pjpk = np.array([[-aj_ak[j,k].real + ajdag_ak[j,k].real + (0.5 if j==k else 0) for k in range(N)] for j in range(N)])
-    #xjpk = np.array([[aj_ak[j,k].imag + ajdag_ak[j,k].imag + (0.5j if j==k else 0)*norm for k in range(N)] for j in range(N)])
-    #pjxk = np.array([[aj_ak[j,k].imag - ajdag_ak[j,k].imag - (0.5j if j==k else 0)*norm for k in range(N)] for j in range(N)])
-    xjpk_pkxj = np.array([[aj_ak[j,k].imag + ajdag_ak[j,k].imag for k in range(N)] for j in range(N)])
-    #xjpk_pkxj = np.array([[2*aj_ak[j,k].imag for k in range(N)] for j in range(N)])
-    sjsk = np.block([[xjxk, xjpk_pkxj],[xjpk_pkxj.T, pjpk]])
+    :param lists: Nested list
+    :return: Tuple of NumPy array containing the nested lists and the actual
+    dimension of the elements inside the lists.
+    '''
+    max_length_list = 0
+    for list in lists:
+        if len(list) > max_length_list:
+            max_length_list = len(list)
+    lengths = np.full((len(lists), max_length_list), -1) if max_length_list > 0 else np.array([[0]])
+    for out_idx in range(len(lists)):
+        for term_idx in range(len(lists[out_idx])):
+            lengths[out_idx, term_idx] = len(lists[out_idx][term_idx])
+    max_length = np.max(lengths)
+    arr = np.full((len(lists), max_length_list, max_length), -1) if max_length_list > 0 else np.array([[[-1]]])
+    for out_idx in range(len(lists)):
+        for term_idx in range(len(lists[out_idx])):
+            arr[out_idx, term_idx, :len(lists[out_idx][term_idx])] = np.array(lists[out_idx][term_idx])
+    return arr, lengths
     
-    V = np.array([[sjsk[j,k] - sj[j]*sj[k] for k in range(2*N)] for j in range(2*N)])
-    return sj, V
+def pad_3d_list_of_lists(raw, max_len_inner, pad_value=-1):
+    """
+    raw:        Python list of length G, each an inner list of variable-length lists of ints
+    max_len_inner:  target length for each innermost int-list
+    pad_value:  int to pad with
+    ---
+    returns: jnp.ndarray of shape (G, Mmax, max_len_inner)
+    """
+    G = len(raw)
+    # 1) pad each inner list to max_len_inner
+    padded_inners = [
+        [sub[:max_len_inner] + [pad_value] * max(0, max_len_inner - len(sub))
+         for sub in group]
+        for group in raw
+    ]
+    # 2) find Mmax = max number of sublists in any group
+    Mmax = max(len(group) for group in padded_inners)
+    # 3) pad each group to Mmax by appending dummy inners
+    dummy = [pad_value] * max_len_inner
+    padded_groups = [
+        grp + [dummy] * (Mmax - len(grp))
+        for grp in padded_inners
+    ]
+    # 4) stack into a single JAX array
+    return jnp.array(padded_groups, dtype=jnp.int32)

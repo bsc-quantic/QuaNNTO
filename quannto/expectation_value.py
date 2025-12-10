@@ -20,9 +20,7 @@ _num_re = re.compile(r"^([d])(\d+)$")  # d<number>
 def build_meta_from_symbols(N, layers):
     dim = 2*N
     d = symbols(f'd0:{(layers-1)*2*N}', commutative=True)
-    # Symplectic matrix 2Nx2N
     S_i = MatrixSymbol('S_i', dim, (layers-1)*dim)
-    """A partir de tus símbolos, calcula offsets/tamaños del vector concatenado."""
     rows, cols = S_i.shape
     assert S_i.shape == (rows, cols)
     size_d = len(d)
@@ -43,45 +41,33 @@ def _flat_rc_row_major(p: int, q: int, cols: int) -> int:
     return int(p) * int(cols) + int(q)
 
 def _is_matrix_element(x) -> bool:
-    # Evita dependencias de versión: MatrixElement tiene .parent, .i, .j
     return hasattr(x, "parent") and hasattr(x, "i") and hasattr(x, "j")
 
 def factor_to_index(f, meta) -> int:
-    """Mapea un factor simbólico (rK, iK, S_i[p,q]) a índice en v."""
     rows, cols = meta["rows"], meta["cols"]
     off_d, off_Si = meta["off_d"], meta["off_Si"]
     
-    # Caso rK / iK (tus d_r/d_i)    
     if isinstance(f, sp.Symbol):
         m = _num_re.match(f.name)
         if m:
             base, k = m.groups()
             k = int(k)
             if base == "d":
-                if not (0 <= k < meta["size_d"]): raise IndexError(f"r{k} fuera de rango")
+                if not (0 <= k < meta["size_d"]): raise IndexError(f"r{k} out of range for d with size={meta['size_d']}")
                 return off_d + k
 
-    # Caso MatrixElement: S_i[p,q]
     if _is_matrix_element(f):
         name = str(f.parent)
         p, q = int(f.i), int(f.j)
         if not (0 <= p < rows and 0 <= q < cols):
-            raise IndexError(f"Índices fuera de rango para {name}: ({p},{q}) con shape=({rows},{cols})")
+            raise IndexError(f"Indices out of range for {name}: ({p},{q}) with shape=({rows},{cols})")
         flat = _flat_rc_row_major(p, q, cols)
         if name == "S_i":
             return off_Si + flat
 
-    raise TypeError(f"No sé mapear el factor: {repr(f)}")
+    raise TypeError(f"Unknown mapping for factor: {repr(f)}")
 
-# -----------------------------
-# Conversión de expresiones
-# -----------------------------
 def expr_to_index_list_and_coeff(expr, meta) -> Tuple[List[int], float]:
-    """
-    Devuelve (indices, coeff_numérico).
-    - indices: lista de índices (uno por factor simbólico no numérico).
-    - coeff: producto de los factores numéricos (float). Si no hay, 1.0.
-    """
     # Transforms type sp.Pow to sp.Mul
     if isinstance(expr, sp.Pow):
         base, exp = expr.as_base_exp()
@@ -106,13 +92,7 @@ def expr_to_index_list_and_coeff(expr, meta) -> Tuple[List[int], float]:
     idxs = [factor_to_index(f, meta) for f in non_nums]
     return idxs, coeff
 
-def expressions_to_index_lists(
-    N, layers, exprs: Sequence[sp.Expr], keep_coeffs: bool = True
-):
-    """
-    API principal: convierte cada expresión en su lista de índices.
-    - Si keep_coeffs=True, también devuelve array de coeficientes (float32).
-    """
+def expressions_to_index_lists(N, layers, exprs: Sequence[sp.Expr], keep_coeffs: bool = True):
     meta = build_meta_from_symbols(N, layers)
     all_idxs: List[List[int]] = []
     coeffs: List[float] = []
@@ -126,9 +106,6 @@ def expressions_to_index_lists(
         return all_idxs, np.asarray(coeffs, dtype=np.float32), meta
     else:
         return all_idxs, meta
-
-# ===== /TEST ======
-
 
 def extract_ladder_expressions(trace_expr):
     '''
@@ -237,37 +214,16 @@ def complete_trace_expression(N, layers, ladder_modes, is_addition, n_outputs, i
     
     if include_obs:
         expanded_expr = []
-        if obs == 'witness': # FIXME
-            #expanded_expr.append(expand(sup_dag*(c[0]*a[0]*c[1]*a[1])*sup)) #〈N1N2〉
-            #expanded_expr.append(expand(sup_dag*(c[0]*a[0])*sup)) #〈N1〉
-            #expanded_expr.append(expand(sup_dag*(c[1]*a[1])*sup)) #〈N2〉
-            #expanded_expr.append(expand(sup_dag*(a[0]*c[0]*a[0]*c[0])*sup)) #〈aN1a+〉
-            #expanded_expr.append(expand(sup_dag*(a[0]*c[0])*sup)) #〈aa+〉
-            #expanded_expr.append(expand(sup_dag*(c[0]*a[0])*sup)) #〈a+a〉
-            #expanded_expr.append(expand(sup_dag*(c[0]*c[0]*a[0]*a[0])*sup)) #〈a+a+aa〉
-            #expanded_expr.append(expand(sup_dag*(a[0])*sup)) #〈a〉
-            #expanded_expr.append(expand(sup_dag*(c[0])*sup)) #〈a+〉
-            #expanded_expr.append(expand(sup_dag*(a[0]*a[0]*c[0])*sup)) #〈a a a+〉
-            expanded_expr.append(expand(sup_dag*(a[0]*c[0])*sup)) #〈aa+〉
-            #expanded_expr.append(expand(sup_dag*(c[0]*a[0])*sup)) #〈a+a〉
-            #expanded_expr.append(expand(sup_dag*(a[0]*c[0]*a[0])*sup)) #〈a a+ a〉
-            #expanded_expr.append(expand(sup_dag*(c[0]*a[0]*a[0])*sup)) #〈a+ a a〉
-            #expanded_expr.append(expand(sup_dag*(a[0]*c[0]*c[0])*sup)) #〈a a+ a+〉
-            #expanded_expr.append(expand(sup_dag*(a[0]*a[0]*c[0]*a[0]*c[0]*c[0])*sup)) #〈aaN1a+a+〉
-            #expanded_expr.append(expand(sup_dag*(a[0]*a[0]*a[0]*c[0]*c[0])*sup)) #〈aa a a+a+〉
-            #expanded_expr.append(expand(sup_dag*(a[0]*a[0]*c[0]*c[0])*sup)) #〈aaa+a+〉
-            #expanded_expr.append(expand(sup_dag*(a[0]*a[0]*c[0]*c[0]*c[0])*sup)) #〈aa a+ a+a+〉
-            #expanded_expr.append(expand(sup_dag*(c[0]*c[0]*a[0]*a[0])*sup)) #〈a+N1a〉
-            #expanded_expr.append(expand(sup_dag*(a[0]*a[0]*a[0]*c[0]*c[0]*c[0])*sup)) #〈aaaa+a+a+〉
-            #expanded_expr.append(expand(sup_dag*(c[0]*c[0]*c[0]*a[0]*a[0]*a[0])*sup)) #〈aaaa+a+a+〉
-            #expanded_expr.append(expand(sup_dag*(a[0]*a[0]*a[0]*a[0]*c[0]*c[0]*c[0])*sup)) #〈aaa a a+a+a+〉
-            #expanded_expr.append(expand(sup_dag*(a[0]*a[0]*a[0]*c[0]*c[0]*c[0]*c[0])*sup)) #〈aaa a+ a+a+a+〉
-        elif obs == 'cubicphase':
+        if obs == 'cubicphase':
+            # 1st moments
             expanded_expr.append(expand(sup_dag*a[0]*sup))
+            # 2nd moments
             expanded_expr.append(expand(sup_dag*a[0]*a[0]*sup))
+            expanded_expr.append(expand(sup_dag*c[0]*a[0]*sup))
+            # 3rd moments
             expanded_expr.append(expand(sup_dag*a[0]*a[0]*a[0]*sup))
             expanded_expr.append(expand(sup_dag*c[0]*c[0]*a[0]*sup))
-            expanded_expr.append(expand(sup_dag*c[0]*a[0]*sup))
+            # 4th moments
             expanded_expr.append(expand(sup_dag*c[0]*a[0]*c[0]*a[0]*sup))
         elif obs == 'catstates':
             # 1st moments (zero)
@@ -304,10 +260,59 @@ def complete_trace_expression(N, layers, ladder_modes, is_addition, n_outputs, i
         expanded_expr = expand(sup_dag*sup)
     return expanded_expr
 
+def exp_val_ladder_jk(N, j, k, V, means):
+    '''
+    Computes the expectation value of two annihilation operators (in mode j and k) of a Gaussian state based 
+    on the covariance matrix of the state.
+
+    :param N: Number of modes of the QNN
+    :param j: Mode of the first annihilation operator
+    :param k: Mode of the second annihilation operator
+    :param V: Covariance matrix of the Gaussian state
+    :param means: Means vector of the Gaussian state
+    :return: Expectation value of a pair of annihilation operators of a Gaussian state
+    '''
+    return 0.5*(V[j,k] - V[N+j, N+k] + 1j*(V[j, N+k] + V[N+j, k]))
+
+def exp_val_ladder_jdagger_k(N, j, k, V, means):
+    '''
+    Computes the expectation value of one annihilation and one creation operators (in mode j and k) 
+    of a Gaussian state based on the covariance matrix of the state.
+
+    :param N: Number of modes of the QNN
+    :param j: Mode of the creation operator
+    :param k: Mode of the annihilation operator
+    :param V: Covariance matrix of the Gaussian state
+    :param means: Means vector of the Gaussian state
+    :return: Expectation value of one creation and one annihilation operators of a Gaussian state
+    '''
+    delta = jnp.where(j == k, 1, 0)
+    return 0.5*(V[j,k] + V[N+j, N+k] + 1j*(V[j, N+k] - V[N+j, k]) - delta)
+
+def compute_quad_exp_vals(N, V, means):
+    '''
+    Computes the expectation value of all combinations of ladder operators pairs of all existing modes
+    of a Gaussian state based on its covariance matrix and means vector.
+
+    :param N: Number of modes of the QNN
+    :param V: Covariance matrix of the Gaussian state
+    :param means: Means vector of the Gaussian state
+    :return: All expectation values of the different configuration of a pair of ladder operators on all modes.
+    '''
+    js = jnp.arange(N)
+    ks = jnp.arange(N)
+    
+    K00 = jax.vmap(jax.vmap(exp_val_ladder_jk, in_axes=(None, None, 0, None, None)), in_axes=(None, 0, None, None, None))(N, js, ks, V, means)
+    K01 = jax.vmap(jax.vmap(exp_val_ladder_jdagger_k, in_axes=(None, None, 0, None, None)), in_axes=(None, 0, None, None, None))(N, js, ks, V, means)
+    K10 = K01.T + jnp.eye(N, dtype=K01.dtype)
+    K11 = K00.conj()
+
+    return jnp.stack([K00, K01, K10, K11], axis=0)
+
 def loop_perfect_matchings(N):
     '''
     Generates all perfect matchings of a complete graph with loops where
-    nodes are labelled from 0 to N-1.
+    nodes are labelled from 0 to N-1 representing ladder operators in a trace term.
     
     :param N: Number of nodes (number of ladder operators of a given trace term)
     '''
@@ -324,53 +329,3 @@ def loop_perfect_matchings(N):
     matchings = []
     backtrack([], nodes)
     return matchings
-
-def to_np_array(lists):
-    '''
-    Creates NumPy arrays of fixed length from nested lists of dynamic sizes
-    along with another array containing each list's actual dimensions.
-    
-    :param lists: Nested list
-    :return: Tuple of NumPy array containing the nested lists and the actual
-    dimension of the elements inside the lists.
-    '''
-    max_length_list = 0
-    for list in lists:
-        if len(list) > max_length_list:
-            max_length_list = len(list)
-    lengths = np.full((len(lists), max_length_list), -1) if max_length_list > 0 else np.array([[0]])
-    for out_idx in range(len(lists)):
-        for term_idx in range(len(lists[out_idx])):
-            lengths[out_idx, term_idx] = len(lists[out_idx][term_idx])
-    max_length = np.max(lengths)
-    arr = np.full((len(lists), max_length_list, max_length), -1) if max_length_list > 0 else np.array([[[-1]]])
-    for out_idx in range(len(lists)):
-        for term_idx in range(len(lists[out_idx])):
-            arr[out_idx, term_idx, :len(lists[out_idx][term_idx])] = np.array(lists[out_idx][term_idx])
-    return arr, lengths
-    
-def pad_3d_list_of_lists(raw, max_len_inner, pad_value=-1):
-    """
-    raw:        Python list of length G, each an inner list of variable-length lists of ints
-    max_len_inner:  target length for each innermost int-list
-    pad_value:  int to pad with
-    ---
-    returns: jnp.ndarray of shape (G, Mmax, max_len_inner)
-    """
-    G = len(raw)
-    # 1) pad each inner list to max_len_inner
-    padded_inners = [
-        [sub[:max_len_inner] + [pad_value] * max(0, max_len_inner - len(sub))
-         for sub in group]
-        for group in raw
-    ]
-    # 2) find Mmax = max number of sublists in any group
-    Mmax = max(len(group) for group in padded_inners)
-    # 3) pad each group to Mmax by appending dummy inners
-    dummy = [pad_value] * max_len_inner
-    padded_groups = [
-        grp + [dummy] * (Mmax - len(grp))
-        for grp in padded_inners
-    ]
-    # 4) stack into a single JAX array
-    return jnp.array(padded_groups, dtype=jnp.int32)

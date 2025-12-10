@@ -15,7 +15,7 @@ jax.config.update("jax_enable_x64", True)
 
 class QNN:
     '''
-    Class for continuous variables quantum (optics) neural network building, training, evaluation and profiling.
+    Class for continuous variables quantum (optics) neural network building, training, evaluation and testing.
     '''
     def __init__(self, model_name, N, layers, n_in, n_out, ladder_modes=[0], is_addition=True, observable='position',
                  include_initial_squeezing=False, include_initial_mixing=False, is_passive_gaussian=False,
@@ -136,8 +136,8 @@ class QNN:
         
     def build_quadratic_gaussians(self, parameters, current_par_idx):
         '''
-        Builds the symplectic-orthogonal matrices, Q1 and Q2 (passive optics), 
-        and the diagonal symplectic matrix, Z (squeezing), of each QONN layer 
+        Builds the symplectic-orthogonal matrices, Q1 and Q2 (passive optics) 
+        and the diagonal symplectic matrix Z (squeezing) of each QONN layer 
         given the vector of tunable parameters.
         
         :param parameters: Vector of all QONN trainable parameters
@@ -318,52 +318,6 @@ class QNN:
             
         return jax.vmap(_trace_coefs, in_axes=(0, None))(self.exp_vals_inds, full_coef_vector)
     
-    def exp_val_ladder_jk(self, j, k, V, means):
-        '''
-        Computes the expectation value of two annihilation operators (in mode j and k) of a Gaussian state based 
-        on the first two statistical moments of the state.
-
-        :param j: Mode of the first annihilation operator
-        :param k: Mode of the second annihilation operator
-        :param V: Covariance matrix of the Gaussian state
-        :param means: Means vector of the Gaussian state
-        :return: Expectation value of a pair of annihilation operators of a Gaussian state
-        '''
-        return 0.5*(V[j,k] - V[self.N+j, self.N+k] + 1j*(V[j, self.N+k] + V[self.N+j, k]))
-
-    def exp_val_ladder_jdagger_k(self, j, k, V, means):
-        '''
-        Computes the expectation value of one annihilation and one creation operators (in mode j and k) 
-        of a Gaussian state based on the first two statistical moments of the state.
-
-        :param j: Mode of the creation operator
-        :param k: Mode of the annihilation operator
-        :param V: Covariance matrix of the Gaussian state
-        :param means: Means vector of the Gaussian state
-        :return: Expectation value of one creation and one annihilation operators of a Gaussian state
-        '''
-        delta = jnp.where(j == k, 1, 0)
-        return 0.5*(V[j,k] + V[self.N+j, self.N+k] + 1j*(V[j, self.N+k] - V[self.N+j, k]) - delta)
-    
-    def compute_quad_exp_vals(self, V, means):
-        '''
-        Computes the expectation value of all combinations of ladder operators pairs of all existing modes
-        of a Gaussian state based on its covariance matrix and means vector.
-        
-        :param V: Covariance matrix of the Gaussian state
-        :param means: Means vector of the Gaussian state
-        :return: All expectation values of the different configuration of a pair of ladder operators on all modes.
-        '''
-        js = jnp.arange(self.N)
-        ks = jnp.arange(self.N)
-        
-        K00 = jax.vmap(jax.vmap(self.exp_val_ladder_jk, in_axes=(None, 0, None, None)), in_axes=(0, None, None, None))(js, ks, V, means)
-        K01 = jax.vmap(jax.vmap(self.exp_val_ladder_jdagger_k, in_axes=(None, 0, None, None)), in_axes=(0, None, None, None))(js, ks, V, means)
-        K10 = K01.T + jnp.eye(self.N, dtype=K01.dtype)
-        K11 = K00.conj()
-
-        return jnp.stack([K00, K01, K10, K11], axis=0)
-    
     def finalize_observable_expval(self, expvals):
         '''
         Computes the final expectation value based on the observables selected for the QONN outputs,
@@ -409,7 +363,7 @@ class QNN:
         mean_vector, V = self.apply_gaussian_transformations(mean_vector, V)
         
         # 3. Compute the expectation values of all combinations of ladder operators pairs over the final Gaussian state
-        K_exp_vals = self.compute_quad_exp_vals(V, mean_vector)
+        K_exp_vals = compute_quad_exp_vals(self.N, V, mean_vector)
 
         # 4. Compute coefficients for trace expression and normalization terms
         traces_terms_coefs = self.compute_coefficients() if self.layers > 1 else self.jax_ones_coefs
@@ -553,7 +507,7 @@ class QNN:
     
     def compute_exp_val_loop(self, exp_vals_terms_coefs, quadratic_exp_vals, means_vector):
         '''
-        Computes the expectation value of the expression (trace) that defines the QONN operations.
+        Computes the expectation value of the expression (trace) that defines the final QONN state.
     
         :param exp_vals_terms_coefs: Coefficients of the unnormalized terms of the trace expression
         :param quadratic_exp_vals: Expectation values of all combinations of ladder operators pairs over system's modes
