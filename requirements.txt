@@ -1,8 +1,8 @@
-numpy==1.26.0
+numpy==1.26.4
 scipy==1.11.2
 sympy==1.12
 matplotlib==3.8.0
 tensorflow==2.15.0
 jsonpickle==3.0.2
-numba==0.58.1
 pandas==2.1.4
+jax==0.6.1
