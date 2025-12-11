@@ -156,7 +156,9 @@ def build_and_train_model(model_name, N, layers, n_inputs, n_outputs, ladder_mod
     minimizer_kwargs = {"method": "L-BFGS-B", "bounds": bounds, "callback": callback}
     opt_result = opt.basinhopping(training_QNN, init_pars, niter=hopping_iters, minimizer_kwargs=minimizer_kwargs, callback=callback_hopping)
     #qnn = QNN.load_model("models/trig_fun_N2_L1_ph[[0]]_in(-3, 3)_out(1, 3).txt")
-    print(f'Total training time: {time.time() - training_start} seconds')
+    train_time = time.time() - training_start
+    print(f'Total training time: {train_time} seconds')
+    print(f'Time per epoch: {train_time / (len(best_loss_values)-1)} seconds')
     if is_addition:
         nongauss_op = "â†"
     else:
