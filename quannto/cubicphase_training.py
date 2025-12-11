@@ -13,8 +13,8 @@ np.random.seed(42)
 
 # === HYPERPARAMETERS DEFINITION ===
 modes = [2,2,2]
-photon_additions = [[[]],[[0]],[[0],[0]]]#,[[0],[0,1]]]#[[0,1,2]]]
-layers = [1,1]
+photon_additions = [[[]],[[1]],[[1],[1]]]#,[[0],[0,1]]]#[[0,1,2]]]
+layers = [1,1,2]
 is_addition = False
 include_initial_squeezing = False
 include_initial_mixing = False
@@ -92,12 +92,10 @@ for (N, l, ph_add, in_norm_range) in zip(modes, layers, photon_additions, in_nor
         np.save(f, np.array(train_loss))
     qnn_loss.append(train_loss[-1])
     
-    qnn_test_outputs = qnn.test_model(train_dataset, loss_function)
+    qnn_test_outputs, loss_value = qnn.test_model(train_dataset[0], train_dataset[1], loss_function)
     with open(f"testing/{model_name}.npy", "wb") as f:
         np.save(f, np.array(qnn_test_outputs))
     qnn_outs.append(qnn_test_outputs.copy())
-    for i in range(len(qnn_test_outputs)):
-        print(f'EXPECTED {outputs[i]} OBTAINED {qnn_test_outputs[i]}')
     
 # PLOT RESULTS
 if is_addition:

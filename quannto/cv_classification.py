@@ -106,13 +106,14 @@ plt.ylim(bottom=0.0)
 plt.xlabel('Epochs')
 plt.ylabel('Logarithmic loss value')
 plt.title(f'LOGARITHMIC LOSS FUNCTIONS')
+plt.grid(linestyle='--', linewidth=0.4)
 plt.legend()
 plt.savefig(f"figures/logloss_{model_name}.pdf")
 plt.show()
 plt.clf()
 
-# Test the trained QONN with the unused samples of the MNIST dataset
-qnn_test_outputs = qnn.test_model(test_dataset, loss_function)
+# Test the trained QONN with the all samples of the dataset
+qnn_test_outputs, loss_value = qnn.test_model(test_dataset[0], test_dataset[1], loss_function)
 with open(f"testing/{model_name}.npy", "wb") as f:
     np.save(f, np.array(qnn_test_outputs))
 qnn_test_prob_outs = softmax_discretization(qnn_test_outputs)
@@ -146,7 +147,7 @@ def plot_qonn_decision(X, y, predict_proba, title="QONN decision boundary"):
     # 4) Plot soft‐background and decision contour
     plt.contourf(xx, yy, Z, levels=50, cmap="RdBu", alpha=0.3)
     plt.contour(xx, yy, Z, levels=[0.5], colors="k", linewidths=2)
-    # 5) Final touches
+    # 5) Set titles and limits
     plt.title(title)
     plt.xlabel("$x_1$")
     plt.ylabel("$x_2$")
@@ -160,9 +161,6 @@ plt.clf()
 
 accuracy = np.equal(qnn_test_cat_outs, test_outputs_cats).sum()
 print(f"Accuracy: {accuracy}/{len(qnn_test_cat_outs)} = {accuracy/len(qnn_test_cat_outs)}")
-plot_qnn_testing(qnn, test_outputs_cats, qnn_test_cat_outs)
-plt.show()
-plt.clf()
 
 # Generate the confusion matrix
 cm = confusion_matrix(test_outputs_cats, qnn_test_cat_outs)
@@ -182,16 +180,4 @@ plt.xlabel('Predicted Label')
 plt.ylabel('True Label')
 plt.show()
 plt.savefig(f"figures/cm_{model_name}.pdf")
-plt.clf()
-
-plt.figure(figsize=(8, 6))
-ax = sns.heatmap(cm_total, annot=True, fmt='.2f', cmap='Greens', vmin=0.0, vmax=1.0, alpha=cm_total)
-for t in ax.texts:
-    val = float(t.get_text())
-    t.set_color('white' if val > 0.7 else 'black')
-plt.title('Confusion Matrix')
-plt.xlabel('Predicted Label')
-plt.ylabel('True Label')
-plt.show()
-plt.savefig(f"figures/cmacc_{model_name}.pdf")
 plt.clf()

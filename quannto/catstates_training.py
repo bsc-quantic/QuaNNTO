@@ -11,9 +11,9 @@ from .loss_functions import *
 np.random.seed(42)
 
 # === HYPERPARAMETERS DEFINITION ===
-modes = [2,2,2]
-photon_additions = [[[0]], [[0,0]], [[0,0,0]]]
-layers = [1,1,1]
+modes = [2,2]
+photon_additions = [[[0]], [[0,0]]]
+layers = [1,1]
 is_addition = False
 include_initial_squeezing = False
 include_initial_mixing = False
@@ -43,14 +43,14 @@ with open(f"datasets/catstate_phi{phi}_trainsize{dataset_size}_rng{input_range[0
 train_dataset = [np.array(inputs), np.array(outputs)]
 
 
-# === BUILD, TRAIN AND TEST QNN MODELS WITH DIFFERENT MODES ===
+# === BUILD, TRAIN AND TEST THE DIFFERENT QNN MODELS ===
 colors = colormaps['tab10']
 train_losses = []
 valid_losses = []
 qnn_loss = []
 qnn_outs = []
 qnns = []
-for (N, l, ph_add, in_norm_range, out_norm_range) in zip(modes, layers, photon_additions, in_norm_ranges, out_norm_ranges):
+for (N, l, ph_add, in_norm_range) in zip(modes, layers, photon_additions, in_norm_ranges):
     # Initialize the desired data processors for pre/post-processing
     in_preprocessors = []
     in_preprocessors.append(partial(rescale_data, data_range=input_range, scale_data_range=in_norm_range))
@@ -71,7 +71,7 @@ for (N, l, ph_add, in_norm_range, out_norm_range) in zip(modes, layers, photon_a
         np.save(f, np.array(train_loss))
     qnn_loss.append(train_loss[-1])
     
-    qnn_test_outputs = qnn.test_model(train_dataset, loss_function)
+    qnn_test_outputs, loss_value = qnn.test_model(train_dataset[0], train_dataset[1], loss_function)
     with open(f"testing/{model_name}.npy", "wb") as f:
         np.save(f, np.array(qnn_test_outputs))
     qnn_outs.append(qnn_test_outputs.copy())

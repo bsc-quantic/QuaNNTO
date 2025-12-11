@@ -16,7 +16,7 @@ np.random.seed(42)
 # === HYPERPARAMETERS DEFINITION ===
 modes = [5,5,5,5]
 qnns_ladder_modes = [[[]], [[0]], [[0,1]], [[0],[1]]]
-layers = [1, 1, 1, 2]
+layers = [1, 1]
 is_addition = False
 include_initial_squeezing = False
 include_initial_mixing = False
@@ -27,7 +27,7 @@ observable = 'position'
 in_norm_ranges = [(-3, 3)]*len(modes)
 out_norm_ranges = [(1, 50)]*len(modes)
 loss_function = cross_entropy
-basinhopping_iters = 4
+basinhopping_iters = 0
 
 # === DATASET SETTINGS ===
 categories = [0, 1, 2, 3, 4]
@@ -119,7 +119,7 @@ for (N, l, ladder_modes, in_norm_range, out_norm_range) in zip(modes, layers, qn
     plt.clf() """
 
     # Test the trained QONN with the unused samples of the MNIST dataset
-    qnn_test_outputs = qnn.test_model(test_dataset, loss_function)
+    qnn_test_outputs, loss_value = qnn.test_model(test_dataset[0], test_dataset[1], loss_function)
     with open(f"testing/{model_name}.npy", "wb") as f:
         np.save(f, np.array(qnn_test_outputs))
     qnn_test_prob_outs = softmax_discretization(qnn_test_outputs)

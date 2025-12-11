@@ -117,12 +117,13 @@ def build_and_train_model(model_name, N, layers, n_inputs, n_outputs, ladder_mod
                qnn.save_model(qnn.model_name+".txt")
         loss_values = [9999]
         validation_loss = [9999]
+    
     qnn = QNN(model_name, N, layers, n_inputs, n_outputs, ladder_modes, is_addition, observable,
               include_initial_squeezing, include_initial_mixing, is_passive_gaussian,
               in_preprocs, out_prepocs, postprocs)
+    
     train_inputs = reduce(lambda x, func: func(x), qnn.in_preprocessors, train_set[0])
     train_outputs = reduce(lambda x, func: func(x), qnn.out_preprocessors, train_set[1])
-    
     if valid_set != None:
         valid_inputs = reduce(lambda x, func: func(x), qnn.in_preprocessors, valid_set[0])
         valid_outputs = reduce(lambda x, func: func(x), qnn.out_preprocessors, valid_set[1])
@@ -145,28 +146,19 @@ def build_and_train_model(model_name, N, layers, n_inputs, n_outputs, ladder_mod
     #train_validation_outputs = np.concatenate((train_outputs, valid_outputs))
     
     training_start = time.time()
-    # ==========
-    """ jax_training_QNN = jax.jit(training_QNN)
-    epochs = 100
-    for epoch in range(epochs):
-        loss, grads = jax.value_and_grad(jax_training_QNN)(init_pars)
-        print(f"Epoch {epoch} loss: {loss}") """
-    # ==========
-    
     minimizer_kwargs = {"method": "L-BFGS-B", "bounds": bounds, "callback": callback}
     opt_result = opt.basinhopping(training_QNN, init_pars, niter=hopping_iters, minimizer_kwargs=minimizer_kwargs, callback=callback_hopping)
-    #qnn = QNN.load_model("models/trig_fun_N2_L1_ph[[0]]_in(-3, 3)_out(1, 3).txt")
-    print(f'Total training time: {time.time() - training_start} seconds')
+    train_time = time.time() - training_start
+    print(f'Total training time: {train_time} seconds')
+    print(f'Time per epoch: {train_time / (len(best_loss_values)-1)} seconds')
+    
     if is_addition:
         nongauss_op = "â†"
     else:
         nongauss_op = "â"
-    print(f'\nOPTIMIZATION ERROR FOR N={N}, L={layers}, {nongauss_op} modes={np.array(ladder_modes[0])+1}')
-    print(best_loss_values[-1])
+    print(f'\nOPTIMIZATION ERROR FOR N={N}, L={layers}, {nongauss_op} modes={np.array(ladder_modes[0])+1}\n{best_loss_values[-1]}')
     
-    #qnn.build_QNN(opt_result.lowest_optimization_result.x)
     qnn.build_QNN(best_pars)
-
     qnn.print_qnn()
     
     if save:

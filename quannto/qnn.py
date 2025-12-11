@@ -338,18 +338,13 @@ class QNN:
             obs_expvals = obs_expvals - obs_expvals.conj()
         return self.trace_const * obs_expvals / norm
     
-    @partial(jax.jit, static_argnums=(0,))
-    def eval_QNN(self, params, inputs_disp):
+    def eval_QNN(self, inputs_disp):
         '''
         Evaluates the QONN for a given input.
         
-        :param params: Vector of tunable parameters of the QONN
         :param inputs_disp: Input values of the QONN loaded as real coherent states
         :return: Normalized expectation values of the observables related to the QONN outputs
         '''
-        # 0. Build the QONN components using the tunable parameters
-        self.build_QNN(params)
-        
         # 1. Prepare initial state: initial vacuum state displaced according to the inputs
         tuned_inputs = inputs_disp
         mean_vector = jnp.zeros((2*self.N,), dtype=tuned_inputs.dtype)
@@ -395,6 +390,9 @@ class QNN:
         :param loss_function: Function to evaluate the loss of the QONN predictions
         :return: Losses of the QONN predictions
         '''
+        # Build QONN with current parameters
+        self.build_QNN(parameters)
+        
         # Shuffle dataset
         B = inputs_dataset.shape[0]
         perm = jax.random.permutation(jax.random.PRNGKey(42), B)
@@ -402,11 +400,44 @@ class QNN:
         # Evaluate all dataset
         x = inputs_dataset[perm]
         y = outputs_dataset[perm]
-        batched_eval = jax.vmap(lambda xi: self.eval_QNN(parameters, xi), in_axes=0, out_axes=0)
-        y_hat = batched_eval(x)
+        y_hat = jax.vmap(self.eval_QNN, in_axes=(0))(x)
 
         # Compute loss
         return loss_function(y, y_hat)
+    
+    def test_model(self, input_set, output_set, loss_function):
+        '''
+        Makes predictions of the given QNN using the input testing dataset.
+        
+        :param input_set: Inputs of the testing set
+        :param output_set: Outputs of the testing set
+        :param loss_function: Loss function to compute the testing set losses
+        :return: QNN predictions of the testing set and loss value
+        '''
+        preproc_inputs = reduce(lambda x, func: func(x), self.in_preprocessors, input_set)
+        preproc_outputs = reduce(lambda x, func: func(x), self.out_preprocessors, output_set)
+        
+        qnn_outputs = jax.vmap(self.eval_QNN, in_axes=(0))(preproc_inputs)
+        loss_value = loss_function(preproc_outputs, qnn_outputs)
+        
+        postproc_outs = reduce(lambda x, func: func(x), self.postprocessors, qnn_outputs)
+        return postproc_outs, loss_value
+    
+    def evaluate_model(self, input_set):
+        '''
+        Makes predictions of the given QNN using the input testing dataset.
+        
+        :param test_inputs: Inputs to be evaluated by the QNN
+        :return: Post-processed QNN predictions of the input set
+        '''
+        preproc_inputs = reduce(lambda x, func: func(x), self.in_preprocessors, input_set)
+        
+        # Evaluate all testing set
+        qnn_outputs = np.real_if_close(
+            jax.vmap(self.eval_QNN, in_axes=(0))(preproc_inputs), tol=1e6
+        )
+        
+        return reduce(lambda x, func: func(x), self.postprocessors, qnn_outputs)
     
     def print_qnn(self):
         '''
@@ -428,41 +459,6 @@ class QNN:
             if layer > 0:
                 print(f"Symplectic coefficients:\n{self.S_concat[:,(layer-1)*2*self.N : layer*2*self.N]}")
                 print(f"Displacement coefficients:\n{self.D_concat[(layer-1)*2*self.N : layer*2*self.N]}")
-        
-    def test_model(self, testing_dataset, loss_function):
-        '''
-        Makes predictions of the given QNN using the input testing dataset.
-        
-        :param testing_dataset: List of inputs and outputs to be tested
-        :param loss_function: Loss function to compute the testing set losses
-        :return: QNN predictions of the testing set
-        '''
-        test_inputs = reduce(lambda x, func: func(x), self.in_preprocessors, testing_dataset[0])
-        test_outputs = reduce(lambda x, func: func(x), self.out_preprocessors, testing_dataset[1])
-        
-        qnn_outputs = jax.vmap(self.eval_QNN, in_axes=(None, 0))(self.tunable_parameters, test_inputs)
-        
-        mean_error = loss_function(test_outputs, qnn_outputs)
-        print(f"LOSS VALUE FOR TESTING SET: {mean_error}")
-        print("\n==========\n")
-        
-        return reduce(lambda x, func: func(x), self.postprocessors, qnn_outputs)
-    
-    def evaluate_model(self, test_inputs):
-        '''
-        Makes predictions of the given QNN using the input testing dataset.
-        
-        :param test_inputs: Inputs to be evaluated by the QNN
-        :return: Post-processed QNN predictions of the input set
-        '''
-        test_inputs = reduce(lambda x, func: func(x), self.in_preprocessors, test_inputs)
-        
-        # Evaluate all testing set
-        qnn_outputs = np.real_if_close(
-            jax.vmap(self.eval_QNN, in_axes=(None, 0))(self.tunable_parameters, test_inputs), tol=1e6
-        )
-        
-        return reduce(lambda x, func: func(x), self.postprocessors, qnn_outputs)
     
     def save_model(self, filename):
         '''

@@ -13,9 +13,9 @@ from .loss_functions import *
 np.random.seed(42)
 
 # === HYPERPARAMETERS DEFINITION ===
-modes = [2,3,4]
-qnns_ladder_modes = [[[1,2]], [[1,2,3]], [[0],[1]]]
-layers = [1,1,2]
+modes = [2,2,3]
+qnns_ladder_modes = [[[0]], [[0,1]], [[0,1,2]]]
+layers = [1,1,1]
 is_addition = False
 include_initial_squeezing = False
 include_initial_mixing = False
@@ -23,10 +23,10 @@ is_passive_gaussian = False
 n_inputs = 1
 n_outputs = 1
 observable = 'position'
-in_norm_ranges = [(-3, 3)]*len(modes)
-out_norm_ranges = [(1, 3)]*len(modes)
-#in_norm_ranges = [None]*len(modes)
-#out_norm_ranges = [None]*len(modes)
+#in_norm_ranges = [(-3, 3)]*len(modes)
+#out_norm_ranges = [(1, 3)]*len(modes)
+in_norm_ranges = [None]*len(modes)
+out_norm_ranges = [None]*len(modes)
 loss_function = mse
 basinhopping_iters = 2
 params = None
@@ -113,7 +113,8 @@ for (N, l, ladder_modes, in_norm_range, out_norm_range) in zip(modes, layers, qn
         np.save(f, np.array(valid_loss))
     qnn_loss.append(train_loss[-1])
     
-    qnn_test_outputs = qnn.test_model(test_dataset, loss_function)
+    qnn_test_outputs, loss_value = qnn.test_model(test_dataset[0], test_dataset[1], loss_function)
+    print(f'\n==========\nTESTING LOSS FOR N={N}, L={l}, LADDER MODES={ladder_modes}: {loss_value}\n==========')
     with open(f"testing/{model_name}.npy", "wb") as f:
         np.save(f, np.array(qnn_test_outputs))
     #print(qnn_test_outputs)
