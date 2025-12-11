@@ -218,11 +218,11 @@ def complete_trace_expression(N, layers, ladder_modes, is_addition, n_outputs, i
             expanded_expr.append(expand(sup_dag*a[0]*sup))
             # 2nd moments
             expanded_expr.append(expand(sup_dag*a[0]*a[0]*sup))
-            expanded_expr.append(expand(sup_dag*c[0]*a[0]*sup))
             # 3rd moments
             expanded_expr.append(expand(sup_dag*a[0]*a[0]*a[0]*sup))
             expanded_expr.append(expand(sup_dag*c[0]*c[0]*a[0]*sup))
-            # 4th moments
+            # n and n² moments
+            expanded_expr.append(expand(sup_dag*c[0]*a[0]*sup))
             expanded_expr.append(expand(sup_dag*c[0]*a[0]*c[0]*a[0]*sup))
         elif obs == 'catstates':
             # 1st moments (zero)
