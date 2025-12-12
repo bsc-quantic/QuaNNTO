@@ -1,6 +1,7 @@
 import numpy as np
 import tensorflow as tf
 import jax.numpy as jnp
+import jax.nn as jnn
 from sklearn.decomposition import PCA
 
 def trigonometric_feature_expressivity(features, num_final_features):
@@ -65,25 +66,15 @@ def binning(data, data_range, num_categories):
     return cat
 
 def softmax_discretization(outputs):
-    prob_outputs = jnp.array([jnp.e**out for out in outputs], dtype=jnp.complex128)
-    norm_outputs = jnp.sum(prob_outputs, axis=1)
-    return jnp.array([prob_outputs[i]/norm_outputs[i] for i in range(len(prob_outputs))])
+    return jnn.softmax(jnp.real(outputs) , axis=-1)
 
 def one_hot_encoding(values, num_cats):
-    one_hot_set = np.zeros((len(values), num_cats), dtype=np.complex128)
-    for i in range(len(values)):
-        one_hot_set[i][values[i][0]] = 1
-    return jnp.array(one_hot_set)
+    values = np.asarray(values).reshape(-1)
+    return jnn.one_hot(values, num_cats)
 
 def greatest_probability(probs):
-    m = np.zeros((len(probs), 1))
-    for i in range(len(probs)):
-        max_prob_idx = 0
-        for j in range(len(probs[i])):
-            if probs[i, j] > probs[i, max_prob_idx]:
-                max_prob_idx = j
-        m[i, 0] = max_prob_idx
-    return m
+    maxprobs = jnp.argmax(probs, axis=-1, keepdims=True)
+    return maxprobs
     
 def binary_class_probability(output, output_range):
     output_mid = (output_range[1] - output_range[0]) / 2

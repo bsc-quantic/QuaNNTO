@@ -1,7 +1,8 @@
 from functools import partial
 import jax
-import numpy as np
 import jax.numpy as jnp
+import jax.nn as jnn
+import numpy as np
 from .data_processors import softmax_discretization
 
 def mse(expected: jnp.ndarray,
@@ -35,11 +36,12 @@ def mse_energy_penalty(expected: jnp.ndarray,
 
 def exp_val(obtained):
     return obtained
-
-def cross_entropy(true_labels, obtained_outputs):
-    obtained_probs = softmax_discretization(obtained_outputs)
-    return jnp.array((-jnp.sum(true_labels * jnp.log(obtained_probs))) / len(obtained_outputs), dtype=jnp.float64)
-
+    
+def cross_entropy(true_labels, raw_outputs):
+    log_probs = jnn.log_softmax(jnp.real(raw_outputs), axis=-1)
+    ce_mean = -jnp.mean(jnp.sum(true_labels * log_probs, axis=-1))
+    return ce_mean
+    
 def retrieve_loss_function(loss_name):
     if loss_name == 'mse':
         return mse
