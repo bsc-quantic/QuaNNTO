@@ -2,11 +2,11 @@ from functools import partial
 import matplotlib.pyplot as plt
 from matplotlib import colormaps
 
-from .qnn import QNN
-from .synth_datasets import *
-from .results_utils import *
-from .data_processors import *
-from .loss_functions import *
+from .core.qnn import QNN
+from .dataset_gens.synth_datasets import *
+from .utils.results_utils import *
+from .core.data_processors import *
+from .core.loss_functions import *
 
 np.random.seed(42)
 
