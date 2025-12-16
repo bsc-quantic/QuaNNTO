@@ -5,7 +5,7 @@ import seaborn as sns
 from sklearn.metrics import confusion_matrix
 import os.path
 
-from .qnn_trainers import build_and_train_model
+from .qnn_trainers import *
 from .synth_datasets import *
 from .results_utils import *
 from .data_processors import *
@@ -14,27 +14,31 @@ from .loss_functions import *
 np.random.seed(42)
 
 # === HYPERPARAMETERS DEFINITION ===
-modes = [5,5,5,5]
-qnns_ladder_modes = [[[]], [[0]], [[0,1]], [[0],[1]]]
-layers = [1, 1]
+modes = [11,11,11,11]
+qnns_ladder_modes = [[[]], [[0]], [[0,1]]]#, [[0,1,2]]]
+layers = [1,1,1,1]
 is_addition = False
 include_initial_squeezing = False
 include_initial_mixing = False
 is_passive_gaussian = False
-n_inputs = 3
-n_outputs = 5
+n_inputs = 7
+n_outputs = 10
 observable = 'position'
-in_norm_ranges = [(-3, 3)]*len(modes)
-out_norm_ranges = [(1, 50)]*len(modes)
+#in_norm_ranges = [(-3, 3)]*len(modes)
+in_norm_ranges = [None]*len(modes)
+out_norm_ranges = [(1, 3)]*len(modes)
+
+# === OPTIMIZER SETTINGS ===
+optimizer = hybrid_build_and_train_model
 loss_function = cross_entropy
-basinhopping_iters = 0
+basinhopping_iters = 4
 
 # === DATASET SETTINGS ===
-categories = [0, 1, 2, 3, 4]
+categories = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
 num_cats = len(categories)
 dataset_size = 75*num_cats
 validset_size = 20*num_cats
-continuize_method = 'encoding' # 'pca' or 'encoding' for Autoencoder
+continuize_method = 'pca' # 'pca' or 'encoding' for Autoencoder
 dataset_name = f'mnist_{continuize_method}_{n_inputs}lat_{num_cats}cats'
         
 if os.path.isfile(f"datasets/{dataset_name}_inputs.npy"):
@@ -79,11 +83,13 @@ for (N, l, ladder_modes, in_norm_range, out_norm_range) in zip(modes, layers, qn
     model_name = f"mnist_{N}modes_{l}layers_n{ladder_modes}_{n_inputs}lat_{num_cats}cats_{observable}"
     # === PREPROCESSORS AND POSTPROCESSORS ===
     in_preprocessors = []
-    in_preprocessors.append(partial(rescale_set_with_ranges, data_ranges=data_ranges, rescale_range=in_norm_range))
+    if in_norm_range != None:
+        in_preprocessors.append(partial(rescale_set_with_ranges, data_ranges=data_ranges, rescale_range=in_norm_range))
     in_preprocessors.append(partial(pad_data, length=2*N))
 
     out_preprocessors = []
-    out_preprocessors.append(partial(rescale_data, data_range=output_range, scale_data_range=out_norm_range))
+    if out_norm_range != None:
+        out_preprocessors.append(partial(rescale_data, data_range=output_range, scale_data_range=out_norm_range))
 
     postprocessors = []
 
@@ -97,9 +103,9 @@ for (N, l, ladder_modes, in_norm_range, out_norm_range) in zip(modes, layers, qn
     test_outputs_cats = dataset[1].reshape((len(dataset[1])))
     #test_outputs_cats = test_outputs_cats.reshape((len(test_outputs_cats)))
     # Build the QNN and train it with the generated dataset
-    qnn, train_loss, valid_loss = build_and_train_model(model_name, N, l, n_inputs, n_outputs, ladder_modes, is_addition, observable, 
-                                                        include_initial_squeezing, include_initial_mixing, is_passive_gaussian,
-                                                        train_dataset, valid_dataset, loss_function, basinhopping_iters, in_preprocessors, out_preprocessors, postprocessors)
+    qnn, train_loss, valid_loss = optimizer(model_name, N, l, n_inputs, n_outputs, ladder_modes, is_addition, observable, 
+                                            include_initial_squeezing, include_initial_mixing, is_passive_gaussian,
+                                            train_dataset, valid_dataset, loss_function, basinhopping_iters, in_preprocessors, out_preprocessors, postprocessors)
     qnns.append(qnn)
 
     with open(f"losses/{model_name}.npy", "wb") as f:

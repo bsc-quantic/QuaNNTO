@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 from matplotlib import colormaps
 import os.path
 
-from .qnn_trainers import build_and_train_model
+from .qnn_trainers import *
 from .synth_datasets import *
 from .results_utils import *
 from .data_processors import *
@@ -13,9 +13,9 @@ from .loss_functions import *
 np.random.seed(42)
 
 # === HYPERPARAMETERS DEFINITION ===
-modes = [2,2,3]
-qnns_ladder_modes = [[[0]], [[0,1]], [[0,1,2]]]
-layers = [1,1,1]
+modes = [2]
+qnns_ladder_modes = [[[0],[1],[0]]]
+layers = [3]
 is_addition = False
 include_initial_squeezing = False
 include_initial_mixing = False
@@ -28,7 +28,10 @@ observable = 'position'
 in_norm_ranges = [None]*len(modes)
 out_norm_ranges = [None]*len(modes)
 loss_function = mse
-basinhopping_iters = 2
+
+# === OPTIMIZER SETTINGS ===
+optimizer = hybrid_build_and_train_model
+basinhopping_iters = 1
 params = None
 
 # === TARGET FUNCTION SETTINGS ===
@@ -100,10 +103,10 @@ for (N, l, ladder_modes, in_norm_range, out_norm_range) in zip(modes, layers, qn
 
     model_name = target_function.__name__ + "_N" + str(N) + "_L" + str(l) + "_ph" + str(ladder_modes) + "_in" + str(in_norm_range) + "_out" + str(out_norm_range)
     # Build the QNN and train it with the generated dataset
-    qnn, train_loss, valid_loss = build_and_train_model(model_name, N, l, n_inputs, n_outputs, ladder_modes, is_addition, observable,
-                                                        include_initial_squeezing, include_initial_mixing, is_passive_gaussian,
-                                                        train_dataset, valid_dataset, loss_function, basinhopping_iters,
-                                                        in_preprocessors, out_preprocessors, postprocessors, init_pars=params)
+    qnn, train_loss, valid_loss = optimizer(model_name, N, l, n_inputs, n_outputs, ladder_modes, is_addition, observable,
+                                            include_initial_squeezing, include_initial_mixing, is_passive_gaussian,
+                                            train_dataset, valid_dataset, loss_function, basinhopping_iters,
+                                            in_preprocessors, out_preprocessors, postprocessors, init_pars=params)
     qnns.append(qnn)
     train_losses.append(train_loss.copy())
     with open(f"losses/{model_name}.npy", "wb") as f:

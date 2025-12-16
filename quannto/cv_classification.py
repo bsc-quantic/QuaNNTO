@@ -5,7 +5,7 @@ import seaborn as sns
 from sklearn.metrics import confusion_matrix
 import os.path
 
-from .qnn_trainers import build_and_train_model
+from .qnn_trainers import *
 from .synth_datasets import *
 from .results_utils import *
 from .data_processors import *
@@ -14,7 +14,7 @@ from .loss_functions import *
 np.random.seed(42)
 
 # === HYPERPARAMETERS DEFINITION ===
-N = 3
+N = 2
 ladder_modes = [[0]]
 layers = 1
 is_addition = False
@@ -24,14 +24,18 @@ is_passive_gaussian = False
 n_inputs = 2
 n_outputs = 2
 observable = 'position'
-in_norm_range = (-3, 3)
-out_norm_range = (1, 5)
+#in_norm_range = (-3, 3)
+in_norm_range = None
+out_norm_range = (1, 3)
+
+# === OPTIMIZER SETTINGS ===
+optimizer = hybrid_build_and_train_model
 loss_function = cross_entropy
 basinhopping_iters = 2
 
 # === DATASET SETTINGS ===
-#dataset_name = 'moons'
-dataset_name = 'circles'
+dataset_name = 'moons'
+#dataset_name = 'circles'
 trainset_size = 100
 validset_size = 50
 num_cats = 2
@@ -52,7 +56,8 @@ else:
 
 # === PREPROCESSORS AND POSTPROCESSORS ===
 in_preprocessors = []
-in_preprocessors.append(partial(rescale_set_with_ranges, data_ranges=data_ranges, rescale_range=in_norm_range))
+if in_norm_range != None:
+    in_preprocessors.append(partial(rescale_set_with_ranges, data_ranges=data_ranges, rescale_range=in_norm_range))
 in_preprocessors.append(partial(pad_data, length=2*N))
 
 out_preprocessors = []
@@ -91,9 +96,9 @@ test_outputs_cats = dataset[1]
 test_outputs_cats = test_outputs_cats.reshape((len(test_outputs_cats)))
 
 # === BUILD, TRAIN AND TEST QNN ===
-qnn, train_loss, valid_loss = build_and_train_model(model_name, N, layers, n_inputs, n_outputs, ladder_modes, is_addition, observable,
-                                                    include_initial_squeezing, include_initial_mixing, is_passive_gaussian,
-                                                    train_dataset, valid_dataset, loss_function, basinhopping_iters, in_preprocessors, out_preprocessors, postprocessors)
+qnn, train_loss, valid_loss = optimizer(model_name, N, layers, n_inputs, n_outputs, ladder_modes, is_addition, observable,
+                                        include_initial_squeezing, include_initial_mixing, is_passive_gaussian,
+                                        train_dataset, valid_dataset, loss_function, basinhopping_iters, in_preprocessors, out_preprocessors, postprocessors)
 
 with open(f"losses/{model_name}.npy", "wb") as f:
     np.save(f, np.array(train_loss))
@@ -116,9 +121,11 @@ plt.clf()
 qnn_test_outputs, loss_value = qnn.test_model(test_dataset[0], test_dataset[1], loss_function)
 with open(f"testing/{model_name}.npy", "wb") as f:
     np.save(f, np.array(qnn_test_outputs))
+
 qnn_test_prob_outs = softmax_discretization(qnn_test_outputs)
 qnn_test_cat_outs = greatest_probability(qnn_test_prob_outs)
 qnn_test_cat_outs = qnn_test_cat_outs.reshape((len(qnn_test_cat_outs)))
+
 if is_addition:
     nongauss_op = "â†"
 else:

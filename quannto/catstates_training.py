@@ -24,6 +24,9 @@ observable = 'catstates'
 in_norm_ranges = [(-2, 2)]*len(modes)
 out_norm_ranges = [(-2, 2)]*len(modes)
 loss_function = mse
+
+# === OPTIMIZER SETTINGS ===
+optimizer = build_and_train_model
 basinhopping_iters = 5
 params = None
 
@@ -53,17 +56,18 @@ qnns = []
 for (N, l, ph_add, in_norm_range) in zip(modes, layers, photon_additions, in_norm_ranges):
     # Initialize the desired data processors for pre/post-processing
     in_preprocessors = []
-    in_preprocessors.append(partial(rescale_data, data_range=input_range, scale_data_range=in_norm_range))
+    if in_norm_range != None:
+        in_preprocessors.append(partial(rescale_data, data_range=input_range, scale_data_range=in_norm_range))
     in_preprocessors.append(partial(pad_data, length=2*N))
     out_preprocessors = []
     postprocessors = []
 
     model_name = model_name + "_N" + str(N) + "_L" + str(l) + "_ph" + str(ph_add)
     # Build the QONN and train it with the generated dataset
-    qnn, train_loss, valid_loss = build_and_train_model(model_name, N, l, n_inputs, n_outputs, ph_add, is_addition, observable,
-                                                        include_initial_squeezing, include_initial_mixing, is_passive_gaussian,
-                                                        train_dataset, None, loss_function, basinhopping_iters,
-                                                        in_preprocessors, out_preprocessors, postprocessors, init_pars=params)
+    qnn, train_loss, valid_loss = optimizer(model_name, N, l, n_inputs, n_outputs, ph_add, is_addition, observable,
+                                            include_initial_squeezing, include_initial_mixing, is_passive_gaussian,
+                                            train_dataset, None, loss_function, basinhopping_iters,
+                                            in_preprocessors, out_preprocessors, postprocessors, init_pars=params)
     qnns.append(qnn)
     
     train_losses.append(train_loss.copy())
