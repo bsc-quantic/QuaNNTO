@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 from matplotlib import colormaps
 
 from .core.qnn import QNN
-from .dataset_gens.synth_datasets import *
+from .dataset_gens.synthetic_datasets import *
 from .utils.results_utils import *
 from .core.data_processors import *
 from .core.loss_functions import *

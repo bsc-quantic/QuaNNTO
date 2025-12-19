@@ -1,12 +1,8 @@
 from functools import partial
-import matplotlib.pyplot as plt
 import numpy as np
-import seaborn as sns
-from sklearn.metrics import confusion_matrix
 import os.path
 
 from quannto.core.qnn_trainers import *
-from quannto.dataset_gens.synth_datasets import *
 from quannto.utils.results_utils import *
 from quannto.core.data_processors import *
 from quannto.core.loss_functions import *
@@ -14,35 +10,35 @@ from quannto.core.loss_functions import *
 np.random.seed(42)
 
 # === HYPERPARAMETERS DEFINITION ===
-N = 2
-ladder_modes = [[0]]
-layers = 1
-is_addition = False
+qnn_modes = 3
+qnn_ladder_modes = [[0]]
+qnn_layers = 1
+qnn_is_addition = False
 include_initial_squeezing = False
 include_initial_mixing = False
 is_passive_gaussian = False
 n_inputs = 2
 n_outputs = 2
 observable = 'position'
-#in_norm_range = (-3, 3)
-in_norm_range = None
-out_norm_range = (1, 3)
+in_norm_range = (-3, 3) # or None
+out_norm_range = (1, 3) # or None
 
 # === OPTIMIZER SETTINGS ===
-optimizer = hybrid_build_and_train_model
+optimize = hybrid_build_and_train_model
 loss_function = cross_entropy
-basinhopping_iters = 2
+basinhopping_iters = 0
+params = None
 
 # === DATASET SETTINGS ===
-dataset_name = 'moons'
-#dataset_name = 'circles'
+dataset_name = 'circles' # or 'circles'
 trainset_size = 100
 validset_size = 50
 num_cats = 2
 dataset_size_per_cat = trainset_size // 2
 validset_size_per_cat = validset_size // 2
-model_name = f"{dataset_name}_{N}modes_{layers}layers_ph{ladder_modes}_in{in_norm_range}_out{out_norm_range}_datasize{trainset_size}"
+model_name = f"{dataset_name}_{qnn_modes}modes_{qnn_layers}layers_ph{qnn_ladder_modes}_in{in_norm_range}_out{out_norm_range}_datasize{trainset_size}"
 
+# 1. FULL DATASET: Load moons (or circles) dataset and shuffle
 if os.path.isfile(f"datasets/{dataset_name}_inputs.npy"):
     with open(f"datasets/{dataset_name}_inputs.npy", "rb") as f:
         inputs = np.load(f)
@@ -50,141 +46,72 @@ if os.path.isfile(f"datasets/{dataset_name}_inputs.npy"):
         outputs = np.load(f)
     shuffling = np.random.permutation(len(inputs))
     dataset = [inputs[shuffling], outputs[shuffling]]
-    data_ranges = np.array([(np.min(dataset[0][:,col]), np.max(dataset[0][:,col])) for col in range(len(dataset[0][0]))])
+    input_ranges = np.array([(np.min(dataset[0][:,col]), np.max(dataset[0][:,col])) for col in range(len(dataset[0][0]))])
 else:
     Exception
+    
+# 2. BALANCED TRAINING DATASET
+train_dataset = (
+    np.concatenate((
+        dataset[0][:dataset_size_per_cat], dataset[0][-dataset_size_per_cat:]
+    )),
+    np.concatenate(
+        (dataset[1][:dataset_size_per_cat], dataset[1][-dataset_size_per_cat:])
+    )
+)
+# 3. BALANCED VALIDATION DATASET (None for no validation)
+valid_dataset = (
+    np.concatenate((
+        dataset[0][dataset_size_per_cat:dataset_size_per_cat+validset_size_per_cat],
+        dataset[0][-(dataset_size_per_cat+validset_size_per_cat):-dataset_size_per_cat]
+    )),
+    np.concatenate((
+        dataset[1][:dataset_size_per_cat], dataset[1][-dataset_size_per_cat:]
+    ))
+)
+# 4. TESTING DATASET: Use the entire moons (or circles) dataset
+test_dataset = (dataset[0], dataset[1])
+test_outputs_classes = dataset[1].ravel()
 
 # === PREPROCESSORS AND POSTPROCESSORS ===
 in_preprocessors = []
 if in_norm_range != None:
-    in_preprocessors.append(partial(rescale_set_with_ranges, data_ranges=data_ranges, rescale_range=in_norm_range))
-in_preprocessors.append(partial(pad_data, length=2*N))
+    in_preprocessors.append(partial(rescale_set_with_ranges, data_ranges=input_ranges, rescale_range=in_norm_range))
+in_preprocessors.append(partial(pad_data, length=2*qnn_modes))
 
 out_preprocessors = []
-output_range = (0, 1)
-out_preprocessors.append(partial(rescale_data, data_range=output_range, scale_data_range=out_norm_range))
+out_preprocessors.append(partial(one_hot_encoding, num_cats=num_cats))
+if out_norm_range != None:
+    out_preprocessors.append(partial(rescale_data, data_range=(0, 1), scale_data_range=out_norm_range))
 
 postprocessors = []
-
-# === BUILD TRAINING, VALIDATION AND TESTING DATASET ===
-balanced_trainset = (
-    np.concatenate(
-        (dataset[0][:dataset_size_per_cat], dataset[0][-dataset_size_per_cat:])
-    ),
-    np.concatenate(
-        (dataset[1][:dataset_size_per_cat], dataset[1][-dataset_size_per_cat:])
-    )
-)
-train_dataset = (balanced_trainset[0], one_hot_encoding(balanced_trainset[1], num_cats))
-
-balanced_validset = (
-    np.concatenate(
-        (dataset[0][dataset_size_per_cat:dataset_size_per_cat+validset_size_per_cat], dataset[0][-(dataset_size_per_cat+validset_size_per_cat):-dataset_size_per_cat])
-    ),
-    np.concatenate(
-        (dataset[1][:dataset_size_per_cat], dataset[1][-dataset_size_per_cat:])
-    )
-)
-#valid_dataset = (balanced_validset[0], one_hot_encoding(balanced_validset[1], num_cats))
-valid_dataset = None
-
-test_dataset = (
-    dataset[0],
-    one_hot_encoding(dataset[1], num_cats)
-)
-test_outputs_cats = dataset[1]
-test_outputs_cats = test_outputs_cats.reshape((len(test_outputs_cats)))
+#postprocessors.append(partial(softmax_discretization))
+#postprocessors.append(partial(greatest_probability))
+#postprocessors.append(partial(np.ravel))
 
 # === BUILD, TRAIN AND TEST QNN ===
-qnn, train_loss, valid_loss = optimizer(model_name, N, layers, n_inputs, n_outputs, ladder_modes, is_addition, observable,
+qnn, train_loss, valid_loss = optimize(model_name, qnn_modes, qnn_layers, n_inputs, n_outputs, qnn_ladder_modes, qnn_is_addition, observable,
                                         include_initial_squeezing, include_initial_mixing, is_passive_gaussian,
                                         train_dataset, valid_dataset, loss_function, basinhopping_iters, in_preprocessors, out_preprocessors, postprocessors)
+qnn_preds, loss_value = qnn.test_model(test_dataset[0], test_dataset[1], loss_function)
+qnn_probs_preds = softmax_discretization(qnn_preds)
+qnn_class_preds = np.ravel(greatest_probability(qnn_probs_preds))
 
-with open(f"losses/{model_name}.npy", "wb") as f:
+qnn_hits = np.equal(qnn_class_preds, test_outputs_classes).sum()
+qnn_accuracy = qnn_hits/len(qnn_class_preds)
+print(f"Accuracy: {qnn_hits}/{len(qnn_class_preds)} = {qnn_accuracy}")
+
+# === SAVE AND PLOT QNN MODEL RESULTS ===
+with open(f"quannto/tasks/train_losses/{model_name}.npy", "wb") as f:
     np.save(f, np.array(train_loss))
-with open(f"valid_losses/{model_name}.npy", "wb") as f:
+with open(f"quannto/tasks/valid_losses/{model_name}.npy", "wb") as f:
     np.save(f, np.array(valid_loss))
+with open(f"quannto/tasks/testing_results/{model_name}.npy", "wb") as f:
+    np.save(f, np.array(qnn_class_preds))
 
-plt.plot(np.log(np.array(train_loss)+1), c='red', label=f'Train loss N={N}')
-plt.plot(np.log(np.array(valid_loss)+1), c='red', linestyle='dashed', label=f'Validation loss N={N}')
-plt.ylim(bottom=0.0)
-plt.xlabel('Epochs')
-plt.ylabel('Logarithmic loss value')
-plt.title(f'LOGARITHMIC LOSS FUNCTIONS')
-plt.grid(linestyle='--', linewidth=0.4)
-plt.legend()
-plt.savefig(f"figures/logloss_{model_name}.pdf")
-plt.show()
-plt.clf()
-
-# Test the trained QONN with the all samples of the dataset
-qnn_test_outputs, loss_value = qnn.test_model(test_dataset[0], test_dataset[1], loss_function)
-with open(f"testing/{model_name}.npy", "wb") as f:
-    np.save(f, np.array(qnn_test_outputs))
-
-qnn_test_prob_outs = softmax_discretization(qnn_test_outputs)
-qnn_test_cat_outs = greatest_probability(qnn_test_prob_outs)
-qnn_test_cat_outs = qnn_test_cat_outs.reshape((len(qnn_test_cat_outs)))
-
-if is_addition:
-    nongauss_op = "â†"
-else:
-    nongauss_op = "â"
+nongauss_op = "â†" if qnn_is_addition else "â"
 plot_title = f'QONN of N={qnn.N}, L={qnn.layers}, {nongauss_op} in modes {np.array(qnn.ladder_modes[0]) + 1}'
-
-def plot_qonn_decision(X, y, predict_proba, title="QONN decision boundary"):
-    # 1) Scatter original data
-    plt.figure(figsize=(6,6))
-    plt.scatter(
-        X[:,0], X[:,1],
-        c=y, cmap="coolwarm",
-        edgecolor="k", s=40, alpha=0.8
-    )
-    # 2) Create grid
-    x_min, x_max = X[:,0].min()-0.5, X[:,0].max()+0.5
-    y_min, y_max = X[:,1].min()-0.5, X[:,1].max()+0.5
-    xx, yy = np.meshgrid(
-        np.linspace(x_min, x_max, 200),
-        np.linspace(y_min, y_max, 200)
-    )
-    grid = np.c_[xx.ravel(), yy.ravel()]
-    # 3) Predict probabilities on grid
-    probs = softmax_discretization(predict_proba(grid))[:,0]      # probability of class=1
-    Z = probs.reshape(xx.shape)
-    # 4) Plot soft‐background and decision contour
-    plt.contourf(xx, yy, Z, levels=50, cmap="RdBu", alpha=0.3)
-    plt.contour(xx, yy, Z, levels=[0.5], colors="k", linewidths=2)
-    # 5) Set titles and limits
-    plt.title(title)
-    plt.xlabel("$x_1$")
-    plt.ylabel("$x_2$")
-    plt.xlim(x_min, x_max)
-    plt.ylim(y_min, y_max)
-    plt.savefig(f"figures/{model_name}.pdf")
-    
-plot_qonn_decision(test_dataset[0], test_outputs_cats, qnn.evaluate_model, plot_title)
-plt.show()
-plt.clf()
-
-accuracy = np.equal(qnn_test_cat_outs, test_outputs_cats).sum()
-print(f"Accuracy: {accuracy}/{len(qnn_test_cat_outs)} = {accuracy/len(qnn_test_cat_outs)}")
-
-# Generate the confusion matrix
-cm = confusion_matrix(test_outputs_cats, qnn_test_cat_outs)
-
-# Normalize the confusion matrix
-cm_normalized = cm.astype('float') / cm.sum(axis=1)[:, np.newaxis]
-cm_total = cm.astype('float') / cm.sum()
-
-# Plotting the confusion matrix as a green heatmap with variable opacity
-plt.figure(figsize=(8, 6))
-ax = sns.heatmap(cm_normalized, annot=True, fmt='.2f', cmap='Greens', vmin=0.0, vmax=1.0, alpha=cm_normalized)
-for t in ax.texts:
-    val = float(t.get_text())
-    t.set_color('white' if val > 0.7 else 'black')
-plt.title('Confusion Matrix')
-plt.xlabel('Predicted Label')
-plt.ylabel('True Label')
-plt.show()
-plt.savefig(f"figures/cm_{model_name}.pdf")
-plt.clf()
+legend_label = f'N={qnn_modes}, L={qnn_layers}, {nongauss_op} in modes {np.array(qnn.ladder_modes[0]) + 1}'
+plot_qnns_loglosses([train_loss], [valid_loss], [legend_label], model_name)
+plot_qnn_decision(test_dataset[0], test_outputs_classes, qnn.evaluate_model, model_name, plot_title)
+plot_confusion_matrix(model_name, test_outputs_classes, qnn_class_preds)

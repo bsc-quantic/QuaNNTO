@@ -1,10 +1,8 @@
 from functools import partial
-import matplotlib.pyplot as plt
 import numpy as np
 import os.path
 
 from quannto.core.qnn_trainers import *
-from quannto.dataset_gens.synth_datasets import *
 from quannto.utils.results_utils import *
 from quannto.core.data_processors import *
 from quannto.core.loss_functions import *
@@ -12,24 +10,24 @@ from quannto.core.loss_functions import *
 np.random.seed(42)
 
 # === HYPERPARAMETERS DEFINITION ===
-modes = [11,11,11,11]
-qnns_ladder_modes = [[[]], [[0]], [[0,1]], [[0,1,2]]]
-layers = [1,1,1,1]
-is_addition = False
+qnns_modes = [11,11]
+qnns_ladder_modes = [[[0]], [[0]]]
+qnns_layers = [1,1]
+qnns_is_addition = [False, True]
 include_initial_squeezing = False
 include_initial_mixing = False
 is_passive_gaussian = False
 n_inputs = 7
 n_outputs = 10
 observable = 'position'
-#in_norm_ranges = [(-3, 3)]*len(modes)
-in_norm_ranges = [None]*len(modes)
-out_norm_ranges = [(1, 3)]*len(modes)
+in_norm_ranges = [None]*len(qnns_modes) # or ranges (a, b)
+out_norm_ranges = [(1, 3)]*len(qnns_modes)
 
 # === OPTIMIZER SETTINGS ===
-optimizer = hybrid_build_and_train_model
+optimize = hybrid_build_and_train_model
 loss_function = cross_entropy
-basinhopping_iters = 4
+basinhopping_iters = 0
+params = None
 
 # === DATASET SETTINGS ===
 categories = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
@@ -37,12 +35,13 @@ num_cats = len(categories)
 dataset_size = 75*num_cats
 validset_size = 20*num_cats
 continuize_method = 'pca' # 'pca' or 'encoding' for Autoencoder
-dataset_name = f'mnist_{continuize_method}_{n_inputs}lat_{num_cats}cats'
-        
-if os.path.isfile(f"datasets/{dataset_name}_inputs.npy"):
-    with open(f"datasets/{dataset_name}_inputs.npy", "rb") as f:
+task_name = f'mnist_{continuize_method}_{n_inputs}lat_{num_cats}cats'
+     
+# 1. FULL DATASET: Load or build (and save) a CV-preprocessed MNIST dataset and shuffle
+if os.path.isfile(f"datasets/{task_name}_inputs.npy"):
+    with open(f"datasets/{task_name}_inputs.npy", "rb") as f:
         inputs = np.load(f)
-    with open(f"datasets/{dataset_name}_outputs.npy", "rb") as f:
+    with open(f"datasets/{task_name}_outputs.npy", "rb") as f:
         outputs = np.load(f)
     dataset = [inputs, outputs]
     input_ranges = np.array([(np.min(dataset[0][:,col]), np.max(dataset[0][:,col])) for col in range(len(dataset[0][0]))])
@@ -52,33 +51,33 @@ else:
         input_ranges = np.array([(np.min(dataset[0][:,col]), np.max(dataset[0][:,col])) for col in range(len(dataset[0][0]))])
         if np.all(input_ranges[:,-1] > 0):
             break
-    with open(f"datasets/{dataset_name}_inputs.npy", "wb") as f:
+    with open(f"datasets/{task_name}_inputs.npy", "wb") as f:
         np.save(f, dataset[0])
-    with open(f"datasets/{dataset_name}_outputs.npy", "wb") as f:
+    with open(f"datasets/{task_name}_outputs.npy", "wb") as f:
         np.save(f, dataset[1])
-        
 shuffling = np.random.permutation(len(dataset[0]))
 dataset = [dataset[0][shuffling], dataset[1][shuffling]]
-    
-print("ENCODED INPUTS RANGE:")
-print(input_ranges)
-print(dataset)
-output_range = (0, 1)
-colors = ['red', 'fuchsia', 'blue', 'purple', 'orange']
-for (cat, color) in zip(categories, colors):
-    subset = filter_dataset_categories(dataset[0], dataset[1], [cat])
-    plt.plot(subset[0][0,:], subset[0][1,:], c=color, linestyle='dotted', label=cat)
-plt.grid(linestyle='--', linewidth=0.4)
-plt.legend()
-#plt.show()
-plt.savefig(f"figures/trainset_{dataset_name}.pdf")
-plt.clf()
+# 2. TRAINING DATASET
+train_dataset = (dataset[0][:dataset_size], dataset[1][:dataset_size])
+# 3. VALIDATION DATASET (None for no validation)
+valid_dataset = (dataset[0][dataset_size : dataset_size+validset_size], dataset[1][dataset_size : dataset_size+validset_size])
+# 4. TESTING DATASET: Use the entire MNIST dataset
+test_dataset = (dataset[0], dataset[1])
+test_outputs_cats = dataset[1].reshape((len(dataset[1])))
 
+# === BUILD, TRAIN AND TEST QNN MODELS WITH DIFFERENT MODES ===
 qnns = []
+train_losses = []
+valid_losses = []
 qnns_preds = []
 qnns_accuracies = []
-for (N, l, ladder_modes, in_norm_range, out_norm_range) in zip(modes, layers, qnns_ladder_modes, in_norm_ranges, out_norm_ranges):
-    model_name = f"mnist_{N}modes_{l}layers_n{ladder_modes}_{n_inputs}lat_{num_cats}cats_{observable}"
+legend_labels = []
+for (N, l, ladder_modes, is_addition, in_norm_range, out_norm_range) in zip(qnns_modes, qnns_layers, qnns_ladder_modes, qnns_is_addition, in_norm_ranges, out_norm_ranges):
+    # === NAME AND LEGEND OF THE QONN MODEL ===
+    model_name = task_name + "_N" + str(N) + "_L" + str(l) + ("_add" if is_addition else "_sub") + str(ladder_modes) + "_in" + str(in_norm_range) + "_out" + str(out_norm_range)
+    nongauss_op = "â†" if is_addition else "â"
+    legend_labels.append(f'N={N}, L={l}, {nongauss_op} in modes {np.array(ladder_modes[0])+1}')
+    
     # === PREPROCESSORS AND POSTPROCESSORS ===
     in_preprocessors = []
     if in_norm_range != None:
@@ -86,96 +85,42 @@ for (N, l, ladder_modes, in_norm_range, out_norm_range) in zip(modes, layers, qn
     in_preprocessors.append(partial(pad_data, length=2*N))
 
     out_preprocessors = []
+    out_preprocessors.append(partial(one_hot_encoding, num_cats=num_cats))
     if out_norm_range != None:
-        out_preprocessors.append(partial(rescale_data, data_range=output_range, scale_data_range=out_norm_range))
+        out_preprocessors.append(partial(rescale_data, data_range=(0, 1), scale_data_range=out_norm_range))
 
     postprocessors = []
+    postprocessors.append(partial(softmax_discretization))
+    postprocessors.append(partial(greatest_probability))
+    postprocessors.append(partial(np.ravel))
 
     # === BUILD, TRAIN AND TEST QNN ===
-    train_dataset = (dataset[0][:dataset_size], one_hot_encoding(dataset[1][:dataset_size], num_cats))
-    #valid_dataset = (dataset[0][dataset_size : dataset_size+validset_size], one_hot_encoding(dataset[1][dataset_size : dataset_size+validset_size], num_cats))
-    valid_dataset = None
-    #test_dataset = (dataset[0][dataset_size+validset_size:], one_hot_encoding(dataset[1][dataset_size+validset_size:], num_cats))
-    test_dataset = (dataset[0], one_hot_encoding(dataset[1], num_cats))
-    #test_outputs_cats = dataset[1][dataset_size+validset_size:]
-    test_outputs_cats = dataset[1].reshape((len(dataset[1])))
-    #test_outputs_cats = test_outputs_cats.reshape((len(test_outputs_cats)))
-    # Build the QNN and train it with the generated dataset
-    qnn, train_loss, valid_loss = optimizer(model_name, N, l, n_inputs, n_outputs, ladder_modes, is_addition, observable, 
-                                            include_initial_squeezing, include_initial_mixing, is_passive_gaussian,
-                                            train_dataset, valid_dataset, loss_function, basinhopping_iters, in_preprocessors, out_preprocessors, postprocessors)
-    qnns.append(qnn)
-
-    with open(f"losses/{model_name}.npy", "wb") as f:
-        np.save(f, np.array(train_loss))
-    with open(f"valid_losses/{model_name}.npy", "wb") as f:
-        np.save(f, np.array(valid_loss))
-
-    """ plt.plot(np.log(np.array(train_loss)+1), c='red', label=f'Train loss N={N}')
-    plt.plot(np.log(np.array(valid_loss)+1), c='red', linestyle='dashed', label=f'Validation loss N={N}')
-    plt.ylim(bottom=0.0)
-    plt.xlabel('Epochs')
-    plt.ylabel('Logarithmic loss value')
-    plt.title(f'LOGARITHMIC LOSS FUNCTIONS')
-    plt.legend()
-    plt.savefig(f"figures/logloss_{model_name}.pdf")
-    #plt.show()
-    plt.clf() """
-
-    # Test the trained QONN with the unused samples of the MNIST dataset
-    qnn_test_outputs, loss_value = qnn.test_model(test_dataset[0], test_dataset[1], loss_function)
-    with open(f"testing/{model_name}.npy", "wb") as f:
-        np.save(f, np.array(qnn_test_outputs))
-    qnn_test_prob_outs = softmax_discretization(qnn_test_outputs)
-    qnn_test_cat_outs = greatest_probability(qnn_test_prob_outs)
-    qnn_test_cat_outs = qnn_test_cat_outs.reshape((len(qnn_test_cat_outs)))
-    qnns_preds.append(qnn_test_cat_outs.copy())
-
-    accuracy = np.equal(qnn_test_cat_outs, test_outputs_cats).sum()
-    qnns_accuracies.append(accuracy)
-    print(f"Accuracy: {accuracy}/{len(qnn_test_cat_outs)} = {accuracy/len(qnn_test_cat_outs)}")
-    #plot_qnn_testing(qnn, test_outputs_cats, qnn_test_cat_outs)
-
-    """ # Generate the confusion matrix
-    cm = confusion_matrix(test_outputs_cats, qnn_test_cat_outs)
-    # Normalize the confusion matrix
-    cm_normalized = cm.astype('float') / cm.sum(axis=1)[:, np.newaxis]
-    cm_total = cm.astype('float') / cm.sum()
-    # Plotting the confusion matrix as a green heatmap with variable opacity
-    plt.figure(figsize=(8, 6))
-    sns.heatmap(cm_normalized, annot=True, fmt='.2f', cmap='Greens', alpha=cm_normalized)
-    plt.title('Confusion Matrix')
-    plt.xlabel('Predicted Label')
-    plt.ylabel('True Label')
-    #plt.show()
-    plt.savefig(f"figures/cm_{model_name}.pdf")
-    plt.clf()
+    qnn, train_loss, valid_loss = optimize(model_name, N, l, n_inputs, n_outputs, ladder_modes, is_addition, observable, 
+                                           include_initial_squeezing, include_initial_mixing, is_passive_gaussian,
+                                           train_dataset, valid_dataset, loss_function, basinhopping_iters,
+                                           in_preprocessors, out_preprocessors, postprocessors, init_pars=params)
+    qnn_preds, loss_value = qnn.test_model(test_dataset[0], test_dataset[1], loss_function)
+    qnn_hits = np.equal(qnn_preds, test_outputs_cats).sum()
+    accuracy = qnn_hits/len(qnn_preds)
     
-    plt.figure(figsize=(8, 6))
-    sns.heatmap(cm_total, annot=True, fmt='.2f', cmap='Greens', alpha=cm_normalized)
-    plt.title('Confusion Matrix')
-    plt.xlabel('Predicted Label')
-    plt.ylabel('True Label')
-    #plt.show()
-    plt.savefig(f"figures/cmacc_{model_name}.pdf")
-    plt.clf() """
+    qnns.append(qnn)
+    train_losses.append(train_loss.copy())
+    valid_losses.append(valid_loss.copy())
+    qnns_preds.append(qnn_preds.copy())
+    qnns_accuracies.append(accuracy)
+    print(f"==========\nACCURACY FOR N={N}, L={l}, LADDER MODES={ladder_modes}: {qnn_hits}/{len(qnn_preds)} = {accuracy}\n==========\n")
 
-# PLOT RESULTS
-if is_addition:
-    nongauss_op = "â†"
-else:
-    nongauss_op = "â"
-legend_labels = [f'N={qnn.N}, L={qnn.layers}, {nongauss_op} in modes {np.array(qnn.ladder_modes[0]) + 1}' for qnn in qnns] # α ∈ {in_norm_range}
-avg_accuracies = np.array(qnns_accuracies)/len(qnn_test_cat_outs)
+    # === SAVE QNN MODEL RESULTS ===
+    with open(f"quannto/tasks/train_losses/{model_name}.npy", "wb") as f:
+        np.save(f, np.array(train_loss))
+    with open(f"quannto/tasks/valid_losses/{model_name}.npy", "wb") as f:
+        np.save(f, np.array(valid_loss))
+    with open(f"quannto/tasks/testing_results/{model_name}.npy", "wb") as f:
+        np.save(f, np.array(qnn_preds))
+    plot_confusion_matrix(model_name, test_outputs_cats, qnn_preds)
 
-fig, ax, acc = plot_per_class_accuracy_hist(categories, test_outputs_cats, qnns_preds, model_names=legend_labels, title="MNIST — QONNs per-class accuracy")
-plt.savefig(f"figures/hist_mnist_{modes}_{layers}_{qnns_ladder_modes}.pdf")
-#plt.show()
-plt.clf()
-fig, ax, acc = plot_per_class_accuracy_markers(categories, test_outputs_cats, qnns_preds, avg_accuracies, model_names=legend_labels, title="MNIST — QONNs per-class accuracy")
-plt.savefig(f"figures/acc_mnist_{modes}_{layers}_{qnns_ladder_modes}.pdf")
-plt.show()
-plt.clf()
-
-print(avg_accuracies)
-
+# === PLOT AND SAVE JOINT RESULTS ===
+nongauss_ops = ['â†' if is_addition else 'â' for is_addition in qnns_is_addition]
+filename = task_name+"_N"+str(qnns_modes)+"_L"+str(qnns_layers)+"_ph"+str(nongauss_ops)+str(qnns_ladder_modes)
+fig, ax, acc = plot_per_class_accuracy_hist(categories, test_outputs_cats, qnns_preds, legend_labels=legend_labels, filename=filename, title="MNIST — QONNs per-class accuracy")
+fig, ax, acc = plot_per_class_accuracy_markers(categories, test_outputs_cats, qnns_preds, qnns_accuracies, legend_labels=legend_labels, filename=filename, title="MNIST — QONNs per-class accuracy")

@@ -1,40 +1,135 @@
 import numpy as np
 import matplotlib.pyplot as plt
+import matplotlib
+import seaborn as sns
+from sklearn.metrics import confusion_matrix
 
-def plot_qnn_testing(qnn, exp_outputs, qnn_outputs):
+from quannto.core.data_processors import softmax_discretization
+
+colors = matplotlib.cm.tab10(range(6))
+linestyles = [
+    (5, (10, 3)),
+    (0, (3, 1, 1, 1)),
+    (0, (5, 5)),
+    (0, (3, 1, 1, 1, 1, 1)),
+    (0, (5, 1)),
+    (0, (3, 5, 1, 5))]
+
+def plot_noisy_dataset(task_name, train_dataset, real_function):
+    plt.plot(train_dataset[0], train_dataset[1], 'go', label='Noisy training set')
+    plt.plot(real_function[0], real_function[1], 'b', label='Real function')
+    plt.xlabel('x')
+    plt.xlim()
+    plt.ylabel('f(x)')
+    plt.grid(linestyle='--', linewidth=0.4)
+    plt.legend(loc='upper right')
+    plt.savefig(f"figures/training_{task_name}.pdf")
+    #plt.show()
+    plt.clf()
+
+def plot_qnns_testing(qnn, exp_outputs, qnn_outputs):
     plt.plot(exp_outputs, 'go', label='Expected results')
     plt.plot(qnn_outputs, 'r', label='QNN results')
     plt.title(f'TESTING SET\nModel: {qnn.model_name}, Modes = {qnn.N}, Layers = {qnn.layers}')
     plt.legend()
-    plt.savefig(f"figures/testset_{qnn.model_name}_{qnn.N}modes_{qnn.layers}layers_{qnn.n_in}in.pdf")
+    plt.savefig(f"figures/test_{qnn.model_name}_{qnn.N}modes_{qnn.layers}layers_{qnn.n_in}in.pdf")
+    #plt.show()
+    plt.clf()
     
-def plot_qnn_train_results(qnn, inputs, exp_outputs, qnn_outputs, loss_values):
-    fig, (ax1, ax2) = plt.subplots(1, 2)
-    fig.suptitle(f'TRAINING SET\nModel: {qnn.model_name}, Modes = {qnn.N}, Layers = {qnn.layers}')
+def plot_qnns_testing(inputs, expected_outputs, qnns_outputs, legend_labels, filename, title=None):
+    plt.plot(inputs, expected_outputs, c='black', linewidth=7.0, alpha=0.25, label='Expected results')
+    c=0
+    for (qnn_outputs, legend_label, linestyle) in zip(qnns_outputs, legend_labels, linestyles):
+        plt.plot(inputs, qnn_outputs, c=colors[c], linestyle=linestyle, linewidth=1.8, label=legend_label)
+        c+=1
     
-    # Plot expected vs obtained outputs of the training set
-    ax1.plot(inputs, exp_outputs,'go',label='Expected results')
-    ax1.plot(inputs, qnn_outputs,'r',label='QNN results')
-    ax1.set_xlabel('Input (x)')
-    ax1.set_ylabel('Output')
-    ax1.grid(linestyle='--', linewidth=0.4)
-    ax1.legend()
+    if title is not None:
+        plt.title(f'{title}')
+    plt.xlabel('Input')
+    plt.xlim()
+    plt.ylabel('Output')
+    #plt.ylim(top=output_range[1] + len(qnns)*0.2 + 0.2)
+    plt.grid(linestyle='--', linewidth=0.4)
+    plt.legend(loc='upper right')
+    plt.legend()
+    plt.savefig("figures/test_" + filename + ".pdf")
+    #plt.show()
+    plt.clf()
     
-    # Plot training loss values
-    ax2.plot(np.log(np.array(loss_values)+1), 'r', label='Loss (logarithmic) function')
-    ax2.set_ylim(bottom=0)
-    ax2.set_xlabel('Epochs')
-    ax2.set_ylabel('Logarithmic loss value')
-    ax2.grid(linestyle='--', linewidth=0.4)
-    ax2.legend()
-    plt.show()
+def plot_qnns_loglosses(train_losses, valid_losses, legend_labels, filename):
+    if valid_losses is not None and len(valid_losses[0]) > 1:
+        plt.plot([], [], linestyle='dotted', label=f'Validation losses', c='black')
+    for i in range(len(legend_labels)):
+        plt.plot(np.log(np.array(train_losses[i])+1), c=colors[i], linestyle=linestyles[i], label=f'Train loss {legend_labels[i]}')
+        if valid_losses is not None and len(valid_losses[i]) > 1:
+            plt.plot(np.log(np.array(valid_losses[i])+1), c=colors[i], linestyle='dotted')
+    plt.ylim(bottom=0.0)
+    plt.xlabel('Epochs')
+    plt.ylabel('Loss value')
+    plt.title(f'LOGARITHMIC TRAINING AND VALIDATION LOSS')
+    plt.grid(linestyle='--', linewidth=0.4)
+    plt.legend()
+    plt.savefig("figures/loss_" + filename + ".pdf")
+    #plt.show()
+    plt.clf()
+    print('=== MINIMAL LOSSES ACHIEVED ===')
+    for i in range(len(legend_labels)):
+        print(f'{legend_labels[i]}: {train_losses[i][-1]}')
+        
+def plot_confusion_matrix(model_name, expected_cats, qnn_pred_cats):
+    # Generate the confusion matrix
+    cm = confusion_matrix(expected_cats, qnn_pred_cats)
+    # Normalize the confusion matrix
+    cm_normalized = cm.astype('float') / cm.sum(axis=1)[:, np.newaxis]
+    # Plotting the confusion matrix as a green heatmap with variable opacity
+    plt.figure(figsize=(8, 6))
+    sns.heatmap(cm_normalized, annot=True, fmt='.2f', cmap='Greens', alpha=cm_normalized)
+    plt.title('Confusion Matrix')
+    plt.xlabel('Predicted Label')
+    plt.ylabel('True Label')
+    #plt.show()
+    plt.savefig(f"figures/cm_{model_name}.pdf")
+    plt.clf()
+    
+def plot_qnn_decision(X, y, qonn_outputs, model_name, title="QONN decision boundary"):
+    # 1) Scatter original data
+    plt.figure(figsize=(6,6))
+    plt.scatter(
+        X[:,0], X[:,1],
+        c=y, cmap="coolwarm",
+        edgecolor="k", s=40, alpha=0.8
+    )
+    # 2) Create grid
+    x_min, x_max = X[:,0].min()-0.5, X[:,0].max()+0.5
+    y_min, y_max = X[:,1].min()-0.5, X[:,1].max()+0.5
+    xx, yy = np.meshgrid(
+        np.linspace(x_min, x_max, 200),
+        np.linspace(y_min, y_max, 200)
+    )
+    grid = np.c_[xx.ravel(), yy.ravel()]
+    # 3) Predict probabilities on grid
+    probs = softmax_discretization(qonn_outputs(grid))[:,0] # probability of class=1
+    Z = probs.reshape(xx.shape)
+    # 4) Plot soft‐background and decision contour
+    plt.contourf(xx, yy, Z, levels=50, cmap="RdBu", alpha=0.3)
+    plt.contour(xx, yy, Z, levels=[0.5], colors="k", linewidths=2)
+    # 5) Set titles and limits
+    plt.title(title)
+    plt.xlabel("$x_1$")
+    plt.ylabel("$x_2$")
+    plt.xlim(x_min, x_max)
+    plt.ylim(y_min, y_max)
+    plt.savefig(f"figures/{model_name}.pdf")
+    #plt.show()
+    plt.clf()
     
 def plot_per_class_accuracy_hist(
     classes,
     y_true,
     preds_list,
     *,
-    model_names=None,
+    legend_labels=None,
+    filename=None, 
     cmap_name="tab10",
     figsize=(10, 5),
     title="Per-class accuracy",
@@ -93,9 +188,9 @@ def plot_per_class_accuracy_hist(
         preds_np.append(arr)
     n_models = len(preds_np)
 
-    if model_names is None:
-        model_names = [f"Model {i+1}" for i in range(n_models)]
-    if len(model_names) != n_models:
+    if legend_labels is None:
+        legend_labels = [f"Model {i+1}" for i in range(n_models)]
+    if len(legend_labels) != n_models:
         raise ValueError("model_names length must match preds_list length.")
 
     # Compute per-class accuracy
@@ -117,7 +212,7 @@ def plot_per_class_accuracy_hist(
     width = min(0.8 / max(n_models, 1), 0.8)
     offsets = (np.arange(n_models) - (n_models - 1) / 2.0) * width
 
-    for i, name in enumerate(model_names):
+    for i, name in enumerate(legend_labels):
         heights = np.nan_to_num(acc_matrix[i], nan=0.0)
         color = cmap(i % cmap.N)  # cycle colors if >10 models
         bars = ax.bar(x + offsets[i], heights, width, label=name, color=color)
@@ -143,6 +238,9 @@ def plot_per_class_accuracy_hist(
     #ax.legend(title="Model", ncols=min(n_models, 5))
     ax.legend()
     fig.tight_layout()
+    plt.savefig(f"figures/hist_" + filename + ".pdf")
+    #plt.show()
+    plt.clf()
     return fig, ax, acc_matrix
 
 def plot_per_class_accuracy_markers(
@@ -151,7 +249,8 @@ def plot_per_class_accuracy_markers(
     preds_list,
     avg_accuracies,
     *,
-    model_names=None,
+    legend_labels=None,
+    filename=None,
     markers=None,              # e.g. ['^','o','s']
     linestyles=None,           # e.g. ['-','--',':','-.']
     cmap_name="tab10",
@@ -159,9 +258,8 @@ def plot_per_class_accuracy_markers(
     title="Per-class accuracy (markers & lines)",
     annotate=False,
     x_jitter=0.0,
-    ylim=(0.8, 1.0),           # keep (0.8, 1.0) as requested
-    legend_loc="upper center", # legend stays INSIDE the axes
-    legend_anchor=(0.5, 0.98), # slightly below the top edge
+    legend_loc="upper center",
+    legend_anchor=(0.5, 1.0), # slightly above the top edge
 ):
     """Plot per-class accuracy for multiple models using colored markers & lines."""
     classes = np.asarray(classes)
@@ -181,9 +279,9 @@ def plot_per_class_accuracy_markers(
         preds_np.append(arr)
     n_models = len(preds_np)
 
-    if model_names is None:
-        model_names = [f"Model {i+1}" for i in range(n_models)]
-    if len(model_names) != n_models:
+    if legend_labels is None:
+        legend_labels = [f"Model {i+1}" for i in range(n_models)]
+    if len(legend_labels) != n_models:
         raise ValueError("model_names length must match preds_list length.")
 
     if markers is None:
@@ -208,7 +306,7 @@ def plot_per_class_accuracy_markers(
     x = np.arange(n_classes, dtype=float)
     offsets = np.zeros(1) if n_models == 1 else (np.arange(n_models) - (n_models - 1)/2.0) * x_jitter
 
-    for i, name in enumerate(model_names):
+    for i, name in enumerate(legend_labels):
         y_vals = acc_matrix[i]
         color = cmap(i % cmap.N)
         marker = markers[i % len(markers)]
@@ -230,12 +328,13 @@ def plot_per_class_accuracy_markers(
                     continue
                 ax.text(xx, yy + 0.01, f"{yy*100:.1f}%", ha="center", va="bottom", fontsize=9)
 
+    ylim = (np.min(acc_matrix)-0.03, 1.07)
     ax.set_xticks(x)
     ax.set_xticklabels([str(c) for c in classes])
     ax.set_xlabel("Classes")
     ax.set_ylabel("Per-class predictions accuracy")
-    ax.set_ylim(*ylim)
-    ax.set_yticks(np.arange(ylim[0], ylim[1]+0.01, 0.05))
+    ax.set_yticks(np.arange(0, 1.01, 0.05))
+    ax.set_ylim(ylim)
     ax.set_title(title)
 
     # Legend INSIDE the axes, centered at the top (like before, but not outside)
@@ -250,30 +349,10 @@ def plot_per_class_accuracy_markers(
 
     ax.grid(axis="y", linestyle=":", linewidth=0.5)
     fig.tight_layout()
+    plt.savefig(f"figures/acchist_" + filename + ".pdf")
+    #plt.show()
+    plt.clf()
+    print('=== ACCURACIES ACHIEVED ===')
+    for i in range(len(legend_labels)):
+        print(f'{legend_labels[i]}: {avg_accuracies[i]}')
     return fig, ax, acc_matrix
-
-    
-def compute_times(qnn):
-    qnn_times = qnn.qnn_profiling.avg_benchmark()
-    print('\nAverage time per stage per iteration:')
-    print(qnn_times)
-    print('\nAverage time usage per stage:')
-    total_time = sum(list(qnn_times.values()))
-    for part_time in qnn_times:
-        print(f'\t {part_time}: {np.round(100 * qnn_times[part_time] / total_time, 3)} %')
-    print(f'\nTotal average time per iteration: {total_time}')
-    return qnn_times
-    
-def show_times(qnn):
-    qnn_times = compute_times(qnn)
-    plt.figure(figsize=(14,5))
-    plt.bar(list(qnn_times.keys()), list(qnn_times.values()), color ='maroon')
-    plt.xlabel("Time category")
-    plt.ylabel("Time (s)")
-    plt.title("QNN training times")
-    plt.show()
-
-    print(f'\nTotal number of training iterations: {len(qnn.qnn_profiling.gauss_times)}')
-    #print(f'\tNumber of trace expressions: {len(qnn.ladder_modes)*len(qnn.ladder_modes[0])}')
-    #print(f'\tNumber of perfect matchings per expression: {len(qnn.perf_matchings)}')
-    #print(f'\t{len(qnn.perf_matchings)*len(qnn.ladder_modes)*len(qnn.ladder_modes[0])} total summations with {qnn.layers + 1} products per summation.')

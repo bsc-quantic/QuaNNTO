@@ -9,7 +9,7 @@ import jax.numpy as jnp
 
 from .data_processors import pad_3d_list_of_lists, to_np_array
 
-from quannto.utils.utils import *
+from quannto.utils.cvquantum_utils import *
 from quannto.core.expectation_value import *
 from quannto.utils.results_utils import *
 
@@ -419,7 +419,9 @@ class QNN:
         preproc_inputs = reduce(lambda x, func: func(x), self.in_preprocessors, input_set)
         preproc_outputs = reduce(lambda x, func: func(x), self.out_preprocessors, output_set)
         
-        qnn_outputs = jax.vmap(self.eval_QNN, in_axes=(0))(preproc_inputs)
+        qnn_outputs = np.real_if_close(
+            jax.vmap(self.eval_QNN, in_axes=(0))(preproc_inputs)
+        )
         loss_value = loss_function(preproc_outputs, qnn_outputs)
         
         postproc_outs = reduce(lambda x, func: func(x), self.postprocessors, qnn_outputs)
@@ -468,7 +470,7 @@ class QNN:
         
         :param filename: Path to save the QONN model
         '''
-        f = open("models/"+filename, 'w')
+        f = open("quannto/tasks/models/"+filename+".txt", 'w')
         f.write(jsonpickle.encode(self))
         f.close()
 

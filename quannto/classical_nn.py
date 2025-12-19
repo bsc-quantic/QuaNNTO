@@ -4,10 +4,10 @@ import tensorflow as tf
 import matplotlib.pyplot as plt
 import pandas as pd
 import scipy.optimize as opt
-from .dataset_gens.synth_datasets import *
+from .dataset_gens.synthetic_datasets import *
 
 from quannto.core.data_processors import get_range, rescale_data, trigonometric_feature_expressivity
-from .dataset_gens.synth_datasets import generate_dataset_of, generate_linear_dataset_of, print_dataset, sin_cos_function
+from .dataset_gens.synthetic_datasets import generate_dataset_of, generate_linear_dataset_of, print_dataset, sin_cos_function
 
 tf.experimental.numpy.experimental_enable_numpy_behavior()
 

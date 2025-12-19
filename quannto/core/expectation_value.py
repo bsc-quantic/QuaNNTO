@@ -10,7 +10,7 @@ from functools import partial
 from typing import List, Tuple, Sequence
 import re
 
-from quannto.utils.utils import *
+from quannto.utils.cvquantum_utils import *
 
 ONEOVERSQRT2 = 1.0 / np.sqrt(2.0)
 

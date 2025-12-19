@@ -133,7 +133,7 @@ def build_and_train_model(model_name, N, layers, n_inputs, n_outputs,
             if best_loss_values[-1] > loss_values[-1]:
                best_pars = x.copy()
                best_loss_values = loss_values.copy()
-               qnn.save_model(qnn.model_name+".txt")
+               qnn.save_model(qnn.model_name)
         loss_values = [9999]
         validation_loss = [9999]
     
@@ -186,7 +186,7 @@ def build_and_train_model(model_name, N, layers, n_inputs, n_outputs,
     qnn.print_qnn()
     
     if save:
-        qnn.save_model(qnn.model_name + ".txt")
+        qnn.save_model(qnn.model_name)
         
     if best_loss_values[0] == 9999:
         best_loss_values = best_loss_values[1:]
@@ -350,7 +350,7 @@ def hybrid_build_and_train_model(
             if best_loss_values[-1] > loss_values[-1]:
                 best_pars = x.copy()
                 best_loss_values = loss_values.copy()
-                qnn.save_model(qnn.model_name + ".txt")
+                qnn.save_model(qnn.model_name)
 
         loss_values = [9999]
         validation_loss = [9999]
@@ -374,7 +374,7 @@ def hybrid_build_and_train_model(
         out_prepocs,
         postprocs,
     )
-
+    
     train_inputs = reduce(lambda x, func: func(x), qnn.in_preprocessors, train_set[0])
     train_outputs = reduce(lambda x, func: func(x), qnn.out_preprocessors, train_set[1])
 
@@ -539,7 +539,7 @@ def hybrid_build_and_train_model(
     qnn.print_qnn()
 
     if save:
-        qnn.save_model(qnn.model_name + ".txt")
+        qnn.save_model(qnn.model_name)
 
     if best_loss_values[0] == 9999:
         best_loss_values = best_loss_values[1:]
@@ -728,7 +728,7 @@ def jax_gd_build_and_train_model(
     qnn.print_qnn()
 
     if save:
-        qnn.save_model(qnn.model_name + ".txt")
+        qnn.save_model(qnn.model_name)
 
     return qnn, loss_values, validation_loss
 
@@ -1000,7 +1000,7 @@ def optax_build_and_train_model(
     qnn.print_qnn()
 
     if save:
-        qnn.save_model(qnn.model_name + ".txt")
+        qnn.save_model(qnn.model_name)
 
     return qnn, loss_values, validation_loss
 
@@ -1020,14 +1020,14 @@ def adam_build_and_train_model(
     train_set,
     valid_set,
     loss_function=mse,
-    hopping_iters=200,      # ahora lo interpretamos como num_epochs
+    hopping_iters=200,
     in_preprocs=[],
     out_prepocs=[],
     postprocs=[],
     init_pars=None,
     save=True,
-    learning_rate=1e-2,     # puedes tunearlo
-    weight_decay=0.0,       # para AdamW; pon 0.0 si no quieres regularización
+    learning_rate=1e-2,
+    weight_decay=0.0,
 ):
     """
     Creates and trains a QNN model with the given hyperparameters and dataset
@@ -1267,6 +1267,6 @@ def adam_build_and_train_model(
     qnn.print_qnn()
 
     if save:
-        qnn.save_model(qnn.model_name + ".txt")
+        qnn.save_model(qnn.model_name)
 
     return qnn, loss_values, validation_loss
