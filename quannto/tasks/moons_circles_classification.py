@@ -26,11 +26,11 @@ out_norm_range = (1, 3) # or None
 # === OPTIMIZER SETTINGS ===
 optimize = hybrid_build_and_train_model
 loss_function = cross_entropy
-basinhopping_iters = 0
+basinhopping_iters = 3
 params = None
 
 # === DATASET SETTINGS ===
-dataset_name = 'circles' # or 'circles'
+dataset_name = 'circles' # 'moons' or 'circles'
 trainset_size = 100
 validset_size = 50
 num_cats = 2
@@ -110,8 +110,12 @@ with open(f"quannto/tasks/testing_results/{model_name}.npy", "wb") as f:
     np.save(f, np.array(qnn_class_preds))
 
 nongauss_op = "â†" if qnn_is_addition else "â"
-plot_title = f'QONN of N={qnn.N}, L={qnn.layers}, {nongauss_op} in modes {np.array(qnn.ladder_modes[0]) + 1}'
-legend_label = f'N={qnn_modes}, L={qnn_layers}, {nongauss_op} in modes {np.array(qnn.ladder_modes[0]) + 1}'
-plot_qnns_loglosses([train_loss], [valid_loss], [legend_label], model_name)
+if qnn.ladder_modes == [[]]:
+    plot_title = f'QONN of N={qnn.N}, L={qnn.layers}, None {nongauss_op}'
+    legend_label = f'N={qnn_modes}, L={qnn_layers}, None {nongauss_op}'
+else:
+    plot_title = f'QONN of N={qnn.N}, L={qnn.layers}, {nongauss_op} in modes {np.array(qnn.ladder_modes[0]) + 1}'
+    legend_label = f'N={qnn_modes}, L={qnn_layers}, {nongauss_op} in modes {np.array(qnn.ladder_modes[0]) + 1}'
+#plot_qnns_loglosses([train_loss], [valid_loss], [legend_label], model_name)
 plot_qnn_decision(test_dataset[0], test_outputs_classes, qnn.evaluate_model, model_name, plot_title)
 plot_confusion_matrix(model_name, test_outputs_classes, qnn_class_preds)
