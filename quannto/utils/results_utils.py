@@ -15,63 +15,107 @@ linestyles = [
     (0, (5, 1)),
     (0, (3, 5, 1, 5))]
 
-def plot_noisy_dataset(task_name, train_dataset, real_function):
-    plt.plot(train_dataset[0], train_dataset[1], 'go', label='Noisy training set')
-    plt.plot(real_function[0], real_function[1], 'b', label='Real function')
-    plt.xlabel('x')
-    plt.xlim()
-    plt.ylabel('f(x)')
-    plt.grid(linestyle='--', linewidth=0.4)
-    plt.legend(loc='upper right')
-    plt.savefig(f"figures/training_{task_name}.pdf")
-    #plt.show()
-    plt.clf()
+def plot_noisy_dataset(task_name, train_dataset, real_function, 
+                       figsize=(5, 4), fontsize=14, legend_fontsize=13):
+    fig, ax = plt.subplots(figsize=figsize)
+    ax.plot(train_dataset[0], train_dataset[1], 'go', label='Noisy training set')
+    ax.plot(real_function[0], real_function[1], 'b', label='Real function')
+    ax.set_xlabel('x', fontsize=fontsize)
+    ax.set_ylabel('f(x)', fontsize=fontsize)
+    ax.tick_params(axis='both', labelsize=fontsize)
+    ax.grid(linestyle='--', linewidth=0.4)
+    ax.legend(loc='best', fontsize=legend_fontsize)
+    fig.tight_layout()
+    fig.savefig(f"figures/training_{task_name}.pdf", bbox_inches='tight')
+    plt.show()
+    plt.close(fig)
 
-def plot_qnns_testing(qnn, exp_outputs, qnn_outputs):
-    plt.plot(exp_outputs, 'go', label='Expected results')
-    plt.plot(qnn_outputs, 'r', label='QNN results')
-    plt.title(f'TESTING SET\nModel: {qnn.model_name}, Modes = {qnn.N}, Layers = {qnn.layers}')
-    plt.legend()
-    plt.savefig(f"figures/test_{qnn.model_name}_{qnn.N}modes_{qnn.layers}layers_{qnn.n_in}in.pdf")
-    #plt.show()
-    plt.clf()
-    
-def plot_qnns_testing(inputs, expected_outputs, qnns_outputs, legend_labels, filename, title=None):
-    plt.plot(inputs, expected_outputs, c='black', linewidth=7.0, alpha=0.25, label='Expected results')
-    c=0
+
+def plot_qnn_testing(qnn, exp_outputs, qnn_outputs,
+                     figsize=(5.5, 4.2), fontsize=14, title_fontsize=14, legend_fontsize=13):
+    fig, ax = plt.subplots(figsize=figsize)
+
+    ax.plot(exp_outputs, 'go', label='Expected results')
+    ax.plot(qnn_outputs, 'r', label='QNN results')
+
+    ax.set_title(
+        f'TESTING SET\nModel: {qnn.model_name}, Modes = {qnn.N}, Layers = {qnn.layers}',
+        fontsize=title_fontsize
+    )
+
+    ax.tick_params(axis='both', labelsize=fontsize)
+    ax.legend(fontsize=legend_fontsize)
+
+    fig.tight_layout()
+    fig.savefig(
+        f"figures/test_{qnn.model_name}_{qnn.N}modes_{qnn.layers}layers_{qnn.n_in}in.pdf",
+        bbox_inches='tight'
+    )
+    plt.show()
+    plt.close(fig)
+
+
+def plot_qnns_testing(inputs, expected_outputs, qnns_outputs, legend_labels, filename,
+                      title=None, figsize=(5.5, 4.2), fontsize=14, title_fontsize=14, legend_fontsize=13):
+    fig, ax = plt.subplots(figsize=figsize)
+
+    ax.plot(inputs, expected_outputs, c='black', linewidth=7.0, alpha=0.25, label='Expected results')
+
+    c = 0
     for (qnn_outputs, legend_label, linestyle) in zip(qnns_outputs, legend_labels, linestyles):
-        plt.plot(inputs, qnn_outputs, c=colors[c], linestyle=linestyle, linewidth=1.8, label=legend_label)
-        c+=1
-    
+        ax.plot(inputs, qnn_outputs, c=colors[c], linestyle=linestyle, linewidth=1.8, label=legend_label)
+        c += 1
+
     if title is not None:
-        plt.title(f'{title}')
-    plt.xlabel('Input')
-    plt.xlim()
-    plt.ylabel('Output')
-    #plt.ylim(top=output_range[1] + len(qnns)*0.2 + 0.2)
-    plt.grid(linestyle='--', linewidth=0.4)
-    plt.legend(loc='upper right')
-    plt.legend()
-    plt.savefig("figures/test_" + filename + ".pdf")
-    #plt.show()
-    plt.clf()
-    
-def plot_qnns_loglosses(train_losses, valid_losses, legend_labels, filename):
+        ax.set_title(f'{title}', fontsize=title_fontsize)
+
+    ax.set_xlabel('Input', fontsize=fontsize)
+    #ax.set_ylabel('Output', fontsize=fontsize)
+    plt.ylim(top=np.max(expected_outputs) + len(qnns_outputs)*0.5 + 0.3)
+    ax.tick_params(axis='both', labelsize=fontsize)
+
+    ax.grid(linestyle='--', linewidth=0.4)
+    ax.legend(loc='best', fontsize=legend_fontsize)
+
+    fig.tight_layout()
+    fig.savefig("figures/test_" + filename + ".pdf", bbox_inches='tight')
+    plt.show()
+    plt.close(fig)
+
+
+def plot_qnns_loglosses(train_losses, valid_losses, legend_labels, filename,
+                        figsize=(5, 4), fontsize=14, title_fontsize=14, legend_fontsize=13):
+    fig, ax = plt.subplots(figsize=figsize)
+
     if valid_losses is not None and len(valid_losses[0]) > 1:
-        plt.plot([], [], linestyle='dotted', label=f'Validation losses', c='black')
+        ax.plot([], [], linestyle='dotted', label='Validation losses', c='black')
+        title = 'TRAINING AND VALIDATION LOSS (log)'
+    else:
+        title = 'TRAINING LOSS (log)'
+
     for i in range(len(legend_labels)):
-        plt.plot(np.log(np.array(train_losses[i])+1), c=colors[i], linestyle=linestyles[i], label=f'Train loss {legend_labels[i]}')
+        ax.plot(np.log(np.array(train_losses[i]) + 1),
+                c=colors[i], linestyle=linestyles[i],
+                label=f'{legend_labels[i]}')
+
         if valid_losses is not None and len(valid_losses[i]) > 1:
-            plt.plot(np.log(np.array(valid_losses[i])+1), c=colors[i], linestyle='dotted')
-    plt.ylim(bottom=0.0)
-    plt.xlabel('Epochs')
-    plt.ylabel('Loss value')
-    plt.title(f'LOGARITHMIC TRAINING AND VALIDATION LOSS')
-    plt.grid(linestyle='--', linewidth=0.4)
-    plt.legend()
-    plt.savefig("figures/loss_" + filename + ".pdf")
-    #plt.show()
-    plt.clf()
+            ax.plot(np.log(np.array(valid_losses[i]) + 1),
+                    c=colors[i], linestyle='dotted')
+
+    ax.set_ylim(bottom=0.0)
+    ax.set_xlabel('Epochs', fontsize=fontsize)
+    ax.set_ylabel('Loss value', fontsize=fontsize)
+    ax.set_title(title, fontsize=title_fontsize)
+
+    ax.tick_params(axis='both', labelsize=fontsize)
+    ax.grid(linestyle='--', linewidth=0.4)
+    ax.legend(fontsize=legend_fontsize)
+
+    fig.tight_layout()
+    fig.savefig("figures/loss_" + filename + ".pdf", bbox_inches='tight')
+    plt.show()
+    plt.close(fig)
+
     print('=== MINIMAL LOSSES ACHIEVED ===')
     for i in range(len(legend_labels)):
         print(f'{legend_labels[i]}: {train_losses[i][-1]}')
@@ -87,8 +131,8 @@ def plot_confusion_matrix(model_name, expected_cats, qnn_pred_cats):
     plt.title('Confusion Matrix')
     plt.xlabel('Predicted Label')
     plt.ylabel('True Label')
-    #plt.show()
-    plt.savefig(f"figures/cm_{model_name}.pdf")
+    plt.savefig(f"figures/cm_{model_name}.pdf", bbox_inches="tight")
+    plt.show()
     plt.clf()
     
 def plot_qnn_decision(X, y, qonn_outputs, model_name, title="QONN decision boundary"):
@@ -114,13 +158,15 @@ def plot_qnn_decision(X, y, qonn_outputs, model_name, title="QONN decision bound
     plt.contourf(xx, yy, Z, levels=50, cmap="RdBu", alpha=0.3)
     plt.contour(xx, yy, Z, levels=[0.5], colors="k", linewidths=2)
     # 5) Set titles and limits
-    plt.title(title)
-    plt.xlabel("$x_1$")
-    plt.ylabel("$x_2$")
+    plt.title(title, fontsize=18)
+    plt.xticks(color='black', fontsize=14)
+    plt.yticks(color='black', fontsize=14)
+    plt.xlabel("$x_1$", color='black', fontsize=16)
+    plt.ylabel("$x_2$", color='black', fontsize=16)
     plt.xlim(x_min, x_max)
     plt.ylim(y_min, y_max)
-    plt.savefig(f"figures/{model_name}.pdf")
-    #plt.show()
+    plt.savefig(f"figures/{model_name}.pdf", bbox_inches="tight")
+    plt.show()
     plt.clf()
     
 def plot_per_class_accuracy_hist(
@@ -238,8 +284,8 @@ def plot_per_class_accuracy_hist(
     #ax.legend(title="Model", ncols=min(n_models, 5))
     ax.legend()
     fig.tight_layout()
-    plt.savefig(f"figures/hist_" + filename + ".pdf")
-    #plt.show()
+    plt.savefig(f"figures/hist_" + filename + ".pdf", bbox_inches="tight")
+    plt.show()
     plt.clf()
     return fig, ax, acc_matrix
 
@@ -349,8 +395,8 @@ def plot_per_class_accuracy_markers(
 
     ax.grid(axis="y", linestyle=":", linewidth=0.5)
     fig.tight_layout()
-    plt.savefig(f"figures/acchist_" + filename + ".pdf")
-    #plt.show()
+    plt.savefig(f"figures/acchist_" + filename + ".pdf", bbox_inches="tight")
+    plt.show()
     plt.clf()
     print('=== ACCURACIES ACHIEVED ===')
     for i in range(len(legend_labels)):
