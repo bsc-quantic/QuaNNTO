@@ -9,9 +9,9 @@ from quannto.core.loss_functions import *
 np.random.seed(42)
 
 # === HYPERPARAMETERS DEFINITION ===
-qnns_modes = [2,2]
-qnns_ladder_modes = [[[]],[[1]]]
-qnns_layers = [1,1]
+qnns_modes = [2, 3, 4]
+qnns_ladder_modes = [[[1]], [[1,2]], [[1,2,3]]]
+qnns_layers = [1, 1, 1]
 qnns_is_addition = [False, False, False]
 include_initial_squeezing = False
 include_initial_mixing = False
@@ -24,7 +24,7 @@ in_norm_ranges = [None]*len(qnns_modes) # or ranges (a, b)
 # === OPTIMIZER SETTINGS ===
 optimize = hybrid_build_and_train_model
 loss_function = mse
-basinhopping_iters = 2
+basinhopping_iters = 0
 params = None
 
 # === DATASET SETTINGS === (Statistics of specific Non-Gaussian gate action over target quantum states)
