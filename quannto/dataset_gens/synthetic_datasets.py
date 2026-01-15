@@ -80,7 +80,7 @@ def generate_noisy_samples(N, f, x_min=0, x_max=1, noise_level=0.1):
     y_vals (np.ndarray): Array of noisy f(x) values.
     """
     # Generate N random x values between x_min and x_max
-    x_vals = np.random.uniform(x_min, x_max, N)
+    x_vals = np.concatenate([np.array([x_min, x_max]), np.random.uniform(x_min, x_max, N-2)])
     
     # Calculate the true function values
     y_true = f(x_vals.reshape(1,N))
