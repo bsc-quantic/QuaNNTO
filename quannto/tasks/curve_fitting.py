@@ -11,28 +11,30 @@ from quannto.core.loss_functions import *
 np.random.seed(42)
 
 # === HYPERPARAMETERS DEFINITION ===
-qnns_modes = [3,3]
-qnns_ladder_modes = [[[0]], [[0]]]
-qnns_layers = [1,1]
-qnns_is_addition = [True, False]
+qnns_modes = [2,3,4]
+qnns_ladder_modes = [[[1]], [[1,2]], [[1,2,3]]]
+qnns_layers = [1,1,1]
+qnns_is_addition = [False, False, False]
 include_initial_squeezing = False
 include_initial_mixing = False
 is_passive_gaussian = False
 n_inputs = 1
 n_outputs = 1
 observable = 'position'
-in_norm_ranges = [None]*len(qnns_modes) # or ranges (a, b)
-out_norm_ranges = [None]*len(qnns_modes) # or ranges (a, b)
+#in_norm_ranges = [None]*len(qnns_modes) # or ranges (a, b)
+in_norm_ranges = [(-3, 3)]*len(qnns_modes)
+#out_norm_ranges = [None]*len(qnns_modes) # or ranges (a, b)
+out_norm_ranges = [(1, 5)]*len(qnns_modes)
 
 # === OPTIMIZER SETTINGS ===
-optimize = hybrid_build_and_train_model
+optimize = build_and_train_model
 loss_function = mse
 basinhopping_iters = 2
 params = None
 
 # === DATASET (TARGET FUNCTION) SETTINGS ===
-target_function = sin_1in_1out
-input_range = (-6.3, 6.3)
+target_function = trig_fun
+input_range = (-1, 2.5)
 trainset_noise = 0.1
 trainset_size = 100
 testset_size = 200
@@ -52,6 +54,7 @@ else:
         np.save(f, train_dataset[0])
     with open(f"datasets/{task_name}_outputs.npy", "wb") as f:
         np.save(f, train_dataset[1])
+input_range = (np.min(train_dataset[0]), np.max(train_dataset[0]))
 # 2. VALIDATION DATASET: Generate a randomly-sampled and noiseless dataset of the target function (None for no validation)
 valid_dataset = generate_dataset_of(target_function, n_inputs, n_outputs, validset_size, input_range)
 # 3. TESTING DATASET: Generate a linearly-spaced and noiseless dataset of the target function
