@@ -19,7 +19,7 @@ def x_hat(alpha, r):
     return np.sqrt(2) * (er * alpha + frac)
 
 # Alpha range
-alphas = np.linspace(-2, 2, 1000)
+alphas = np.linspace(-3, 3, 1000)
 
 # Squeezing values to plot
 r_values = [0.0, 0.1, 0.25, 0.5, 1.0]
@@ -32,7 +32,8 @@ linestyles = [
     (0, (5, 2)), # r = 0.5
     (0, (3, 1, 1, 1))  # r = 1.0
 ]
-line_width = 2.2
+line_width = 2.7
+legend_fontsize = 12
 
 # --------- Plot r >= 0 ---------
 fig1, ax1 = plt.subplots()
@@ -42,26 +43,32 @@ for r, c, ls in zip(r_values, colors, linestyles):
     ax1.plot(alphas, y, color=c, linestyle=ls, linewidth=line_width,
              label=fr'$r={r}$')
 
-ax1.set_xlabel(r'$\alpha$')
-ax1.set_ylabel(r'$\langle \hat{x} \rangle$')
-ax1.set_title(r'$\langle \hat{x} \rangle$ for $r \geq 0$')
+ax1.set_xlabel(r'$\alpha$', fontsize=15)
+ax1.set_ylabel(r'$\langle \hat{x} \rangle$', fontsize=15)
+ax1.set_ylim(top=6.01, bottom=-6.01)
+ax1.set_xlim(left=-2.01, right=2.01)
+ax1.set_title(r'$\langle \hat{x} \rangle$ for $r \geq 0$', fontsize=16)
 ax1.grid(True)
-ax1.legend()
+ax1.legend(fontsize=legend_fontsize)
 
 # --------- Plot r <= 0 ---------
 fig2, ax2 = plt.subplots()
 
 for r, c, ls in zip(r_values, colors, linestyles):
     r_neg = -r
+    if r_neg == 0:
+        r_neg = 0.0  # to avoid -0.0 label
     y = x_hat(alphas, r_neg)
     ax2.plot(alphas, y, color=c, linestyle=ls, linewidth=line_width,
              label=fr'$r={r_neg}$')
 
-ax2.set_xlabel(r'$\alpha$')
-ax2.set_ylabel(r'$\langle \hat{x} \rangle$')
-ax2.set_title(r'$\langle \hat{x} \rangle$ for $r \leq 0$')
+ax2.set_xlabel(r'$\alpha$', fontsize=15)
+#ax2.set_ylabel(r'$\langle \hat{x} \rangle$')
+ax2.set_ylim(top=1.01, bottom=-1.01)
+ax2.set_xlim(left=-2.01, right=2.01)
+ax2.set_title(r'$\langle \hat{x} \rangle$ for $r \leq 0$', fontsize=16)
 ax2.grid(True)
-ax2.legend()
+ax2.legend(fontsize=legend_fontsize)
 fig1.savefig("figures/subtraction_nonlinearity_rpos.pdf")
 fig2.savefig("figures/subtraction_nonlinearity_rneg.pdf")
 plt.show()
