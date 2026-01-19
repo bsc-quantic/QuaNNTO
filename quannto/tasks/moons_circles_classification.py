@@ -45,7 +45,8 @@ if os.path.isfile(f"datasets/{dataset_name}_inputs.npy"):
     with open(f"datasets/{dataset_name}_outputs.npy", "rb") as f:
         outputs = np.load(f)
     shuffling = np.random.permutation(len(inputs))
-    dataset = [inputs[shuffling], outputs[shuffling]]
+    dataset = [inputs, outputs]
+    shuffled_dataset = [dataset[0][shuffling], dataset[1][shuffling]]
     input_ranges = np.array([(np.min(dataset[0][:,col]), np.max(dataset[0][:,col])) for col in range(len(dataset[0][0]))])
 else:
     Exception
@@ -53,20 +54,20 @@ else:
 # 2. BALANCED TRAINING DATASET
 train_dataset = (
     np.concatenate((
-        dataset[0][:dataset_size_per_cat], dataset[0][-dataset_size_per_cat:]
+        shuffled_dataset[0][:dataset_size_per_cat], shuffled_dataset[0][-dataset_size_per_cat:]
     )),
     np.concatenate(
-        (dataset[1][:dataset_size_per_cat], dataset[1][-dataset_size_per_cat:])
+        (shuffled_dataset[1][:dataset_size_per_cat], shuffled_dataset[1][-dataset_size_per_cat:])
     )
 )
 # 3. BALANCED VALIDATION DATASET (None for no validation)
 valid_dataset = (
     np.concatenate((
-        dataset[0][dataset_size_per_cat:dataset_size_per_cat+validset_size_per_cat],
-        dataset[0][-(dataset_size_per_cat+validset_size_per_cat):-dataset_size_per_cat]
+        shuffled_dataset[0][dataset_size_per_cat:dataset_size_per_cat+validset_size_per_cat],
+        shuffled_dataset[0][-(dataset_size_per_cat+validset_size_per_cat):-dataset_size_per_cat]
     )),
     np.concatenate((
-        dataset[1][:dataset_size_per_cat], dataset[1][-dataset_size_per_cat:]
+        shuffled_dataset[1][:dataset_size_per_cat], shuffled_dataset[1][-dataset_size_per_cat:]
     ))
 )
 # 4. TESTING DATASET: Use the entire moons (or circles) dataset
@@ -107,7 +108,7 @@ with open(f"quannto/tasks/train_losses/{model_name}.npy", "wb") as f:
 with open(f"quannto/tasks/valid_losses/{model_name}.npy", "wb") as f:
     np.save(f, np.array(valid_loss))
 with open(f"quannto/tasks/testing_results/{model_name}.npy", "wb") as f:
-    np.save(f, np.array(qnn_class_preds))
+    np.save(f, np.array(qnn_preds))
 
 nongauss_op = "â†" if qnn_is_addition else "â"
 if qnn.ladder_modes == [[]]:

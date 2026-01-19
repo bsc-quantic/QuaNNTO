@@ -10,31 +10,31 @@ from quannto.core.loss_functions import *
 np.random.seed(42)
 
 # === HYPERPARAMETERS DEFINITION ===
-qnns_modes = [11,11]
-qnns_ladder_modes = [[[0]], [[0]]]
-qnns_layers = [1,1]
-qnns_is_addition = [False, True]
+qnns_modes = [6, 6]
+qnns_ladder_modes = [[[0]], [[5]]]
+qnns_layers = [1, 1]
+qnns_is_addition = [False, False]
 include_initial_squeezing = False
 include_initial_mixing = False
 is_passive_gaussian = False
-n_inputs = 7
-n_outputs = 10
+n_inputs = 3
+n_outputs = 5
 observable = 'position'
-in_norm_ranges = [None]*len(qnns_modes) # or ranges (a, b)
+in_norm_ranges = [(-3, 3)]*len(qnns_modes) # or ranges (a, b)
 out_norm_ranges = [(1, 3)]*len(qnns_modes)
 
 # === OPTIMIZER SETTINGS ===
 optimize = hybrid_build_and_train_model
 loss_function = cross_entropy
-basinhopping_iters = 0
+basinhopping_iters = 5
 params = None
 
 # === DATASET SETTINGS ===
-categories = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+categories = [0, 1, 2, 3, 4]
 num_cats = len(categories)
 dataset_size = 75*num_cats
 validset_size = 20*num_cats
-continuize_method = 'pca' # 'pca' or 'encoding' for Autoencoder
+continuize_method = 'encoding' # 'pca' or 'encoding' for Autoencoder
 task_name = f'mnist_{continuize_method}_{n_inputs}lat_{num_cats}cats'
      
 # 1. FULL DATASET: Load or build (and save) a CV-preprocessed MNIST dataset and shuffle
@@ -56,11 +56,11 @@ else:
     with open(f"datasets/{task_name}_outputs.npy", "wb") as f:
         np.save(f, dataset[1])
 shuffling = np.random.permutation(len(dataset[0]))
-dataset = [dataset[0][shuffling], dataset[1][shuffling]]
+shuffled_dataset = [dataset[0][shuffling], dataset[1][shuffling]]
 # 2. TRAINING DATASET
-train_dataset = (dataset[0][:dataset_size], dataset[1][:dataset_size])
+train_dataset = (shuffled_dataset[0][:dataset_size], shuffled_dataset[1][:dataset_size])
 # 3. VALIDATION DATASET (None for no validation)
-valid_dataset = (dataset[0][dataset_size : dataset_size+validset_size], dataset[1][dataset_size : dataset_size+validset_size])
+valid_dataset = (shuffled_dataset[0][dataset_size : dataset_size+validset_size], shuffled_dataset[1][dataset_size : dataset_size+validset_size])
 # 4. TESTING DATASET: Use the entire MNIST dataset
 test_dataset = (dataset[0], dataset[1])
 test_outputs_cats = dataset[1].reshape((len(dataset[1])))
