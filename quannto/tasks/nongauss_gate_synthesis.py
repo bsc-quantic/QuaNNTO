@@ -72,9 +72,9 @@ for (N, l, ladder_modes, is_addition, in_norm_range) in zip(qnns_modes, qnns_lay
     qnns_outs.append(qnn_test_outputs.copy())
     
     # === SAVE QNN MODEL RESULTS ===
-    with open(f"quannto/tasks/train_losses/{model_name}.npy", "wb") as f:
+    with open(f"quannto/tasks/models/train_losses/{model_name}.npy", "wb") as f:
         np.save(f, np.array(train_loss))
-    with open(f"quannto/tasks/testing_results/{model_name}.npy", "wb") as f:
+    with open(f"quannto/tasks/models/testing_results/{model_name}.npy", "wb") as f:
         np.save(f, np.array(qnn_test_outputs))
         
 # === PLOT AND SAVE JOINT RESULTS ===

@@ -1,6 +1,5 @@
 from functools import partial
-import matplotlib.pyplot as plt
-from matplotlib import colormaps
+import os
 
 from quannto.core.qnn_trainers import *
 from quannto.utils.results_utils import *
@@ -10,10 +9,10 @@ from quannto.core.loss_functions import *
 np.random.seed(42)
 
 # === HYPERPARAMETERS DEFINITION ===
-qnns_modes = [2,2]
-qnns_ladder_modes = [[[0]], [[0,0]]]
-qnns_layers = [1,1]
-qnns_is_addition = [False, False]
+qnns_modes = [3]
+qnns_ladder_modes = [[[1,2]]]
+qnns_layers = [1]
+qnns_is_addition = [False]
 include_initial_squeezing = False
 include_initial_mixing = False
 is_passive_gaussian = False
@@ -23,24 +22,32 @@ observable = 'catstates'
 in_norm_ranges = [None]*len(qnns_modes) # or ranges (a, b)
 
 # === OPTIMIZER SETTINGS ===
-optimize = hybrid_build_and_train_model
+optimize = build_and_train_model
 loss_function = mse
-basinhopping_iters = 5
+basinhopping_iters = 2
 params = None
 
 # === DATASET SETTINGS === (Statistics of a quantum cat state)
 phi = 0.0
+cutoff = 20
 dataset_size = 1
 input_range = (-1, 1)
+num_moments = 15
+train_num_moments = 15
 alpha_list = np.linspace(input_range[0], input_range[1], dataset_size)
-task_name = f'catstate_phi{phi}_trainsize{dataset_size}_rng{alpha_list[0]}to{alpha_list[-1]}'
+dataset_name = f'catstate_phi{phi}_trainsize{dataset_size}_stats{num_moments}_cut{cutoff}_rng{input_range[0]}to{input_range[-1]}'
+task_name = f'catstate_phi{phi}_trainsize{dataset_size}_stats{train_num_moments}_cut{cutoff}_rng{input_range[0]}to{input_range[-1]}'
 
 # Training dataset containing the statistical moments of the target cat state
-with open(f"datasets/catstate_phi{phi}_trainsize{dataset_size}_rng{input_range[0]}to{input_range[-1]}_inputs.npy", "rb") as f:
-    inputs = np.load(f)
-with open(f"datasets/catstate_phi{phi}_trainsize{dataset_size}_rng{input_range[0]}to{input_range[-1]}_outputs.npy", "rb") as f:
-    outputs = np.load(f)
-train_dataset = [np.array(inputs), np.array(outputs)]
+if os.path.isfile(f"datasets/{dataset_name}_inputs.npy"):
+    with open(f"datasets/{dataset_name}_inputs.npy", "rb") as f:
+        inputs = np.load(f)
+    with open(f"datasets/{dataset_name}_outputs.npy", "rb") as f:
+        outputs = np.load(f)
+else:
+    raise FileNotFoundError("The requested dataset does not exist, generate it from quannto.dataset_gens.catstates_stats")
+train_dataset = [np.array(inputs), np.array([outputs[0][:train_num_moments]])]
+print(train_dataset)
 
 # === BUILD, TRAIN AND TEST THE DIFFERENT QNN MODELS ===
 qnns = []
@@ -66,16 +73,19 @@ for (N, l, ladder_modes, is_addition, in_norm_range) in zip(qnns_modes, qnns_lay
                                            include_initial_squeezing, include_initial_mixing, is_passive_gaussian,
                                            train_dataset, None, loss_function, basinhopping_iters,
                                            in_preprocessors, out_preprocessors, postprocessors, init_pars=params)
-    qnn_test_outputs, loss_value = qnn.test_model(train_dataset[0], train_dataset[1], loss_function)
-    
+    qnn_test_outputs, norms, loss_value = qnn.test_model(train_dataset[0], train_dataset[1], loss_function)
+    print("Expected moments:", train_dataset[1])
+    print("QONN output moments:", qnn_test_outputs)
+    print("Subtractions probability:", norms)
+
     qnns.append(qnn)
     train_losses.append(train_loss.copy())
     qnn_outs.append(qnn_test_outputs.copy())
     
     # === SAVE QNN MODEL RESULTS ===
-    with open(f"quannto/tasks/train_losses/{model_name}.npy", "wb") as f:
+    with open(f"quannto/tasks/models/train_losses/{model_name}.npy", "wb") as f:
         np.save(f, np.array(train_loss))
-    with open(f"quannto/tasks/testing_results/{model_name}.npy", "wb") as f:
+    with open(f"quannto/tasks/models/testing_results/{model_name}.npy", "wb") as f:
         np.save(f, np.array(qnn_test_outputs))
     
 # === PLOT AND SAVE JOINT RESULTS ===

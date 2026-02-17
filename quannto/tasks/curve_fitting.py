@@ -24,12 +24,12 @@ observable = 'position'
 #in_norm_ranges = [None]*len(qnns_modes) # or ranges (a, b)
 in_norm_ranges = [(-3, 3)]*len(qnns_modes)
 #out_norm_ranges = [None]*len(qnns_modes) # or ranges (a, b)
-out_norm_ranges = [(1, 5)]*len(qnns_modes)
+out_norm_ranges = [(1, 3)]*len(qnns_modes)
 
 # === OPTIMIZER SETTINGS ===
-optimize = build_and_train_model
+optimize = hybrid_build_and_train_model
 loss_function = mse
-basinhopping_iters = 2
+basinhopping_iters = 4
 params = None
 
 # === DATASET (TARGET FUNCTION) SETTINGS ===
@@ -66,6 +66,7 @@ qnns = []
 train_losses = []
 valid_losses = []
 qnns_preds = []
+qnns_norms = []
 legend_labels = []
 for (N, l, ladder_modes, is_addition, in_norm_range, out_norm_range) in zip(qnns_modes, qnns_layers, qnns_ladder_modes, qnns_is_addition, in_norm_ranges, out_norm_ranges):
     # === NAME AND LEGEND OF THE QONN MODEL ===
@@ -91,20 +92,21 @@ for (N, l, ladder_modes, is_addition, in_norm_range, out_norm_range) in zip(qnns
                                            include_initial_squeezing, include_initial_mixing, is_passive_gaussian,
                                            train_dataset, valid_dataset, loss_function, basinhopping_iters,
                                            in_preprocessors, out_preprocessors, postprocessors, init_pars=params)
-    qnn_pred, loss_value = qnn.test_model(test_dataset[0], test_dataset[1], loss_function)
+    qnn_pred, norm, loss_value = qnn.test_model(test_dataset[0], test_dataset[1], loss_function)
     
     qnns.append(qnn)
     train_losses.append(train_loss.copy())
     valid_losses.append(valid_loss.copy())
     qnns_preds.append(qnn_pred.copy())
+    qnns_norms.append(norm)
     print(f'\n==========\nTESTING LOSS FOR N={N}, L={l}, LADDER MODES={ladder_modes}: {loss_value}\n==========')
     
     # === SAVE QNN MODEL RESULTS ===
-    with open(f"quannto/tasks/train_losses/{model_name}.npy", "wb") as f:
+    with open(f"quannto/tasks/models/train_losses/{model_name}.npy", "wb") as f:
         np.save(f, np.array(train_loss))
-    with open(f"quannto/tasks/valid_losses/{model_name}.npy", "wb") as f:
+    with open(f"quannto/tasks/models/valid_losses/{model_name}.npy", "wb") as f:
         np.save(f, np.array(valid_loss))
-    with open(f"quannto/tasks/testing_results/{model_name}.npy", "wb") as f:
+    with open(f"quannto/tasks/models/testing_results/{model_name}.npy", "wb") as f:
         np.save(f, np.array(qnn_pred))
 
 # === PLOT AND SAVE JOINT RESULTS ===

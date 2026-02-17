@@ -10,7 +10,7 @@ from quannto.core.loss_functions import *
 np.random.seed(42)
 
 # === HYPERPARAMETERS DEFINITION ===
-qnn_modes = 3
+qnn_modes = 2
 qnn_ladder_modes = [[0]]
 qnn_layers = 1
 qnn_is_addition = False
@@ -26,11 +26,11 @@ out_norm_range = (1, 3) # or None
 # === OPTIMIZER SETTINGS ===
 optimize = hybrid_build_and_train_model
 loss_function = cross_entropy
-basinhopping_iters = 3
+basinhopping_iters = 0
 params = None
 
 # === DATASET SETTINGS ===
-dataset_name = 'circles' # 'moons' or 'circles'
+dataset_name = 'moons' # 'moons' or 'circles'
 trainset_size = 100
 validset_size = 50
 num_cats = 2
@@ -94,7 +94,7 @@ postprocessors = []
 qnn, train_loss, valid_loss = optimize(model_name, qnn_modes, qnn_layers, n_inputs, n_outputs, qnn_ladder_modes, qnn_is_addition, observable,
                                         include_initial_squeezing, include_initial_mixing, is_passive_gaussian,
                                         train_dataset, valid_dataset, loss_function, basinhopping_iters, in_preprocessors, out_preprocessors, postprocessors)
-qnn_preds, loss_value = qnn.test_model(test_dataset[0], test_dataset[1], loss_function)
+qnn_preds, norms, loss_value = qnn.test_model(test_dataset[0], test_dataset[1], loss_function)
 qnn_probs_preds = softmax_discretization(qnn_preds)
 qnn_class_preds = np.ravel(greatest_probability(qnn_probs_preds))
 
@@ -103,11 +103,11 @@ qnn_accuracy = qnn_hits/len(qnn_class_preds)
 print(f"Accuracy: {qnn_hits}/{len(qnn_class_preds)} = {qnn_accuracy}")
 
 # === SAVE AND PLOT QNN MODEL RESULTS ===
-with open(f"quannto/tasks/train_losses/{model_name}.npy", "wb") as f:
+with open(f"quannto/tasks/models/train_losses/{model_name}.npy", "wb") as f:
     np.save(f, np.array(train_loss))
-with open(f"quannto/tasks/valid_losses/{model_name}.npy", "wb") as f:
+with open(f"quannto/tasks/models/valid_losses/{model_name}.npy", "wb") as f:
     np.save(f, np.array(valid_loss))
-with open(f"quannto/tasks/testing_results/{model_name}.npy", "wb") as f:
+with open(f"quannto/tasks/models/testing_results/{model_name}.npy", "wb") as f:
     np.save(f, np.array(qnn_preds))
 
 nongauss_op = "â†" if qnn_is_addition else "â"

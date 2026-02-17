@@ -10,23 +10,23 @@ from quannto.core.loss_functions import *
 np.random.seed(42)
 
 # === HYPERPARAMETERS DEFINITION ===
-qnns_modes = [6, 6]
-qnns_ladder_modes = [[[0]], [[5]]]
-qnns_layers = [1, 1]
-qnns_is_addition = [False, False]
+qnns_modes = [5]
+qnns_ladder_modes = [[[0],[1]]]
+qnns_layers = [2]
+qnns_is_addition = [False]
 include_initial_squeezing = False
 include_initial_mixing = False
 is_passive_gaussian = False
-n_inputs = 3
+n_inputs = 5
 n_outputs = 5
 observable = 'position'
 in_norm_ranges = [(-3, 3)]*len(qnns_modes) # or ranges (a, b)
 out_norm_ranges = [(1, 3)]*len(qnns_modes)
 
 # === OPTIMIZER SETTINGS ===
-optimize = hybrid_build_and_train_model
+optimize = build_and_train_model
 loss_function = cross_entropy
-basinhopping_iters = 5
+basinhopping_iters = 1
 params = None
 
 # === DATASET SETTINGS ===
@@ -34,7 +34,7 @@ categories = [0, 1, 2, 3, 4]
 num_cats = len(categories)
 dataset_size = 75*num_cats
 validset_size = 20*num_cats
-continuize_method = 'encoding' # 'pca' or 'encoding' for Autoencoder
+continuize_method = 'pca' # 'pca' or 'encoding' for Autoencoder
 task_name = f'mnist_{continuize_method}_{n_inputs}lat_{num_cats}cats'
      
 # 1. FULL DATASET: Load or build (and save) a CV-preprocessed MNIST dataset and shuffle
@@ -99,7 +99,7 @@ for (N, l, ladder_modes, is_addition, in_norm_range, out_norm_range) in zip(qnns
                                            include_initial_squeezing, include_initial_mixing, is_passive_gaussian,
                                            train_dataset, valid_dataset, loss_function, basinhopping_iters,
                                            in_preprocessors, out_preprocessors, postprocessors, init_pars=params)
-    qnn_preds, loss_value = qnn.test_model(test_dataset[0], test_dataset[1], loss_function)
+    qnn_preds, norms, loss_value = qnn.test_model(test_dataset[0], test_dataset[1], loss_function)
     qnn_hits = np.equal(qnn_preds, test_outputs_cats).sum()
     accuracy = qnn_hits/len(qnn_preds)
     
@@ -111,11 +111,11 @@ for (N, l, ladder_modes, is_addition, in_norm_range, out_norm_range) in zip(qnns
     print(f"==========\nACCURACY FOR N={N}, L={l}, LADDER MODES={ladder_modes}: {qnn_hits}/{len(qnn_preds)} = {accuracy}\n==========\n")
 
     # === SAVE QNN MODEL RESULTS ===
-    with open(f"quannto/tasks/train_losses/{model_name}.npy", "wb") as f:
+    with open(f"quannto/tasks/models/train_losses/{model_name}.npy", "wb") as f:
         np.save(f, np.array(train_loss))
-    with open(f"quannto/tasks/valid_losses/{model_name}.npy", "wb") as f:
+    with open(f"quannto/tasks/models/valid_losses/{model_name}.npy", "wb") as f:
         np.save(f, np.array(valid_loss))
-    with open(f"quannto/tasks/testing_results/{model_name}.npy", "wb") as f:
+    with open(f"quannto/tasks/models/testing_results/{model_name}.npy", "wb") as f:
         np.save(f, np.array(qnn_preds))
     plot_confusion_matrix(model_name, test_outputs_cats, qnn_preds)
 
