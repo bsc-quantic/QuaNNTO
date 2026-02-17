@@ -4,9 +4,9 @@ from quannto.dataset_gens.synthetic_datasets import *
 from quannto.utils.results_utils import *
 
 # === QONNs HYPERPARAMETERS ===
-qnns_modes = [2, 3, 4]
-qnns_ladder_modes = [[[1]], [[1,2]], [[1,2,3]]]
-qnns_layers = [1, 1, 1]
+qnns_modes = [2,2,2]
+qnns_ladder_modes = [[[0]], [[1]], [[0,1]]]
+qnns_layers = [1,1,1]
 qnns_is_addition = [False, False, False]
 include_initial_squeezing = False
 include_initial_mixing = False
@@ -15,12 +15,12 @@ n_inputs = 1
 n_outputs = 1
 observable = 'position'
 in_norm_ranges = [(-3, 3)]*len(qnns_modes) # or [None, ...]
-out_norm_ranges = [(1, 5)]*len(qnns_modes) # or [None, ...]
+out_norm_ranges = [(1, 3)]*len(qnns_modes) # or [None, ...]
 
 # === DATASET (TARGET FUNCTION) SETTINGS ===
-target_function = trig_fun
-input_range = (-1, 2.5)
-trainset_noise = 0.1
+target_function = cosh_1in_1out
+input_range = (-5, 5)
+trainset_noise = 5
 trainset_size = 100
 testset_size = 200
 task_name = f"curvefitting_{target_function.__name__}_trainsize{trainset_size}_noise{trainset_noise}_rng{input_range[0]}to{input_range[1]}"
@@ -38,11 +38,11 @@ for (N, l, ladder_modes, is_addition, in_norm_range, out_norm_range) in zip(qnns
     legend_labels.append(f'N={N}, L={l}, {nongauss_op} in modes {np.array(ladder_modes[0])+1}')
 
     # === LOAD QONN MODEL RESULTS ===
-    with open(f"quannto/tasks/train_losses/{model_name}.npy", "rb") as f:
+    with open(f"quannto/tasks/models/train_losses/{model_name}.npy", "rb") as f:
         train_loss = np.load(f)
-    with open(f"quannto/tasks/valid_losses/{model_name}.npy", "rb") as f:
+    with open(f"quannto/tasks/models/valid_losses/{model_name}.npy", "rb") as f:
         valid_loss = np.load(f)
-    with open(f"quannto/tasks/testing_results/{model_name}.npy", "rb") as f:
+    with open(f"quannto/tasks/models/testing_results/{model_name}.npy", "rb") as f:
         qnn_pred = np.load(f)
     train_losses.append(train_loss.copy())
     valid_losses.append(valid_loss.copy())

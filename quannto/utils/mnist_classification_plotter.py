@@ -48,11 +48,11 @@ for (N, l, ladder_modes, is_addition, in_norm_range, out_norm_range) in zip(qnns
     legend_labels.append(f'N={N}, L={l}, {nongauss_op} in modes {np.array(ladder_modes[0])+1}')
     
     # === LOAD QONN MODEL RESULTS ===
-    with open(f"quannto/tasks/train_losses/{model_name}.npy", "rb") as f:
+    with open(f"quannto/tasks/models/train_losses/{model_name}.npy", "rb") as f:
         train_loss = np.load(f)
-    with open(f"quannto/tasks/valid_losses/{model_name}.npy", "rb") as f:
+    with open(f"quannto/tasks/models/valid_losses/{model_name}.npy", "rb") as f:
         valid_loss = np.load(f)
-    with open(f"quannto/tasks/testing_results/{model_name}.npy", "rb") as f:
+    with open(f"quannto/tasks/models/testing_results/{model_name}.npy", "rb") as f:
         qnn_preds = np.load(f)
     
     qnn_hits = np.equal(qnn_preds, test_outputs_cats).sum()

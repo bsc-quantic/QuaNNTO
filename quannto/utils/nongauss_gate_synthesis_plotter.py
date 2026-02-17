@@ -3,10 +3,10 @@ import numpy as np
 from quannto.utils.results_utils import *
 
 # === HYPERPARAMETERS DEFINITION ===
-qnns_modes = [2, 3, 4]
-qnns_ladder_modes = [[[1]], [[1,2]], [[1,2,3]]]
-qnns_layers = [1, 1, 1]
-qnns_is_addition = [False, False, False]
+qnns_modes = [2, 2, 2, 3, 4]
+qnns_ladder_modes = [[[1]], [[1],[1]], [[1],[1],[1]], [[1,2]], [[1,2,3]]]
+qnns_layers = [1, 2, 3, 1, 1]
+qnns_is_addition = [False, False, False, False, False]
 include_initial_squeezing = False
 include_initial_mixing = False
 is_passive_gaussian = False
@@ -40,9 +40,9 @@ for (N, l, ladder_modes, is_addition, in_norm_range) in zip(qnns_modes, qnns_lay
     legend_labels.append(f'N={N}, L={l}, {nongauss_op} in modes {np.array(ladder_modes[0])+1}')
 
     # === LOAD QONN MODEL RESULTS ===
-    with open(f"quannto/tasks/train_losses/{model_name}.npy", "rb") as f:
+    with open(f"quannto/tasks/models/train_losses/{model_name}.npy", "rb") as f:
         train_loss = np.load(f)
-    #with open(f"quannto/tasks/testing_results/{model_name}.npy", "rb") as f:
+    #with open(f"quannto/tasks/models/testing_results/{model_name}.npy", "rb") as f:
     #    qnn_test_outputs = np.load(f)
         
     train_losses.append(train_loss.copy())
