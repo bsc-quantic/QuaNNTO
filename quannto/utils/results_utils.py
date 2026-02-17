@@ -58,20 +58,17 @@ def plot_qnn_testing(qnn, exp_outputs, qnn_outputs,
 def plot_qnns_testing(inputs, expected_outputs, qnns_outputs, legend_labels, filename,
                       title=None, figsize=(5.5, 4.2), fontsize=14, title_fontsize=14, legend_fontsize=13):
     fig, ax = plt.subplots(figsize=figsize)
-
     ax.plot(inputs, expected_outputs, c='black', linewidth=7.0, alpha=0.25, label='Expected results')
-
     c = 0
     for (qnn_outputs, legend_label, linestyle) in zip(qnns_outputs, legend_labels, linestyles):
-        ax.plot(inputs, qnn_outputs, c=colors[c], linestyle=linestyle, linewidth=1.8, label=legend_label)
+        ax.plot(inputs, np.real_if_close(qnn_outputs), c=colors[c], linestyle=linestyle, linewidth=1.8, label=legend_label)
         c += 1
-
     if title is not None:
         ax.set_title(f'{title}', fontsize=title_fontsize)
 
     ax.set_xlabel('Input', fontsize=fontsize)
     #ax.set_ylabel('Output', fontsize=fontsize)
-    plt.ylim(top=np.max(expected_outputs) + len(qnns_outputs)*0.5 + 0.3)
+    #plt.ylim(top=np.max(expected_outputs) + len(qnns_outputs)*0.5 + 0.3)
     ax.tick_params(axis='both', labelsize=fontsize)
 
     ax.grid(linestyle='--', linewidth=0.4)
@@ -102,7 +99,8 @@ def plot_qnns_loglosses(train_losses, valid_losses, legend_labels, filename,
             ax.plot(np.log(np.array(valid_losses[i]) + 1),
                     c=colors[i], linestyle='dotted')
 
-    ax.set_ylim(bottom=0.0)
+    double_max = 2*np.max(np.array([np.min(loss) for loss in train_losses]))
+    ax.set_ylim(bottom=0.0, top=double_max)
     ax.set_xlabel('Epochs', fontsize=fontsize)
     ax.set_ylabel('Loss value', fontsize=fontsize)
     ax.set_title(title, fontsize=title_fontsize)
@@ -116,7 +114,7 @@ def plot_qnns_loglosses(train_losses, valid_losses, legend_labels, filename,
     plt.show()
     plt.close(fig)
 
-    print('=== MINIMAL LOSSES ACHIEVED ===')
+    print('=== ACHIEVED TRAINING LOSSES ===')
     for i in range(len(legend_labels)):
         print(f'{legend_labels[i]}: {train_losses[i][-1]}')
         
@@ -132,7 +130,7 @@ def plot_confusion_matrix(model_name, expected_cats, qnn_pred_cats):
     plt.xlabel('Predicted Label')
     plt.ylabel('True Label')
     plt.savefig(f"figures/cm_{model_name}.pdf", bbox_inches="tight")
-    plt.show()
+    #plt.show()
     plt.clf()
     
 def plot_qnn_decision(X, y, qonn_outputs, model_name, title="QONN decision boundary"):
