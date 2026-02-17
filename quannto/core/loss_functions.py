@@ -18,22 +18,6 @@ def mse(expected: jnp.ndarray,
     # total loss; ensure real scalar even if inputs are complex
     return mse
 
-def mse_energy_penalty(expected: jnp.ndarray,
-                      obtained: jnp.ndarray,
-                      penalty_lambda: float = 0.2) -> jnp.ndarray: # FIXME
-    """
-    expected, obtained: shape (B, D) or (B,) — real or complex
-    Returns a scalar jnp.ndarray (dtype float64/float32).
-    """
-    # per-sample squared error (sum over features), then mean over batch
-    per_sample_sse = jnp.sum(jnp.abs(expected - obtained) ** 2, axis=-1)
-    mse = jnp.mean(per_sample_sse)
-
-    penalty = penalty_lambda * jnp.abs(jnp.sum(obtained[:, 8]))
-
-    # total loss; ensure real scalar even if inputs are complex
-    return jnp.real(mse + penalty)
-
 def exp_val(obtained):
     return obtained
     
