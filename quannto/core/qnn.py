@@ -377,8 +377,10 @@ class QNN:
             K_exp_vals, mean_vector
         )
         
-        # 6. Multiply by trace coefficients and normalize (last expectation value)
-        return self.finalize_observable_expval(exp_vals)
+        # 6. Multiply by trace coefficients and normalize (norm = last expectation value)
+        norm_outputs = self.finalize_observable_expval(exp_vals)
+        
+        return norm_outputs, exp_vals[-1]
 
     @partial(jax.jit, static_argnums=(0,4))
     def train_QNN(self, parameters, inputs_dataset, outputs_dataset, loss_function):
@@ -402,11 +404,12 @@ class QNN:
         # Evaluate all dataset
         x = inputs_dataset[perm]
         y = outputs_dataset[perm]
-        y_hat = jax.vmap(self.eval_QNN, in_axes=(0))(x)
+        y_hat, norms = jax.vmap(self.eval_QNN, in_axes=(0))(x)
 
         # Compute loss
         return loss_function(y, y_hat)
     
+    @partial(jax.jit, static_argnums=(0,3))
     def test_model(self, input_set, output_set, loss_function):
         '''
         Makes predictions of the given QNN using the input testing dataset.
@@ -419,13 +422,11 @@ class QNN:
         preproc_inputs = reduce(lambda x, func: func(x), self.in_preprocessors, input_set)
         preproc_outputs = reduce(lambda x, func: func(x), self.out_preprocessors, output_set)
         
-        qnn_outputs = np.real_if_close(
-            jax.vmap(self.eval_QNN, in_axes=(0))(preproc_inputs)
-        )
+        qnn_outputs, norm = jax.vmap(self.eval_QNN, in_axes=(0))(preproc_inputs)
         loss_value = loss_function(preproc_outputs, qnn_outputs)
         
         postproc_outs = reduce(lambda x, func: func(x), self.postprocessors, qnn_outputs)
-        return postproc_outs, loss_value
+        return postproc_outs, norm, loss_value
     
     def evaluate_model(self, input_set):
         '''
@@ -437,9 +438,9 @@ class QNN:
         preproc_inputs = reduce(lambda x, func: func(x), self.in_preprocessors, input_set)
         
         # Evaluate all testing set
-        qnn_outputs = np.real_if_close(
-            jax.vmap(self.eval_QNN, in_axes=(0))(preproc_inputs), tol=1e6
-        )
+        qnn_outputs, norms = jax.vmap(self.eval_QNN, in_axes=(0))(preproc_inputs)
+        qnn_outputs = np.real_if_close(qnn_outputs, tol=1e6)
+        norms = np.real_if_close(norms, tol=1e6)
         
         return reduce(lambda x, func: func(x), self.postprocessors, qnn_outputs)
     
@@ -463,6 +464,23 @@ class QNN:
             if layer > 0:
                 print(f"Symplectic coefficients:\n{self.S_concat[:,(layer-1)*2*self.N : layer*2*self.N]}")
                 print(f"Displacement coefficients:\n{self.D_concat[(layer-1)*2*self.N : layer*2*self.N]}")
+                
+    def save_model_parameters(self, params):
+        '''
+        Saves all QONN tunable parameters to a .npy file.
+        
+        :param filename: Path to save the QONN parameters
+        '''
+        np.save("quannto/tasks/models/params/"+self.model_name+".npy", np.array(params))
+    
+    def save_operator_matrices(self, folder_path):
+        '''
+        Saves all QONN operator matrices to .npy files.
+        
+        :param folder_path: Path to the folder where the matrices will be saved
+        '''
+        np.save(folder_path + "/" + self.model_name + "_S_l.npy", np.array(self.S_l))
+        np.save(folder_path + "/" + self.model_name + "_D_l.npy", np.array(self.D_l))
     
     def save_model(self, filename):
         '''
@@ -470,7 +488,7 @@ class QNN:
         
         :param filename: Path to save the QONN model
         '''
-        f = open("quannto/tasks/models/"+filename+".txt", 'w')
+        f = open("quannto/tasks/models/pickle_json/"+filename+".txt", 'w')
         f.write(jsonpickle.encode(self))
         f.close()
 
