@@ -2,7 +2,6 @@ import numpy as np
 from functools import reduce, partial
 import time
 import scipy.optimize as opt
-#import jax.scipy.optimize as opt
 import optax
 import jax
 import jax.numpy as jnp
@@ -10,13 +9,66 @@ import jax.numpy as jnp
 from .loss_functions import mse
 from .qnn import QNN
 
+# ---------------------------------------------------------------
+# Callbacks for SciPy optimizer and Basinhopping
+# ---------------------------------------------------------------
+def callback_opt_general(xk, cost_training, cost_validation):
+    '''
+    Prints and stores the MSE error value for each QNN training epoch.
+    
+    :param xk: QONN tunable parameters
+    '''
+    e = cost_training(xk)
+    loss_values.append(e)
+    print(f'Training loss: {e}')
+    if cost_validation != None:
+        val_e = cost_validation(xk)
+        print(f'Validation loss: {val_e}')
+        validation_loss.append(val_e)
+    else:
+        validation_loss.append(e)
+    
+def callback_hopping_general(x, f, accept, qnn, has_validation=False):
+    '''
+    Prints the best Basinhopping error achieved so far and the current one. 
+    If the current error is less than the best one so far, it substitutes the best loss values.
+    
+    :param x: QONN tunable parameters
+    :param f: Current Basinhopping error achieved
+    :param accept: Determines whether the current error achieved is accepted (stopping iterations)
+    '''
+    global best_loss_values
+    global loss_values
+    global best_validation_loss
+    global validation_loss
+    global best_pars
+    print(f"Best basinhopping iteration error so far: {best_loss_values[-1]}")
+    print(f"Current basinhopping iteration error: {f}\n==========\n")
+    if has_validation:
+        if best_validation_loss[-1] > validation_loss[-1]:
+            best_pars = x.copy()
+            best_loss_values = loss_values.copy()
+            best_validation_loss = validation_loss.copy()
+            qnn.build_QNN(best_pars)
+            qnn.save_model_parameters(best_pars)
+            qnn.save_operator_matrices(f"quannto/tasks/models/trained_operators")
+            qnn.save_model(qnn.model_name)
+    else:
+        if best_loss_values[-1] > loss_values[-1]:
+            best_pars = x.copy()
+            best_loss_values = loss_values.copy()
+            qnn.build_QNN(best_pars)
+            qnn.save_model_parameters(best_pars)
+            qnn.save_operator_matrices(f"quannto/tasks/models/trained_operators")
+            qnn.save_model(qnn.model_name)
+    loss_values = [9999]
+    validation_loss = [9999]
 
 def build_and_train_model(model_name, N, layers, n_inputs, n_outputs,
                           ladder_modes, is_addition, observable, 
                           include_initial_squeezing, include_initial_mixing, is_passive_gaussian,
                           train_set, valid_set, loss_function=mse, hopping_iters=2,
-                          in_preprocs=[], out_prepocs=[], postprocs=[], init_pars=None, save=True
-):
+                          in_preprocs=[], out_prepocs=[], postprocs=[], init_pars=None, save=True):
     '''
     Creates and trains a QNN model with the given hyperparameters and dataset by optimizing the 
     tunable parameters of the QNN using L-BFGS-B + Basinhopping from SciPy which uses a 
@@ -89,55 +141,6 @@ def build_and_train_model(model_name, N, layers, n_inputs, n_outputs,
     assert len(bounds) == n_pars, f"Number of bounds {len(bounds)} does not match number of parameters {n_pars}."
     
     # ---------------------------------------------------------------
-    # 2. Callbacks of SciPy
-    # ---------------------------------------------------------------
-    def callback(xk):
-        '''
-        Prints and stores the MSE error value for each QNN training epoch.
-        
-        :param xk: QONN tunable parameters
-        '''
-        e = training_QNN(xk)
-        loss_values.append(e)
-        print(f'Training loss: {e}')
-        if valid_set != None:
-            val_e = validate_QNN(xk)
-            print(f'Validation loss: {val_e}')
-            validation_loss.append(val_e)
-        else:
-            validation_loss.append(e)
-        
-    def callback_hopping(x,f,accept):
-        '''
-        Prints the best Basinhopping error achieved so far and the current one. 
-        If the current error is less than the best one so far, it substitutes the best loss values.
-        
-        :param x: QONN tunable parameters
-        :param f: Current Basinhopping error achieved
-        :param accept: Determines whether the current error achieved is accepted (stopping iterations)
-        '''
-        global best_loss_values
-        global loss_values
-        global best_validation_loss
-        global validation_loss
-        global best_pars
-        print(f"Best basinhopping iteration error so far: {best_loss_values[-1]}")
-        print(f"Current basinhopping iteration error: {f}\n==========\n")
-        if valid_set != None:
-            if best_validation_loss[-1] > validation_loss[-1]:
-                best_pars = x.copy()
-                best_loss_values = loss_values.copy()
-                best_validation_loss = validation_loss.copy()
-                qnn.save_model(qnn.model_name)
-        else:
-            if best_loss_values[-1] > loss_values[-1]:
-               best_pars = x.copy()
-               best_loss_values = loss_values.copy()
-               qnn.save_model(qnn.model_name)
-        loss_values = [9999]
-        validation_loss = [9999]
-    
-    # ---------------------------------------------------------------
     # 3. Build QNN, preprocess dataset and define training functions
     # ---------------------------------------------------------------
     qnn = QNN(model_name, N, layers, n_inputs, n_outputs, ladder_modes, is_addition, observable,
@@ -152,22 +155,31 @@ def build_and_train_model(model_name, N, layers, n_inputs, n_outputs,
     
     global best_loss_values
     best_loss_values = [9999]
+    
     global loss_values
     loss_values = [9999]
+    
     global best_validation_loss
     best_validation_loss = [9999]
+    
     global validation_loss
     validation_loss = [9999]
+    
     global best_pars
     best_pars = []
     
     training_QNN = partial(qnn.train_QNN, inputs_dataset=train_inputs, outputs_dataset=train_outputs, loss_function=loss_function)
     if valid_set != None:
         validate_QNN = partial(qnn.train_QNN, inputs_dataset=valid_inputs, outputs_dataset=valid_outputs, loss_function=loss_function)
+    else:
+        validate_QNN = None
     
     # ---------------------------------------------------------------
     # 4. Training with SciPy L-BFGS-B + Basinhopping
     # ---------------------------------------------------------------
+    callback = partial(callback_opt_general, cost_training=training_QNN, cost_validation=validate_QNN)
+    callback_hopping = partial(callback_hopping_general, qnn=qnn, has_validation=False if validate_QNN == None else True)
+    
     training_start = time.time()
     minimizer_kwargs = {"method": "L-BFGS-B", "bounds": bounds, "callback": callback}
     opt_result = opt.basinhopping(training_QNN, init_pars, niter=hopping_iters, minimizer_kwargs=minimizer_kwargs, callback=callback_hopping)
@@ -194,14 +206,11 @@ def build_and_train_model(model_name, N, layers, n_inputs, n_outputs,
     
     return qnn, best_loss_values, best_validation_loss
 
-def hybrid_build_and_train_model(
-    model_name, N, layers, n_inputs, n_outputs,
-    ladder_modes, is_addition, observable,
-    include_initial_squeezing, include_initial_mixing, is_passive_gaussian,
-    train_set, valid_set, loss_function=mse, hopping_iters=2,
-    in_preprocs=[], out_prepocs=[], postprocs=[], init_pars=None, save=True,
-    adam_epochs=200, adam_learning_rate=1e-2, adam_weight_decay=0.0,
-):
+def hybrid_build_and_train_model(model_name, N, layers, n_inputs, n_outputs, ladder_modes, is_addition, observable,
+                                 include_initial_squeezing, include_initial_mixing, is_passive_gaussian,
+                                 train_set, valid_set, loss_function=mse, hopping_iters=2,
+                                 in_preprocs=[], out_prepocs=[], postprocs=[], init_pars=None, save=True,
+                                 adam_epochs=200, adam_learning_rate=1e-2, adam_weight_decay=0.0):
     """
     Creates and trains a QNN model with the given hyperparameters and dataset
     by optimizing the tunable parameters of the QNN using a hybrid approach:
@@ -306,73 +315,14 @@ def hybrid_build_and_train_model(
         """
         return jnp.clip(params_jax, lb, ub)
 
-    # ---------------------------------------------------------------
-    # 2. Callbacks of SciPy
-    # ---------------------------------------------------------------
-    def callback(xk):
-        """
-        L-BFGS-B callback. Records training and validation loss.
-        :param xk: Current parameters
-        """
-        e = training_QNN(xk)
-        loss_values.append(e)
-        print(f"Training loss: {e}")
-        if valid_set is not None:
-            val_e = validate_QNN(xk)
-            print(f"Validation loss: {val_e}")
-            validation_loss.append(val_e)
-        else:
-            validation_loss.append(e)
-
-    def callback_hopping(x, f, accept):
-        """
-        Basinhopping callback. Prints best and current error.
-        :param x: Current parameters
-        :param f: Current loss value
-        :param accept: Whether the new position was accepted
-        """
-        global best_loss_values
-        global loss_values
-        global best_validation_loss
-        global validation_loss
-        global best_pars
-
-        print(f"Best basinhopping iteration error so far: {best_loss_values[-1]}")
-        print(f"Current basinhopping iteration error: {f}\n==========\n")
-
-        if valid_set is not None:
-            if best_validation_loss[-1] > validation_loss[-1]:
-                best_pars = x.copy()
-                best_loss_values = loss_values.copy()
-                best_validation_loss = validation_loss.copy()
-                qnn.save_model(qnn.model_name)
-        else:
-            if best_loss_values[-1] > loss_values[-1]:
-                best_pars = x.copy()
-                best_loss_values = loss_values.copy()
-                qnn.save_model(qnn.model_name)
-
-        loss_values = [9999]
-        validation_loss = [9999]
 
     # ---------------------------------------------------------------
     # 3. Build QNN, preprocess dataset and define training functions
     # ---------------------------------------------------------------
     qnn = QNN(
-        model_name,
-        N,
-        layers,
-        n_inputs,
-        n_outputs,
-        ladder_modes,
-        is_addition,
-        observable,
-        include_initial_squeezing,
-        include_initial_mixing,
-        is_passive_gaussian,
-        in_preprocs,
-        out_prepocs,
-        postprocs,
+        model_name, N, layers, n_inputs, n_outputs, ladder_modes, is_addition, observable,
+        include_initial_squeezing, include_initial_mixing, is_passive_gaussian,
+        in_preprocs, out_prepocs, postprocs,
     )
     
     train_inputs = reduce(lambda x, func: func(x), qnn.in_preprocessors, train_set[0])
@@ -503,6 +453,9 @@ def hybrid_build_and_train_model(
     # ---------------------------------------------------------------
     # 6. Phase 2: Basinhopping with L-BFGS-B (SciPy)
     # ---------------------------------------------------------------
+    callback = partial(callback_opt_general, cost_training=training_QNN, cost_validation=validate_QNN)
+    callback_hopping = partial(callback_hopping_general, qnn=qnn, has_validation=False if validate_QNN == None else True)
+    
     training_start = time.time()
 
     minimizer_kwargs = {
@@ -547,29 +500,10 @@ def hybrid_build_and_train_model(
 
     return qnn, best_loss_values, best_validation_loss
 
-def jax_gd_build_and_train_model(
-    model_name,
-    N,
-    layers,
-    n_inputs,
-    n_outputs,
-    ladder_modes,
-    is_addition,
-    observable,
-    include_initial_squeezing,
-    include_initial_mixing,
-    is_passive_gaussian,
-    train_set,
-    valid_set,
-    loss_function=mse,
-    hopping_iters=200,
-    in_preprocs=[],
-    out_prepocs=[],
-    postprocs=[],
-    init_pars=None,
-    save=True,
-    learning_rate=5e-3,
-):
+def jax_gd_build_and_train_model(model_name, N, layers, n_inputs, n_outputs, ladder_modes, is_addition, observable,
+                                 include_initial_squeezing, include_initial_mixing, is_passive_gaussian, 
+                                 train_set, valid_set, loss_function=mse, hopping_iters=200,
+                                 in_preprocs=[], out_prepocs=[], postprocs=[], init_pars=None, save=True, learning_rate=5e-3):
     """
     Creates and trains a QNN model with the given hyperparameters and dataset
     by optimizing the tunable parameters of the QNN using pure JAX
@@ -733,28 +667,10 @@ def jax_gd_build_and_train_model(
     return qnn, loss_values, validation_loss
 
 
-def optax_build_and_train_model(
-    model_name,
-    N,
-    layers,
-    n_inputs,
-    n_outputs,
-    ladder_modes,
-    is_addition,
-    observable,
-    include_initial_squeezing,
-    include_initial_mixing,
-    is_passive_gaussian,
-    train_set,
-    valid_set,
-    loss_function=mse,
-    hopping_iters=200,
-    in_preprocs=[],
-    out_prepocs=[],
-    postprocs=[],
-    init_pars=None,
-    save=True,
-):
+def optax_build_and_train_model(model_name, N, layers, n_inputs, n_outputs, ladder_modes, is_addition, observable,
+                                include_initial_squeezing, include_initial_mixing, is_passive_gaussian,
+                                train_set, valid_set, loss_function=mse, hopping_iters=200,
+                                in_preprocs=[], out_prepocs=[], postprocs=[], init_pars=None, save=True):
     """
     Creates and trains a QNN model with the given hyperparameters and dataset by
     optimizing the tunable parameters of the QNN using Optax L-BFGS.
@@ -1005,30 +921,11 @@ def optax_build_and_train_model(
     return qnn, loss_values, validation_loss
 
 
-def adam_build_and_train_model(
-    model_name,
-    N,
-    layers,
-    n_inputs,
-    n_outputs,
-    ladder_modes,
-    is_addition,
-    observable,
-    include_initial_squeezing,
-    include_initial_mixing,
-    is_passive_gaussian,
-    train_set,
-    valid_set,
-    loss_function=mse,
-    hopping_iters=200,
-    in_preprocs=[],
-    out_prepocs=[],
-    postprocs=[],
-    init_pars=None,
-    save=True,
-    learning_rate=1e-2,
-    weight_decay=0.0,
-):
+def adam_build_and_train_model(model_name, N, layers, n_inputs, n_outputs, ladder_modes, is_addition, observable,
+                               include_initial_squeezing, include_initial_mixing, is_passive_gaussian,
+                               train_set, valid_set, loss_function=mse, hopping_iters=200, 
+                               in_preprocs=[], out_prepocs=[], postprocs=[], init_pars=None, save=True,
+                               learning_rate=1e-2, weight_decay=0.0):
     """
     Creates and trains a QNN model with the given hyperparameters and dataset
     by optimizing the tunable parameters of the QNN using a pure-JAX optimizer
