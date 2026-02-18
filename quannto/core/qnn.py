@@ -1,5 +1,4 @@
 import numpy as np
-import time
 import jsonpickle
 import time
 from functools import reduce
@@ -12,6 +11,7 @@ from .data_processors import pad_3d_list_of_lists, to_np_array
 from quannto.utils.cvquantum_utils import *
 from quannto.core.expectation_value import *
 from quannto.utils.results_utils import *
+from quannto.utils.path_utils import models_json_path, models_params_path, models_operators_path
 
 jax.config.update("jax_enable_x64", True)
 
@@ -409,7 +409,11 @@ class QNN:
         # Compute loss
         return loss_function(y, y_hat)
     
-    @partial(jax.jit, static_argnums=(0,3))
+    @partial(jax.jit, static_argnums=(0,))
+    def predict_QNN(self, input_set):
+        qnn_outputs, norm = jax.vmap(self.eval_QNN, in_axes=(0))(input_set)
+        return qnn_outputs, norm
+    
     def test_model(self, input_set, output_set, loss_function):
         '''
         Makes predictions of the given QNN using the input testing dataset.
@@ -422,7 +426,7 @@ class QNN:
         preproc_inputs = reduce(lambda x, func: func(x), self.in_preprocessors, input_set)
         preproc_outputs = reduce(lambda x, func: func(x), self.out_preprocessors, output_set)
         
-        qnn_outputs, norm = jax.vmap(self.eval_QNN, in_axes=(0))(preproc_inputs)
+        qnn_outputs, norm = self.predict_QNN(preproc_inputs)
         loss_value = loss_function(preproc_outputs, qnn_outputs)
         
         postproc_outs = reduce(lambda x, func: func(x), self.postprocessors, qnn_outputs)
@@ -438,7 +442,7 @@ class QNN:
         preproc_inputs = reduce(lambda x, func: func(x), self.in_preprocessors, input_set)
         
         # Evaluate all testing set
-        qnn_outputs, norms = jax.vmap(self.eval_QNN, in_axes=(0))(preproc_inputs)
+        qnn_outputs, norms = self.predict_QNN(preproc_inputs)
         qnn_outputs = np.real_if_close(qnn_outputs, tol=1e6)
         norms = np.real_if_close(norms, tol=1e6)
         
@@ -471,24 +475,28 @@ class QNN:
         
         :param filename: Path to save the QONN parameters
         '''
-        np.save("quannto/tasks/models/params/"+self.model_name+".npy", np.array(params))
+        np.save(models_params_path(self.model_name, 'npy'), np.array(params))
+        np.savetxt(models_params_path(self.model_name, 'txt'), np.array(params))
     
-    def save_operator_matrices(self, folder_path):
+    def save_operator_matrices(self):
         '''
-        Saves all QONN operator matrices to .npy files.
+        Saves all QONN operator matrices to .npy and .txt files.
         
         :param folder_path: Path to the folder where the matrices will be saved
         '''
-        np.save(folder_path + "/" + self.model_name + "_S_l.npy", np.array(self.S_l))
-        np.save(folder_path + "/" + self.model_name + "_D_l.npy", np.array(self.D_l))
+        np.save(models_operators_path(self.model_name, "S_l", "npy"), np.array(self.S_l))
+        np.save(models_operators_path(self.model_name, "D_l", "npy"), np.array(self.D_l))
+        #np.savetxt(models_operators_path(self.model_name, "S_l", "txt"), np.array(self.S_l))
+        #np.savetxt(models_operators_path(self.model_name, "D_l", "txt"), np.array(self.D_l))
+        
     
-    def save_model(self, filename):
+    def save_model(self):
         '''
         Saves the QONN model to a JSON pickle file.
         
         :param filename: Path to save the QONN model
         '''
-        f = open("quannto/tasks/models/pickle_json/"+filename+".txt", 'w')
+        f = open(models_json_path(self.model_name, "json"), 'w')
         f.write(jsonpickle.encode(self))
         f.close()
 
