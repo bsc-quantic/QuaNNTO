@@ -2,6 +2,7 @@ from functools import partial
 import os
 
 from quannto.core.qnn_trainers import *
+from quannto.utils.path_utils import datasets_dir, models_testing_results_path, models_train_losses_path
 from quannto.utils.results_utils import *
 from quannto.core.data_processors import *
 from quannto.core.loss_functions import *
@@ -20,12 +21,12 @@ n_inputs = 1
 n_outputs = 1
 observable = 'catstates'
 in_norm_ranges = [None]*len(qnns_modes) # or ranges (a, b)
+qnn_params = [None]*len(qnns_modes) # or list of arrays with initial parameters for each QNN
 
 # === OPTIMIZER SETTINGS ===
 optimize = build_and_train_model
 loss_function = mse
 basinhopping_iters = 2
-params = None
 
 # === DATASET SETTINGS === (Statistics of a quantum cat state)
 phi = 0.0
@@ -37,12 +38,13 @@ train_num_moments = 15
 alpha_list = np.linspace(input_range[0], input_range[1], dataset_size)
 dataset_name = f'catstate_phi{phi}_trainsize{dataset_size}_stats{num_moments}_cut{cutoff}_rng{input_range[0]}to{input_range[-1]}'
 task_name = f'catstate_phi{phi}_trainsize{dataset_size}_stats{train_num_moments}_cut{cutoff}_rng{input_range[0]}to{input_range[-1]}'
+dataset_dir = str(datasets_dir() / dataset_name)
 
 # Training dataset containing the statistical moments of the target cat state
-if os.path.isfile(f"datasets/{dataset_name}_inputs.npy"):
-    with open(f"datasets/{dataset_name}_inputs.npy", "rb") as f:
+if os.path.isfile(dataset_dir + "_inputs.npy") and os.path.isfile(dataset_dir + "_outputs.npy"):
+    with open(dataset_dir + "_inputs.npy", "rb") as f:
         inputs = np.load(f)
-    with open(f"datasets/{dataset_name}_outputs.npy", "rb") as f:
+    with open(dataset_dir + "_outputs.npy", "rb") as f:
         outputs = np.load(f)
 else:
     raise FileNotFoundError("The requested dataset does not exist, generate it from quannto.dataset_gens.catstates_stats")
@@ -54,7 +56,7 @@ qnns = []
 train_losses = []
 qnn_outs = []
 legend_labels = []
-for (N, l, ladder_modes, is_addition, in_norm_range) in zip(qnns_modes, qnns_layers, qnns_ladder_modes, qnns_is_addition, in_norm_ranges):
+for (N, l, ladder_modes, is_addition, in_norm_range, params) in zip(qnns_modes, qnns_layers, qnns_ladder_modes, qnns_is_addition, in_norm_ranges, qnn_params):
     # === NAME AND LEGEND OF THE QONN MODEL ===
     model_name = task_name + "_N" + str(N) + "_L" + str(l) + ("_add" if is_addition else "_sub") + str(ladder_modes) + "_in" + str(in_norm_range)
     nongauss_op = "â†" if is_addition else "â"
@@ -83,9 +85,9 @@ for (N, l, ladder_modes, is_addition, in_norm_range) in zip(qnns_modes, qnns_lay
     qnn_outs.append(qnn_test_outputs.copy())
     
     # === SAVE QNN MODEL RESULTS ===
-    with open(f"quannto/tasks/models/train_losses/{model_name}.npy", "wb") as f:
+    with open(models_train_losses_path(model_name, "txt"), "wb") as f:
         np.save(f, np.array(train_loss))
-    with open(f"quannto/tasks/models/testing_results/{model_name}.npy", "wb") as f:
+    with open(models_testing_results_path(model_name, "txt"), "wb") as f:
         np.save(f, np.array(qnn_test_outputs))
     
 # === PLOT AND SAVE JOINT RESULTS ===

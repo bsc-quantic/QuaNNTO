@@ -2,6 +2,7 @@ from functools import partial
 import numpy as np
 
 from quannto.core.qnn_trainers import *
+from quannto.utils.path_utils import datasets_dir, models_testing_results_path, models_train_losses_path
 from quannto.utils.results_utils import *
 from quannto.core.data_processors import *
 from quannto.core.loss_functions import *
@@ -33,11 +34,12 @@ dataset_size = 50
 input_range = (-2, 2)
 alpha_list = np.linspace(input_range[0], input_range[1], dataset_size)
 task_name = f'fock_cubicphase_gamma{gamma}_trainsize{dataset_size}_rng{alpha_list[0]}to{alpha_list[-1]}'
+dataset_dir = str(datasets_dir() / task_name)
 
 # Training dataset of the non-Gaussian gate to be learned
-with open(f"datasets/{task_name}_inputs.npy", "rb") as f:
+with open(f"{dataset_dir}_inputs.npy", "rb") as f:
     inputs = np.load(f)
-with open(f"datasets/{task_name}_outputs.npy", "rb") as f:
+with open(f"{dataset_dir}_outputs.npy", "rb") as f:
     outputs = np.load(f)
 train_dataset = [inputs, outputs]
 
@@ -65,16 +67,16 @@ for (N, l, ladder_modes, is_addition, in_norm_range) in zip(qnns_modes, qnns_lay
                                            include_initial_squeezing, include_initial_mixing, is_passive_gaussian,
                                            train_dataset, None, loss_function, basinhopping_iters,
                                            in_preprocessors, out_preprocessors, postprocessors, init_pars=params)
-    qnn_test_outputs, loss_value = qnn.test_model(train_dataset[0], train_dataset[1], loss_function)
+    qnn_test_outputs, norm, loss_value = qnn.test_model(train_dataset[0], train_dataset[1], loss_function)
     
     qnns.append(qnn)
     train_losses.append(train_loss.copy())
     qnns_outs.append(qnn_test_outputs.copy())
     
     # === SAVE QNN MODEL RESULTS ===
-    with open(f"quannto/tasks/models/train_losses/{model_name}.npy", "wb") as f:
+    with open(models_train_losses_path(model_name, "txt"), "wb") as f:
         np.save(f, np.array(train_loss))
-    with open(f"quannto/tasks/models/testing_results/{model_name}.npy", "wb") as f:
+    with open(models_testing_results_path(model_name, "txt"), "wb") as f:
         np.save(f, np.array(qnn_test_outputs))
         
 # === PLOT AND SAVE JOINT RESULTS ===

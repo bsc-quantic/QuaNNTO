@@ -1,4 +1,6 @@
 import scipy.integrate as si
+
+from quannto.utils.path_utils import datasets_dir
 if not hasattr(si, "simps") and hasattr(si, "simpson"):
     si.simps = si.simpson
 import strawberryfields as sf
@@ -67,8 +69,10 @@ for α in alpha_list:
     dataset.append(([α], y))
     inputs_dataset.append([α])
     outputs_dataset.append(y)
-    
-with open(f"datasets/fock_cubicphase_gamma{gamma}_trainsize{dataset_size}_rng{alpha_list[0]}to{alpha_list[-1]}_inputs.npy", "wb") as f:
+
+dataset_dir = str(datasets_dir() / f'fock_cubicphase_gamma{gamma}_trainsize{dataset_size}_rng{alpha_list[0]}to{alpha_list[-1]}')
+
+with open(f"{dataset_dir}_inputs.npy", "wb") as f:
     np.save(f, np.array(inputs_dataset))
-with open(f"datasets/fock_cubicphase_gamma{gamma}_trainsize{dataset_size}_rng{alpha_list[0]}to{alpha_list[-1]}_outputs.npy", "wb") as f:
+with open(f"{dataset_dir}_outputs.npy", "wb") as f:
     np.save(f, np.array(outputs_dataset))

@@ -1,6 +1,7 @@
 import numpy as np
 import scipy.integrate as si
 
+from quannto.utils.path_utils import datasets_dir
 from quannto.utils.strawberryfields.general_tools import catstate_moments, moments_from_rho, six_order_moments_operators
 if not hasattr(si, "simps") and hasattr(si, "simpson"):
     si.simps = si.simpson
@@ -32,11 +33,12 @@ num_moments = len(stat_moments)
 inputs_dataset = [[alpha] for alpha in alphas]
 outputs_dataset = [catstate_moments(alpha, stat_moments, cutoff, phi) for alpha in alphas]
 ds = [inputs_dataset, outputs_dataset]
+dataset_dir = str(datasets_dir() / f'catstate_phi{phi}_trainsize{dataset_size}_stats{num_moments}_cut{cutoff}_rng{alpha_range[0]}to{alpha_range[-1]}')
 
-with open(f"datasets/catstate_phi{phi}_trainsize{dataset_size}_stats{num_moments}_cut{cutoff}_rng{alpha_range[0]}to{alpha_range[-1]}_inputs.npy", "wb") as f:
+with open(f"{dataset_dir}_inputs.npy", "wb") as f:
     np.save(f, np.array(inputs_dataset))
 
-with open(f"datasets/catstate_phi{phi}_trainsize{dataset_size}_stats{num_moments}_cut{cutoff}_rng{alpha_range[0]}to{alpha_range[-1]}_outputs.npy", "wb") as f:
+with open(f"{dataset_dir}_outputs.npy", "wb") as f:
     np.save(f, np.array(outputs_dataset))
 
 # Quick sanity checks for real α, even cat (phi=0):

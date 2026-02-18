@@ -3,6 +3,7 @@ import numpy as np
 import os.path
 
 from quannto.core.qnn_trainers import *
+from quannto.utils.path_utils import datasets_dir, models_testing_results_path, models_train_losses_path, models_valid_losses_path
 from quannto.utils.results_utils import *
 from quannto.core.data_processors import *
 from quannto.core.loss_functions import *
@@ -36,12 +37,13 @@ dataset_size = 75*num_cats
 validset_size = 20*num_cats
 continuize_method = 'pca' # 'pca' or 'encoding' for Autoencoder
 task_name = f'mnist_{continuize_method}_{n_inputs}lat_{num_cats}cats'
+dataset_dir = str(datasets_dir() / task_name)
      
 # 1. FULL DATASET: Load or build (and save) a CV-preprocessed MNIST dataset and shuffle
-if os.path.isfile(f"datasets/{task_name}_inputs.npy"):
-    with open(f"datasets/{task_name}_inputs.npy", "rb") as f:
+if os.path.isfile(dataset_dir + "_inputs.npy"):
+    with open(dataset_dir + "_inputs.npy", "rb") as f:
         inputs = np.load(f)
-    with open(f"datasets/{task_name}_outputs.npy", "rb") as f:
+    with open(dataset_dir + "_outputs.npy", "rb") as f:
         outputs = np.load(f)
     dataset = [inputs, outputs]
     input_ranges = np.array([(np.min(dataset[0][:,col]), np.max(dataset[0][:,col])) for col in range(len(dataset[0][0]))])
@@ -51,9 +53,9 @@ else:
         input_ranges = np.array([(np.min(dataset[0][:,col]), np.max(dataset[0][:,col])) for col in range(len(dataset[0][0]))])
         if np.all(input_ranges[:,-1] > 0):
             break
-    with open(f"datasets/{task_name}_inputs.npy", "wb") as f:
+    with open(dataset_dir + "_inputs.npy", "wb") as f:
         np.save(f, dataset[0])
-    with open(f"datasets/{task_name}_outputs.npy", "wb") as f:
+    with open(dataset_dir + "_outputs.npy", "wb") as f:
         np.save(f, dataset[1])
 shuffling = np.random.permutation(len(dataset[0]))
 shuffled_dataset = [dataset[0][shuffling], dataset[1][shuffling]]
@@ -111,11 +113,11 @@ for (N, l, ladder_modes, is_addition, in_norm_range, out_norm_range) in zip(qnns
     print(f"==========\nACCURACY FOR N={N}, L={l}, LADDER MODES={ladder_modes}: {qnn_hits}/{len(qnn_preds)} = {accuracy}\n==========\n")
 
     # === SAVE QNN MODEL RESULTS ===
-    with open(f"quannto/tasks/models/train_losses/{model_name}.npy", "wb") as f:
+    with open(models_train_losses_path(model_name, "txt"), "wb") as f:
         np.save(f, np.array(train_loss))
-    with open(f"quannto/tasks/models/valid_losses/{model_name}.npy", "wb") as f:
+    with open(models_valid_losses_path(model_name, "txt"), "wb") as f:
         np.save(f, np.array(valid_loss))
-    with open(f"quannto/tasks/models/testing_results/{model_name}.npy", "wb") as f:
+    with open(models_testing_results_path(model_name, "txt"), "wb") as f:
         np.save(f, np.array(qnn_preds))
     plot_confusion_matrix(model_name, test_outputs_cats, qnn_preds)
 

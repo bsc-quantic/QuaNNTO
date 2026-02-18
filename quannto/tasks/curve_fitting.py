@@ -4,6 +4,7 @@ import os.path
 
 from quannto.core.qnn_trainers import *
 from quannto.dataset_gens.synthetic_datasets import *
+from quannto.utils.path_utils import datasets_dir, models_testing_results_path, models_train_losses_path, models_valid_losses_path
 from quannto.utils.results_utils import *
 from quannto.core.data_processors import *
 from quannto.core.loss_functions import *
@@ -12,7 +13,7 @@ np.random.seed(42)
 
 # === HYPERPARAMETERS DEFINITION ===
 qnns_modes = [2,3,4]
-qnns_ladder_modes = [[[1]], [[1,2]], [[1,2,3]]]
+qnns_ladder_modes = [[[0,1]]]
 qnns_layers = [1,1,1]
 qnns_is_addition = [False, False, False]
 include_initial_squeezing = False
@@ -29,30 +30,31 @@ out_norm_ranges = [(1, 3)]*len(qnns_modes)
 # === OPTIMIZER SETTINGS ===
 optimize = hybrid_build_and_train_model
 loss_function = mse
-basinhopping_iters = 4
+basinhopping_iters = 8
 params = None
 
 # === DATASET (TARGET FUNCTION) SETTINGS ===
-target_function = trig_fun
-input_range = (-1, 2.5)
-trainset_noise = 0.1
+target_function = cosh_1in_1out
+input_range = (-5, 5)
+trainset_noise = 3
 trainset_size = 100
 testset_size = 200
 validset_size = 50
 task_name = f"curvefitting_{target_function.__name__}_trainsize{trainset_size}_noise{trainset_noise}_rng{input_range[0]}to{input_range[1]}"
+dataset_dir = str(datasets_dir() / task_name)
 
 # 1. TRAINING DATASET: Load or generate (and save) a randomly-sampled and noisy dataset of the target function
-if os.path.isfile(f"datasets/{task_name}_inputs.npy"):
-    with open(f"datasets/{task_name}_inputs.npy", "rb") as f:
+if os.path.isfile(dataset_dir + "_inputs.npy"):
+    with open(dataset_dir + "_inputs.npy", "rb") as f:
         inputs = np.load(f)
-    with open(f"datasets/{task_name}_outputs.npy", "rb") as f:
+    with open(dataset_dir + "_outputs.npy", "rb") as f:
         outputs = np.load(f)
     train_dataset = [inputs, outputs]
 else:
     train_dataset = generate_noisy_samples(trainset_size, target_function, input_range[0], input_range[1], trainset_noise)
-    with open(f"datasets/{task_name}_inputs.npy", "wb") as f:
+    with open(dataset_dir + "_inputs.npy", "wb") as f:
         np.save(f, train_dataset[0])
-    with open(f"datasets/{task_name}_outputs.npy", "wb") as f:
+    with open(dataset_dir + "_outputs.npy", "wb") as f:
         np.save(f, train_dataset[1])
 input_range = (np.min(train_dataset[0]), np.max(train_dataset[0]))
 # 2. VALIDATION DATASET: Generate a randomly-sampled and noiseless dataset of the target function (None for no validation)
@@ -102,11 +104,11 @@ for (N, l, ladder_modes, is_addition, in_norm_range, out_norm_range) in zip(qnns
     print(f'\n==========\nTESTING LOSS FOR N={N}, L={l}, LADDER MODES={ladder_modes}: {loss_value}\n==========')
     
     # === SAVE QNN MODEL RESULTS ===
-    with open(f"quannto/tasks/models/train_losses/{model_name}.npy", "wb") as f:
+    with open(models_train_losses_path(model_name, "txt"), "wb") as f:
         np.save(f, np.array(train_loss))
-    with open(f"quannto/tasks/models/valid_losses/{model_name}.npy", "wb") as f:
+    with open(models_valid_losses_path(model_name, "txt"), "wb") as f:
         np.save(f, np.array(valid_loss))
-    with open(f"quannto/tasks/models/testing_results/{model_name}.npy", "wb") as f:
+    with open(models_testing_results_path(model_name, "txt"), "wb") as f:
         np.save(f, np.array(qnn_pred))
 
 # === PLOT AND SAVE JOINT RESULTS ===
