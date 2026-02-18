@@ -1,4 +1,4 @@
-# QUANNTO USER GUIDE
+# QUANNTO USER GUIDE (_Deprecated_)
 
 This is a how-to-use guide for the continuous-variables quantum neural network simulator.
 

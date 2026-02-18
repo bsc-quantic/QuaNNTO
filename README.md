@@ -5,6 +5,8 @@ _Article:_ [Hardware-inspired Continuous Variables Quantum Optical Neural Networ
 
 _QuaNNTO_ is an HPC library made with [JAX](https://github.com/jax-ml/jax) for exact simulation of continuous-variable quantum optical neural networks (QONN). The simulation technique is based on Wick-Isserlis expansions and Bogoliubov transformations, which allows an exact computation of expectation values of continuous observables (such as position) on quantum states built by a finite set of Gaussian and creation/annihilation operators, avoiding truncations in the infinite-dimensional Hilbert space that describe the quantum optical system.
 
+__In `examples_ipynb`, Jupyter notebooks examples are provided for a diverse number of tasks, all of them explanatory and ready to run.__
+
 The main QONN hyperparameters:
 
 - ***modes*** is an integer denoting the number of optical modes in the QONN.
@@ -12,21 +14,25 @@ The main QONN hyperparameters:
 - ***layers*** is an integer denoting the amount of layers of the QONN.
 - ***ladder_modes*** is a list of lists that defines the ladder operators' modes in each layer. E.g.: `[[0],[1]]` would mean a 2-layer QONN where the first layer has a ladder operator on mode $0$ and the second layer has another in mode $1$.
 - ***n_inputs*** and ***n_outputs*** refer to the amount of inputs and outputs desired in the QONN model.
-- ***observable*** is a string variable that allows to choose which operator's expectation value is to be measured, typically acting as the QONN output(s). In `expectation_value.py`, one can find the different observables that are available and, additionally, can implement different ones as long as the observable can be represented in Fock basis.
+- ***observable*** is a string variable that allows to choose which operator's expectation value is to be measured, typically acting as the QONN output(s). In `quannto/core/expectation_value.py`, one can find the different observables that are available and, additionally, can implement different ones as long as the observable can be represented in Fock basis through ladder operators.
 - ***in_norm_ranges*** and ***out_norm_ranges*** indicate the re-scaling ranges of the inputs (real coherent states) and outputs (position expectation values) respectively.
+- ***include_initial_squeezing*** and ***include_initial_mixing*** are flags to add an initial squeezing and/or mixing interferometer after the coherent state encoding and before the QONN layers (typically set to `False`).
+***is_passive_gaussian*** is a flag to indicate the general Gaussian operators of the QONN layers not to include squeezing, this is, for the Gaussian transformation to be built only with one interferometer per layer.
 
-The different tasks train multiple QONN models with their hyperparameters defined at the beggining. They are divided in the following scripts:
+The different addressed tasks are contained in `quannto/tasks` directory (accessible as Jupyter Notebooks in `examples_ipynb` directory) and they train multiple QONN models with their hyperparameters defined at the beggining of each task file. They are divided in the following scripts:
 
-- `multimode_curve_fitting.py` used for curve fitting of the target function indicated in the script (chosen from `synth_datasets.py`).
+- `curve_fitting.py` trains QONNs to fit a specific range of some target continuous function indicated in the script by using a noisy dataset chosen from `quannto/dataset_gens/synthetic_datasets.py`. The loss function to be minimized is MSE between the predicted and actual values of the 
 
-- `mnist_classification_example.py` is the MNIST classification task (discrete-variable inputs).
+- `mnist_classification.py` is the MNIST classification task (discrete-variable inputs). PCA or Autoencoders for input continuization can be chosen in the dataset setting inside the script. The loss function to minimize is cross-entropy, using logarithmic softmax over the continous outputs (position average of optical modes) to transform them into class probabilites.
 
-- `cv_classification.py` is the moons and circles classification task (continuous-variable inputs).
+- `moons_circles_classification.py` is a continuous-variable input classification task where two interleaved moons or two concentric circles have to be discerned by a learned boundary that separates both moons/circles. As in the MNIST case, the loss function is cross-entropy with logarithmic softmax.
 
-- `cubicphase_training.py` is the script for approximating the cubic phase gate's action of a specific strength over a set of states given their final state high-order statistical moments. In this example, the target states in which the action of the cubic gate (strength=$0.2$) is applied are real coherent states in the range $(-2,2)$.
+- `nongauss_gate_synthesis.py` is the first quantum task where a certain QONN architecture approximates a complex non-Gaussian gate action over a set of states given their final state high-order statistical moments. In this example, the non-Gaussian operator is the cubic phase gate of strength=$0.2$ acting on real coherent states in the range $(-2,2)$. Specific datasets for this task are built by `quannto/dataset_gens/nongauss_gate_stats.py` where the non-Gaussian gate, their parameters and the target states can be freely chosen. The loss function for this task is MSE between the predicted and the actual values of all statistical moments.
 
-The different tasks can be run directly from the `Quannto` directory with the command `python3 -m quannto.<file>` without the `.py` at the end. E.g.: `python3 -m quannto.multimode_curve_fitting` and the training will start for all the QONN setups defined in the hyperparameters of such a script.
+- `catstate_synthesis.py` corresponds to the second quantum task where the QONN architecture is to approach some target quantum cat state using, as in the non-Gaussian gate synthesis, high-order statistics of the state. Such datasets are generated by `quannto/dataset_gens/catstates_stats.py` for some target cat state where Strawberry Fields library is used. Again, the loss function used for this task is MSE between the predicted and the actual values of all statistical moments.
 
-In `qnn_trainers.py`, one could change parameter bounds such as the one for the squeezing, fixed by default to state-of-the-art limit $r \in (-1.7, 1.7)$.
+The different tasks can be run directly from the `QuaNNTO` root directory via the command `python3 -m quannto.tasks.<file>` without the `.py` at the end. E.g.: `python3 -m quannto.tasks.curve_fitting` and the training will start for each of the QONN setups defined in the hyperparameters of such a script.
+
+In `quannto/core/qnn_trainers.py`, one could change parameter bounds such as the one for the squeezing, fixed by default to state-of-the-art limit $r \in (-1.7, 1.7)$.
 
 <ins>**NOTE:**</ins> This library is still under development. 

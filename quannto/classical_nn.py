@@ -4,10 +4,10 @@ import tensorflow as tf
 import matplotlib.pyplot as plt
 import pandas as pd
 import scipy.optimize as opt
-from .synth_datasets import *
+from .dataset_gens.synthetic_datasets import *
 
-from quannto.data_processors import get_range, rescale_data, trigonometric_feature_expressivity
-from .synth_datasets import generate_dataset_of, generate_linear_dataset_of, print_dataset, sin_cos_function
+from quannto.core.data_processors import get_range, rescale_data, trigonometric_feature_expressivity
+from .dataset_gens.synthetic_datasets import generate_dataset_of, generate_linear_dataset_of, print_dataset, sin_cos_function
 
 tf.experimental.numpy.experimental_enable_numpy_behavior()
 
@@ -19,7 +19,7 @@ input_range = (-3,3)
 dataset_size = 70
 testset_size = 200
 
-target_function = test_function_1in_1out
+target_function = test_linear_1in_1out
 
 #train_df = pd.read_csv("curve_fitting_datasets/sincos_trainset.csv")
 #in_train = train_df.iloc[:, 0:1].to_numpy()
@@ -100,7 +100,7 @@ for (N, n_in, color) in zip(neurons, n_ins, colors):
 
     # Define the neural network architecture
     model = tf.keras.Sequential([
-        tf.keras.layers.Dense(N, activation='softmax', input_shape=(n_in,)),
+        tf.keras.layers.Dense(N, activation='sigmoid', input_shape=(n_in,)),
         tf.keras.layers.Dense(1)
     ])
     global best_loss_values

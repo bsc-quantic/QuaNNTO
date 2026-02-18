@@ -1,9 +1,9 @@
 import argparse
 import pandas as pd
 
-from .qnn import test_model, load_model
-from .results_utils import plot_qnn_testing
-from .synth_datasets import print_dataset
+from .core.qnn import test_model, load_model
+from .utils.results_utils import plot_qnns_testing
+from .dataset_gens.synthetic_datasets import print_dataset
 
 parser = argparse.ArgumentParser(description="Load and evaluate a QNN model", formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 parser.add_argument("file", help="QNN model file")
@@ -21,4 +21,4 @@ outputs_set = eval_df.iloc[:, n_in:].to_numpy()
 print_dataset(inputs_set, outputs_set)
 
 qnn_test_outputs = test_model(qnn_model, [inputs_set, outputs_set])
-plot_qnn_testing(qnn_model, outputs_set, qnn_test_outputs)
+plot_qnns_testing(qnn_model, outputs_set, qnn_test_outputs)

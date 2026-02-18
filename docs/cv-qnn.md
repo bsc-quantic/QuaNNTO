@@ -1,4 +1,4 @@
-# QUAntum Neural NeTworks Optics
+# Quantum Neural Networks with Trainable Optics (_Deprecated_)
 
 QUANNTO is a simulation technique for continuous-variables quantum neural networks (CV QNN) based on the quadratures covariance matrix of a photonic(?)(more general?) quantum system. 
 
