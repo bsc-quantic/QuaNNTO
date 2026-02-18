@@ -1,6 +1,8 @@
 import numpy as np
 import matplotlib.pyplot as plt
 
+from quannto.utils.path_utils import figures_dir
+
 def x_hat(alpha, r):
     r"""
     <x_hat>(alpha, r) for photon addition:
@@ -66,6 +68,6 @@ ax2.set_xlim(left=-2.01, right=2.01)
 ax2.set_title(r'$\langle \hat{x} \rangle$ of single-addition on $|r\alpha\rangle$ with $r \leq 0$', fontsize=15)
 ax2.grid(True)
 ax2.legend(fontsize=legend_fontsize)
-fig1.savefig("figures/addition_nonlinearity_rpos.pdf", bbox_inches="tight")
-fig2.savefig("figures/addition_nonlinearity_rneg.pdf", bbox_inches="tight")
+fig1.savefig(figures_dir() / "addition_nonlinearity_rpos.pdf", bbox_inches="tight")
+fig2.savefig(figures_dir() / "addition_nonlinearity_rneg.pdf", bbox_inches="tight")
 plt.show()

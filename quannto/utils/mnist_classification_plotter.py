@@ -1,5 +1,6 @@
 import numpy as np
 
+from quannto.utils.path_utils import datasets_dir, models_testing_results_path, models_train_losses_path, models_valid_losses_path
 from quannto.utils.results_utils import *
 
 # === HYPERPARAMETERS DEFINITION ===
@@ -23,11 +24,12 @@ dataset_size = 75*num_cats
 validset_size = 20*num_cats
 continuize_method = 'pca' # 'pca' or 'encoding' for Autoencoder
 task_name = f'mnist_{continuize_method}_{n_inputs}lat_{num_cats}cats'
-     
+dataset_dir = str(datasets_dir() / task_name)
+
 # 1. FULL DATASET: Load the CV-preprocessed MNIST dataset and shuffle
-with open(f"datasets/{task_name}_inputs.npy", "rb") as f:
+with open(f"{dataset_dir}_inputs.npy", "rb") as f:
     inputs = np.load(f)
-with open(f"datasets/{task_name}_outputs.npy", "rb") as f:
+with open(f"{dataset_dir}_outputs.npy", "rb") as f:
     outputs = np.load(f)
 dataset = [inputs, outputs]
 input_ranges = np.array([(np.min(dataset[0][:,col]), np.max(dataset[0][:,col])) for col in range(len(dataset[0][0]))])
@@ -48,11 +50,11 @@ for (N, l, ladder_modes, is_addition, in_norm_range, out_norm_range) in zip(qnns
     legend_labels.append(f'N={N}, L={l}, {nongauss_op} in modes {np.array(ladder_modes[0])+1}')
     
     # === LOAD QONN MODEL RESULTS ===
-    with open(f"quannto/tasks/models/train_losses/{model_name}.npy", "rb") as f:
+    with open(models_train_losses_path(model_name, "npy"), "rb") as f:
         train_loss = np.load(f)
-    with open(f"quannto/tasks/models/valid_losses/{model_name}.npy", "rb") as f:
+    with open(models_valid_losses_path(model_name, "npy"), "rb") as f:
         valid_loss = np.load(f)
-    with open(f"quannto/tasks/models/testing_results/{model_name}.npy", "rb") as f:
+    with open(models_testing_results_path(model_name, "npy"), "rb") as f:
         qnn_preds = np.load(f)
     
     qnn_hits = np.equal(qnn_preds, test_outputs_cats).sum()

@@ -1,6 +1,7 @@
 import numpy as np
 
 from quannto.dataset_gens.synthetic_datasets import *
+from quannto.utils.path_utils import models_testing_results_path, models_train_losses_path, models_valid_losses_path
 from quannto.utils.results_utils import *
 
 # === QONNs HYPERPARAMETERS ===
@@ -38,11 +39,11 @@ for (N, l, ladder_modes, is_addition, in_norm_range, out_norm_range) in zip(qnns
     legend_labels.append(f'N={N}, L={l}, {nongauss_op} in modes {np.array(ladder_modes[0])+1}')
 
     # === LOAD QONN MODEL RESULTS ===
-    with open(f"quannto/tasks/models/train_losses/{model_name}.npy", "rb") as f:
+    with open(models_train_losses_path(model_name, "npy"), "rb") as f:
         train_loss = np.load(f)
-    with open(f"quannto/tasks/models/valid_losses/{model_name}.npy", "rb") as f:
+    with open(models_valid_losses_path(model_name, "npy"), "rb") as f:
         valid_loss = np.load(f)
-    with open(f"quannto/tasks/models/testing_results/{model_name}.npy", "rb") as f:
+    with open(models_testing_results_path(model_name, "npy"), "rb") as f:
         qnn_pred = np.load(f)
     train_losses.append(train_loss.copy())
     valid_losses.append(valid_loss.copy())

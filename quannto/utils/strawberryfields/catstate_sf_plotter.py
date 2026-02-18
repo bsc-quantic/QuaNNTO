@@ -1,6 +1,7 @@
 import numpy as np
 
-from quannto.utils.strawberryfields.general_tools import cat_even_ket, reduced_rho_from_ket, six_order_moments_operators, mode_moments_from_ket
+from quannto.utils.path_utils import figures_dir, models_operators_path
+from quannto.utils.strawberryfields.general_tools import cat_even_ket, fidelity_pure_vs_mixed, fidelity_two_pure, mode_view_from_ket, reduced_rho_from_ket, six_order_moments_operators, mode_moments_from_ket
 from quannto.utils.strawberryfields.wigner_plotters import *
 from quannto.utils.strawberryfields.qonn_builder import run_qonn
 
@@ -17,8 +18,8 @@ input_alpha = -1.0 + 0.0j
 phi = 0.0
 qonn_model_name = f'catstate_phi{phi}_trainsize1_stats{trained_stats}_cut{cat_cutoff}_rng-1.0to-1.0_N{N}_L{L}_sub{subtractions}_inNone'
 
-S_l = np.load(f'quannto/tasks/models/trained_operators/{qonn_model_name}_S_l.npy')
-D_l = np.load(f'quannto/tasks/models/trained_operators/{qonn_model_name}_D_l.npy')
+S_l = np.load(models_operators_path(qonn_model_name, "S_l", "npy"))
+D_l = np.load(models_operators_path(qonn_model_name, "D_l", "npy"))
 
 layers = []
 for S,d in zip(S_l, D_l):
@@ -40,34 +41,10 @@ print("Conditional click probs per layer:", probs)
 moments_cat = moments_from_rho(rho_cat)
 rho_qonn = state_from_ket(ket_out, N=N, cutoff=qonn_cutoff).reduced_dm(0)
 moments_qonn = moments_from_rho(rho_qonn) """
-cat_moments = six_order_moments_operators(cat_cutoff)
-qonn_moments = six_order_moments_operators(qonn_cutoff)
-moments_cat = mode_moments_from_ket(ket_cat, cat_moments, cutoff=cat_cutoff, mode=0)
-moments_qonn = mode_moments_from_ket(ket_out, qonn_moments, cutoff=qonn_cutoff, mode=0)
-
-def reduced_dm_from_ket_tensor(ket, cutoff, N, mode=0):
-    ket = np.asarray(ket, dtype=complex)
-    if ket.ndim == 1:
-        ket = ket.reshape([cutoff]*N)
-    ket = np.moveaxis(ket, mode, 0)      # (cutoff, ...)
-    psi_mat = ket.reshape(cutoff, -1)    # (cutoff, cutoff^(N-1))
-    rho = psi_mat @ psi_mat.conj().T
-    return rho / np.trace(rho)           # normalize
-
-def fidelity_pure_vs_mixed(psi_pure, rho):
-    """F = <psi|rho|psi> for pure |psi> and density matrix rho."""
-    psi = np.asarray(psi_pure, dtype=complex).reshape(-1)
-    psi = psi / np.linalg.norm(psi)
-    return float(np.real_if_close(np.vdot(psi, rho @ psi)))
-
-def fidelity_two_pure(psi_pure, phi_pure):
-    """F = <psi|phi> for two pure states |psi> and |phi>."""
-    psi = np.asarray(psi_pure, dtype=complex).reshape(-1)
-    phi = np.asarray(phi_pure, dtype=complex).reshape(-1)
-    psi = psi / np.linalg.norm(psi)
-    phi = phi / np.linalg.norm(phi)
-    return float(np.real_if_close(np.vdot(psi, phi)))
-
+cat_stat_ops = six_order_moments_operators(cat_cutoff)
+qonn_stat_ops = six_order_moments_operators(qonn_cutoff)
+moments_cat = mode_moments_from_ket(ket_cat, cat_stat_ops, cutoff=cat_cutoff, mode=0)
+moments_qonn = mode_moments_from_ket(ket_out, qonn_stat_ops, cutoff=qonn_cutoff, mode=0)
 
 plot_wigner_2d_compare(
     ket_L=ket_cat,  N_L=1, cutoff_L=cat_cutoff, mode_L=0,
@@ -75,16 +52,15 @@ plot_wigner_2d_compare(
     grid_lim=4.0, grid_pts=201,
     zmin=-0.05, zmax=0.175,   # or leave None to auto-compute global min/max
     title_L="Theoretical", title_R="Synthesized",
-    savepath="figures/wigner_compare.pdf",
+    savepath=figures_dir() / "wigner_compare.pdf",
 )
 
-# Example: ket_out is 2-mode, cutoff=18, compare mode 0
-#rho0 = reduced_dm_from_ket_tensor(ket_out, cutoff=qonn_cutoff, N=N, mode=0)
-print(ket_cat.shape, ket_out.shape)
 reduced_state_out = reduced_rho_from_ket(ket_out, cutoff=qonn_cutoff, N=N, mode=0)
 if cat_cutoff == qonn_cutoff:
-    F0 = fidelity_pure_vs_mixed(ket_cat, reduced_state_out)
-    #F0 = fidelity_two_pure(ket_cat, ket_out)
+    if N==1:
+        F0 = fidelity_two_pure(ket_cat, ket_out)
+    else:
+        F0 = fidelity_pure_vs_mixed(ket_cat, reduced_state_out)
     print("Fidelity on measured mode 0 (cat vs reduced QONN):", F0)
 
 input("Press Enter to continue with losses...")

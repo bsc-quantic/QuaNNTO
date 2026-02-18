@@ -3,6 +3,8 @@ import math
 import numpy as np
 import matplotlib.pyplot as plt
 
+from quannto.utils.path_utils import figures_dir
+
 # ------------------------------------------------------------
 # Photon-added squeezed coherent state:
 #   |psi_n>  ∝  (a†)^n S(r) D(α) |0>,   with α,r ∈ R
@@ -136,7 +138,7 @@ for n in n_values:
     ax1.set_title(fr'$\langle \hat{{x}} \rangle$ for $n={n}$ photon addition, $r \geq 0$')
     ax1.grid(True)
     ax1.legend(fontsize=legend_fontsize)
-    fig1.savefig(f"figures/addition_xhat_n{n}_rpos.pdf", bbox_inches="tight")
+    fig1.savefig(figures_dir() / f"addition_xhat_n{n}_rpos.pdf", bbox_inches="tight")
 
     # --------- Plot r <= 0 ---------
     fig2, ax2 = plt.subplots()
@@ -151,6 +153,6 @@ for n in n_values:
     ax2.set_title(fr'$\langle \hat{{x}} \rangle$ for $n={n}$ photon addition, $r \leq 0$')
     ax2.grid(True)
     ax2.legend(fontsize=legend_fontsize)
-    fig2.savefig(f"figures/addition_xhat_n{n}_rneg.pdf", bbox_inches="tight")
+    fig2.savefig(figures_dir() / f"addition_xhat_n{n}_rneg.pdf", bbox_inches="tight")
 
 plt.show()

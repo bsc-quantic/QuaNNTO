@@ -2,6 +2,8 @@ import os
 import numpy as np
 import matplotlib.pyplot as plt
 
+from quannto.utils.path_utils import figures_dir
+
 # ============================================================
 # n-photon–added COHERENT state (NO squeezing):
 #   |psi_n(α)> ∝ (a†)^n D(α)|0> = (a†)^n |α>,   α ∈ R
@@ -90,5 +92,5 @@ ax.set_title(r'$\langle \hat{x} \rangle$ for $n$ photon additions on coherent st
 ax.grid(True)
 ax.legend(fontsize=legend_fontsize)
 
-fig.savefig("figures/coherent_addition_multiple_n.pdf", bbox_inches="tight")
+fig.savefig(figures_dir() / "coherent_addition_multiple_n.pdf", bbox_inches="tight")
 plt.show()

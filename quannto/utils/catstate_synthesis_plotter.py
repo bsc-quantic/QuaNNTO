@@ -3,7 +3,7 @@ import numpy as np
 
 from quannto.core.loss_functions import mse
 from quannto.core.qnn import QNN
-from quannto.dataset_gens.catstates_stats import build_catstates_dataset
+from quannto.utils.path_utils import datasets_dir, models_json_path, models_testing_results_path, models_testing_results_path, models_train_losses_path
 from quannto.utils.results_utils import *
 
 np.random.seed(42)
@@ -32,12 +32,13 @@ train_num_moments = 15
 alpha_list = np.linspace(input_range[0], input_range[1], dataset_size)
 dataset_name = f'catstate_phi{phi}_trainsize{dataset_size}_stats{num_moments}_cut{cutoff}_rng{alpha_list[0]}to{alpha_list[-1]}'
 task_name = f'catstate_phi{phi}_trainsize{dataset_size}_stats{train_num_moments}_cut{cutoff}_rng{alpha_list[0]}to{alpha_list[-1]}'
+dataset_dir = str(datasets_dir() / dataset_name)
 
 # Training dataset containing the statistical moments of the target cat state
-if os.path.isfile(f"datasets/{dataset_name}_inputs.npy"):
-    with open(f"datasets/{dataset_name}_inputs.npy", "rb") as f:
+if os.path.isfile(f"{dataset_dir}_inputs.npy"):
+    with open(f"{dataset_dir}_inputs.npy", "rb") as f:
         inputs = np.load(f)
-    with open(f"datasets/{dataset_name}_outputs.npy", "rb") as f:
+    with open(f"{dataset_dir}_outputs.npy", "rb") as f:
         outputs = np.load(f)
 else:
     raise FileNotFoundError("The requested dataset does not exist, generate it from quannto.dataset_gens.catstates_stats")
@@ -53,9 +54,9 @@ for (N, l, ladder_modes, is_addition, in_norm_range) in zip(qnns_modes, qnns_lay
     nongauss_op = "â†" if is_addition else "â"
     legend_labels.append(f'N={N}, L={l}, {nongauss_op} in modes {np.array(ladder_modes[0])+1}')
     
-    qnn = QNN.load_model(f"quannto/tasks/models/pickle_json/{model_name}.txt")
+    qnn = QNN.load_model(models_json_path(model_name, "txt"))
     qnn.print_qnn()
-    qnn.save_operator_matrices(f"quannto/tasks/models/trained_operators")
+    qnn.save_operator_matrices()
     print('DATASET', train_dataset)
     res, norm, loss = qnn.test_model(train_dataset[0], train_dataset[1], mse)
     print('NORM: ', norm)
@@ -65,9 +66,9 @@ for (N, l, ladder_modes, is_addition, in_norm_range) in zip(qnns_modes, qnns_lay
         total_loss += (train_dataset[1][0][moment_idx]-res[0][moment_idx])**2
     print('Total moment loss:', total_loss)
     # === LOAD QONN MODEL RESULTS ===
-    with open(f"quannto/tasks/models/train_losses/{model_name}.npy", "rb") as f:
+    with open(models_train_losses_path(model_name, "npy"), "rb") as f:
         train_loss = np.load(f)
-    #with open(f"quannto/tasks/models/testing_results/{model_name}.npy", "rb") as f:
+    #with open(models_testing_results_path(model_name, "npy"), "rb") as f:
     #    qnn_test_outputs = np.load(f)
 
     train_losses.append(train_loss.copy())

@@ -1,6 +1,8 @@
 import numpy as np
 import matplotlib.pyplot as plt
 
+from quannto.utils.path_utils import figures_dir
+
 def x_hat(alpha, r):
     """
     <x_hat>(alpha, r) = sqrt(2) * ( e^r * alpha
@@ -73,6 +75,6 @@ ax2.grid(False)
 ax2.legend(fontsize=legend_fontsize)
 fig1.tight_layout()
 fig2.tight_layout()
-fig1.savefig("figures/subtraction-sq-momentum.pdf")
-fig2.savefig("figures/subtraction-sq-position.pdf")
+fig1.savefig(figures_dir() / "subtraction-sq-momentum.pdf")
+fig2.savefig(figures_dir() / "subtraction-sq-position.pdf")
 plt.show()

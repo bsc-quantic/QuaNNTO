@@ -4,6 +4,7 @@ import matplotlib
 from matplotlib import cm
 from matplotlib.colors import Normalize
 
+from quannto.utils.path_utils import figures_dir
 from quannto.utils.strawberryfields.general_tools import fock_probs_from_ket, reduced_rho_from_ket, state_from_ket, state_from_single_mode_rho
 
 def plot_state_diagnostics(
@@ -332,7 +333,7 @@ def plot_wigner_2d(*,
     plt.ylim(-3.5, 3.5)
 
     plt.tight_layout()
-    plt.savefig(f"figures/wigner_2d_{title}.pdf")
+    plt.savefig(figures_dir() / f"wigner_2d_{title}.pdf")
     plt.show()
 
 def _add_3plane_projections(ax, X, P, Z, *, cmap, norm,

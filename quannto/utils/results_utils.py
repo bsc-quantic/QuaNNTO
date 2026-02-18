@@ -5,6 +5,7 @@ import seaborn as sns
 from sklearn.metrics import confusion_matrix
 
 from quannto.core.data_processors import softmax_discretization
+from quannto.utils.path_utils import figures_dir
 
 colors = matplotlib.cm.tab10(range(6))
 linestyles = [
@@ -26,34 +27,9 @@ def plot_noisy_dataset(task_name, train_dataset, real_function,
     ax.grid(linestyle='--', linewidth=0.4)
     ax.legend(loc='best', fontsize=legend_fontsize)
     fig.tight_layout()
-    fig.savefig(f"figures/training_{task_name}.pdf", bbox_inches='tight')
+    fig.savefig(figures_dir() / f"training_{task_name}.pdf", bbox_inches='tight')
     plt.show()
     plt.close(fig)
-
-
-def plot_qnn_testing(qnn, exp_outputs, qnn_outputs,
-                     figsize=(5.5, 4.2), fontsize=14, title_fontsize=14, legend_fontsize=13):
-    fig, ax = plt.subplots(figsize=figsize)
-
-    ax.plot(exp_outputs, 'go', label='Expected results')
-    ax.plot(qnn_outputs, 'r', label='QNN results')
-
-    ax.set_title(
-        f'TESTING SET\nModel: {qnn.model_name}, Modes = {qnn.N}, Layers = {qnn.layers}',
-        fontsize=title_fontsize
-    )
-
-    ax.tick_params(axis='both', labelsize=fontsize)
-    ax.legend(fontsize=legend_fontsize)
-
-    fig.tight_layout()
-    fig.savefig(
-        f"figures/test_{qnn.model_name}_{qnn.N}modes_{qnn.layers}layers_{qnn.n_in}in.pdf",
-        bbox_inches='tight'
-    )
-    plt.show()
-    plt.close(fig)
-
 
 def plot_qnns_testing(inputs, expected_outputs, qnns_outputs, legend_labels, filename,
                       title=None, figsize=(5.5, 4.2), fontsize=14, title_fontsize=14, legend_fontsize=13):
@@ -75,7 +51,7 @@ def plot_qnns_testing(inputs, expected_outputs, qnns_outputs, legend_labels, fil
     ax.legend(loc='best', fontsize=legend_fontsize)
 
     fig.tight_layout()
-    fig.savefig("figures/test_" + filename + ".pdf", bbox_inches='tight')
+    fig.savefig(figures_dir() / f"test_{filename}.pdf", bbox_inches='tight')
     plt.show()
     plt.close(fig)
 
@@ -90,16 +66,19 @@ def plot_qnns_loglosses(train_losses, valid_losses, legend_labels, filename,
     else:
         title = 'TRAINING LOSS (log)'
 
+    log_train_losses = [np.log(np.array(loss) + 1) for loss in train_losses]
+    if valid_losses is not None and len(valid_losses[0]) > 1:
+        log_valid_losses = [np.log(np.array(loss) + 1) for loss in valid_losses]
     for i in range(len(legend_labels)):
-        ax.plot(np.log(np.array(train_losses[i]) + 1),
+        ax.plot(log_train_losses[i],
                 c=colors[i], linestyle=linestyles[i],
                 label=f'{legend_labels[i]}')
 
         if valid_losses is not None and len(valid_losses[i]) > 1:
-            ax.plot(np.log(np.array(valid_losses[i]) + 1),
+            ax.plot(log_valid_losses[i],
                     c=colors[i], linestyle='dotted')
 
-    double_max = 2*np.max(np.array([np.min(loss) for loss in train_losses]))
+    double_max = 3 * np.max(np.array([np.min(loss) for loss in log_train_losses]))
     ax.set_ylim(bottom=0.0, top=double_max)
     ax.set_xlabel('Epochs', fontsize=fontsize)
     ax.set_ylabel('Loss value', fontsize=fontsize)
@@ -110,7 +89,7 @@ def plot_qnns_loglosses(train_losses, valid_losses, legend_labels, filename,
     ax.legend(fontsize=legend_fontsize)
 
     fig.tight_layout()
-    fig.savefig("figures/loss_" + filename + ".pdf", bbox_inches='tight')
+    fig.savefig(figures_dir() / f"loss_{filename}.pdf", bbox_inches='tight')
     plt.show()
     plt.close(fig)
 
@@ -129,7 +108,7 @@ def plot_confusion_matrix(model_name, expected_cats, qnn_pred_cats):
     plt.title('Confusion Matrix')
     plt.xlabel('Predicted Label')
     plt.ylabel('True Label')
-    plt.savefig(f"figures/cm_{model_name}.pdf", bbox_inches="tight")
+    plt.savefig(figures_dir() / f"cm_{model_name}.pdf", bbox_inches="tight")
     #plt.show()
     plt.clf()
     
@@ -163,7 +142,7 @@ def plot_qnn_decision(X, y, qonn_outputs, model_name, title="QONN decision bound
     plt.ylabel("$x_2$", color='black', fontsize=16)
     plt.xlim(x_min, x_max)
     plt.ylim(y_min, y_max)
-    plt.savefig(f"figures/{model_name}.pdf", bbox_inches="tight")
+    plt.savefig(figures_dir() / f"{model_name}.pdf", bbox_inches="tight")
     plt.show()
     plt.clf()
     
@@ -282,7 +261,7 @@ def plot_per_class_accuracy_hist(
     #ax.legend(title="Model", ncols=min(n_models, 5))
     ax.legend()
     fig.tight_layout()
-    plt.savefig(f"figures/hist_" + filename + ".pdf", bbox_inches="tight")
+    plt.savefig(figures_dir() / f"hist_{filename}.pdf", bbox_inches="tight")
     plt.show()
     plt.clf()
     return fig, ax, acc_matrix
@@ -393,7 +372,7 @@ def plot_per_class_accuracy_markers(
 
     ax.grid(axis="y", linestyle=":", linewidth=0.5)
     fig.tight_layout()
-    plt.savefig(f"figures/acchist_" + filename + ".pdf", bbox_inches="tight")
+    plt.savefig(figures_dir() / f"acchist_{filename}.pdf", bbox_inches="tight")
     plt.show()
     plt.clf()
     print('=== ACCURACIES ACHIEVED ===')
