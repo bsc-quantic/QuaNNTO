@@ -193,3 +193,17 @@ def catstate_moments(alpha, moments, cutoff=20, phi=0.0):
     moments_expvals = np.array([obs["a1"], obs["a2"], obs["n1"], obs["a3"], obs["a2adag"], obs["n2"], obs["a4"], obs["a3adag"], obs["a5"], obs["a4adag"], obs["a3adag2"], obs["n3"], obs["a6"], obs["a5adag"], obs["a4adag2"]], dtype=complex)
 
     return moments_expvals
+
+def fidelity_pure_vs_mixed(ket_pure, rho_mix):
+    """F = <ket|rho|ket> for pure |ket> and density matrix rho."""
+    psi = np.asarray(ket_pure, dtype=complex).reshape(-1)
+    psi = psi / np.linalg.norm(psi)
+    return float(np.real_if_close(np.vdot(psi, rho_mix @ psi)))
+
+def fidelity_two_pure(ket1, ket2):
+    """F = <ket1|ket2> for two pure states |ket1> and |ket2>."""
+    psi = np.asarray(ket1, dtype=complex).reshape(-1)
+    phi = np.asarray(ket2, dtype=complex).reshape(-1)
+    psi = psi / np.linalg.norm(psi)
+    phi = phi / np.linalg.norm(phi)
+    return float(np.real_if_close(np.vdot(psi, phi)))
