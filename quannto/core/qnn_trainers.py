@@ -51,16 +51,16 @@ def callback_hopping_general(x, f, accept, qnn, has_validation=False):
             best_validation_loss = validation_loss.copy()
             qnn.build_QNN(best_pars)
             qnn.save_model_parameters(best_pars)
-            qnn.save_operator_matrices(f"quannto/tasks/models/trained_operators")
-            qnn.save_model(qnn.model_name)
+            qnn.save_operator_matrices()
+            qnn.save_model()
     else:
         if best_loss_values[-1] > loss_values[-1]:
             best_pars = x.copy()
             best_loss_values = loss_values.copy()
             qnn.build_QNN(best_pars)
             qnn.save_model_parameters(best_pars)
-            qnn.save_operator_matrices(f"quannto/tasks/models/trained_operators")
-            qnn.save_model(qnn.model_name)
+            qnn.save_operator_matrices()
+            qnn.save_model()
     loss_values = [9999]
     validation_loss = [9999]
 
@@ -198,7 +198,7 @@ def build_and_train_model(model_name, N, layers, n_inputs, n_outputs,
     qnn.print_qnn()
     
     if save:
-        qnn.save_model(qnn.model_name)
+        qnn.save_model()
         
     if best_loss_values[0] == 9999:
         best_loss_values = best_loss_values[1:]
@@ -492,7 +492,7 @@ def hybrid_build_and_train_model(model_name, N, layers, n_inputs, n_outputs, lad
     qnn.print_qnn()
 
     if save:
-        qnn.save_model(qnn.model_name)
+        qnn.save_model()
 
     if best_loss_values[0] == 9999:
         best_loss_values = best_loss_values[1:]
@@ -662,7 +662,7 @@ def jax_gd_build_and_train_model(model_name, N, layers, n_inputs, n_outputs, lad
     qnn.print_qnn()
 
     if save:
-        qnn.save_model(qnn.model_name)
+        qnn.save_model()
 
     return qnn, loss_values, validation_loss
 
@@ -916,7 +916,7 @@ def optax_build_and_train_model(model_name, N, layers, n_inputs, n_outputs, ladd
     qnn.print_qnn()
 
     if save:
-        qnn.save_model(qnn.model_name)
+        qnn.save_model()
 
     return qnn, loss_values, validation_loss
 
@@ -1164,6 +1164,6 @@ def adam_build_and_train_model(model_name, N, layers, n_inputs, n_outputs, ladde
     qnn.print_qnn()
 
     if save:
-        qnn.save_model(qnn.model_name)
+        qnn.save_model()
 
     return qnn, loss_values, validation_loss
