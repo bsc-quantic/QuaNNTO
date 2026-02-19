@@ -9,6 +9,10 @@ import jax.numpy as jnp
 from .loss_functions import mse
 from .qnn import QNN
 
+global global_it
+global local_it
+global bh_it
+
 # ---------------------------------------------------------------
 # Callbacks for SciPy optimizer and Basinhopping
 # ---------------------------------------------------------------
@@ -20,13 +24,22 @@ def callback_opt_general(xk, cost_training, cost_validation):
     '''
     e = cost_training(xk)
     loss_values.append(e)
-    print(f'Training loss: {e}')
+    #print(f'Training loss: {e}')
+    k = local_it["k"]
+    local_it["k"] += 1
+    
+    g_k = global_it["k"]
+    global_it["k"] += 1
+
     if cost_validation != None:
         val_e = cost_validation(xk)
-        print(f'Validation loss: {val_e}')
+        #print(f'Validation loss: {val_e}')
+        msg = f" Epoch {k:4d} | Total epochs {g_k:4d} | Train loss {loss_values[-1]:.6e} | Validation loss {validation_loss[-1]:.6e}"
         validation_loss.append(val_e)
     else:
+        msg = f"Epoch {k:4d} | Total epochs {g_k:4d} | | Train loss {loss_values[-1]:.6e}"
         validation_loss.append(e)
+    print(msg, end="\r", flush=True)
     
 def callback_hopping_general(x, f, accept, qnn, has_validation=False):
     '''
@@ -42,8 +55,12 @@ def callback_hopping_general(x, f, accept, qnn, has_validation=False):
     global best_validation_loss
     global validation_loss
     global best_pars
-    print(f"Best basinhopping iteration error so far: {best_loss_values[-1]}")
-    print(f"Current basinhopping iteration error: {f}\n==========\n")
+    print()
+    if bh_it["k"] > 1:
+        print(f"Best loss so far: {best_loss_values[-1]}")
+    print(f"Basinhopping iteration {bh_it['k']}. Loss: {f}\n==========")
+    bh_it["k"] += 1
+    local_it["k"] = 0
     if has_validation:
         if best_validation_loss[-1] > validation_loss[-1]:
             best_pars = x.copy()
@@ -64,7 +81,7 @@ def callback_hopping_general(x, f, accept, qnn, has_validation=False):
     loss_values = [9999]
     validation_loss = [9999]
 
-def build_and_train_model(model_name, N, layers, n_inputs, n_outputs,
+def build_and_train_model(model_name, task_name, N, layers, n_inputs, n_outputs,
                           ladder_modes, is_addition, observable, 
                           include_initial_squeezing, include_initial_mixing, is_passive_gaussian,
                           train_set, valid_set, loss_function=mse, hopping_iters=2,
@@ -137,14 +154,13 @@ def build_and_train_model(model_name, N, layers, n_inputs, n_outputs,
             # Displacement bounds
             bounds += [disp_bounds for _ in range(2*N)]
     
-    print(f'Number of tunable parameters: {n_pars}')
     assert len(bounds) == n_pars, f"Number of bounds {len(bounds)} does not match number of parameters {n_pars}."
     
     # ---------------------------------------------------------------
     # 3. Build QNN, preprocess dataset and define training functions
     # ---------------------------------------------------------------
-    qnn = QNN(model_name, N, layers, n_inputs, n_outputs, ladder_modes, is_addition, observable,
-              include_initial_squeezing, include_initial_mixing, is_passive_gaussian,
+    qnn = QNN(model_name, task_name, N, layers, n_inputs, n_outputs, ladder_modes, is_addition, observable,
+              include_initial_squeezing, include_initial_mixing, is_passive_gaussian, init_pars,
               in_preprocs, out_prepocs, postprocs)
     
     train_inputs = reduce(lambda x, func: func(x), qnn.in_preprocessors, train_set[0])
@@ -167,6 +183,13 @@ def build_and_train_model(model_name, N, layers, n_inputs, n_outputs,
     
     global best_pars
     best_pars = []
+    
+    global global_it
+    global local_it
+    global bh_it
+    global_it = {"k": 0}
+    local_it = {"k": 0}
+    bh_it = {"k": 1}
     
     training_QNN = partial(qnn.train_QNN, inputs_dataset=train_inputs, outputs_dataset=train_outputs, loss_function=loss_function)
     if valid_set != None:
@@ -206,7 +229,7 @@ def build_and_train_model(model_name, N, layers, n_inputs, n_outputs,
     
     return qnn, best_loss_values, best_validation_loss
 
-def hybrid_build_and_train_model(model_name, N, layers, n_inputs, n_outputs, ladder_modes, is_addition, observable,
+def hybrid_build_and_train_model(model_name, task_name, N, layers, n_inputs, n_outputs, ladder_modes, is_addition, observable,
                                  include_initial_squeezing, include_initial_mixing, is_passive_gaussian,
                                  train_set, valid_set, loss_function=mse, hopping_iters=2,
                                  in_preprocs=[], out_prepocs=[], postprocs=[], init_pars=None, save=True,
@@ -292,7 +315,6 @@ def hybrid_build_and_train_model(model_name, N, layers, n_inputs, n_outputs, lad
             # Displacement bounds
             bounds += [disp_bounds for _ in range(2 * N)]
 
-    print(f"Number of tunable parameters: {n_pars}")
     assert len(bounds) == n_pars, (
         f"Number of bounds {len(bounds)} does not match number of parameters {n_pars}."
     )
@@ -320,8 +342,8 @@ def hybrid_build_and_train_model(model_name, N, layers, n_inputs, n_outputs, lad
     # 3. Build QNN, preprocess dataset and define training functions
     # ---------------------------------------------------------------
     qnn = QNN(
-        model_name, N, layers, n_inputs, n_outputs, ladder_modes, is_addition, observable,
-        include_initial_squeezing, include_initial_mixing, is_passive_gaussian,
+        model_name, task_name, N, layers, n_inputs, n_outputs, ladder_modes, is_addition, observable,
+        include_initial_squeezing, include_initial_mixing, is_passive_gaussian, init_pars,
         in_preprocs, out_prepocs, postprocs,
     )
     
@@ -349,6 +371,13 @@ def hybrid_build_and_train_model(model_name, N, layers, n_inputs, n_outputs, lad
 
     global best_pars
     best_pars = []
+    
+    global global_it
+    global local_it
+    global bh_it
+    global_it = {"k": 0}
+    local_it = {"k": 0}
+    bh_it = {"k": 1}
 
     training_QNN = partial(
         qnn.train_QNN,
@@ -412,9 +441,10 @@ def hybrid_build_and_train_model(model_name, N, layers, n_inputs, n_outputs, lad
         print(
             f"[Adam] Epoch 0/{adam_epochs} | "
             f"train loss = {adam_best_loss:.6g} | "
-            f"val loss = {adam_best_val_loss:.6g}"
+            f"val loss = {adam_best_val_loss:.6g}",
+            end="\r",
+            flush=True,
         )
-
         adam_start = time.time()
 
         for epoch in range(1, adam_epochs + 1):
@@ -429,7 +459,9 @@ def hybrid_build_and_train_model(model_name, N, layers, n_inputs, n_outputs, lad
             print(
                 f"[Adam] Epoch {epoch}/{adam_epochs} | "
                 f"train loss = {train_loss:.6g} | "
-                f"val loss = {val_loss:.6g}"
+                f"val loss = {val_loss:.6g}",
+                end="\r",
+                flush=True,
             )
 
             if val_loss < adam_best_val_loss:
@@ -464,6 +496,7 @@ def hybrid_build_and_train_model(model_name, N, layers, n_inputs, n_outputs, lad
         "callback": callback,
     }
 
+    print("\n=== Phase 2: Basinhopping with L-BFGS-B (SciPy) ===")
     opt_result = opt.basinhopping(
         training_QNN,
         init_pars,
@@ -500,7 +533,7 @@ def hybrid_build_and_train_model(model_name, N, layers, n_inputs, n_outputs, lad
 
     return qnn, best_loss_values, best_validation_loss
 
-def jax_gd_build_and_train_model(model_name, N, layers, n_inputs, n_outputs, ladder_modes, is_addition, observable,
+def jax_gd_build_and_train_model(model_name, task_name, N, layers, n_inputs, n_outputs, ladder_modes, is_addition, observable,
                                  include_initial_squeezing, include_initial_mixing, is_passive_gaussian, 
                                  train_set, valid_set, loss_function=mse, hopping_iters=200,
                                  in_preprocs=[], out_prepocs=[], postprocs=[], init_pars=None, save=True, learning_rate=5e-3):
@@ -530,26 +563,12 @@ def jax_gd_build_and_train_model(model_name, N, layers, n_inputs, n_outputs, lad
     else:
         assert len(init_pars) == n_pars
 
-    print(f"Number of tunable parameters: {n_pars}")
-
     # =========================
     # 2. Create QNN and preprocess dataset
     # =========================
-    qnn = QNN(
-        model_name,
-        N,
-        layers,
-        n_inputs,
-        n_outputs,
-        ladder_modes,
-        is_addition,
-        observable,
-        include_initial_squeezing,
-        include_initial_mixing,
-        is_passive_gaussian,
-        in_preprocs,
-        out_prepocs,
-        postprocs,
+    qnn = QNN(model_name, task_name, N, layers, n_inputs, n_outputs, ladder_modes, is_addition, observable,
+        include_initial_squeezing, include_initial_mixing, is_passive_gaussian, init_pars,
+        in_preprocs, out_prepocs, postprocs
     )
 
     train_inputs = reduce(lambda x, func: func(x), qnn.in_preprocessors, train_set[0])
@@ -667,7 +686,7 @@ def jax_gd_build_and_train_model(model_name, N, layers, n_inputs, n_outputs, lad
     return qnn, loss_values, validation_loss
 
 
-def optax_build_and_train_model(model_name, N, layers, n_inputs, n_outputs, ladder_modes, is_addition, observable,
+def optax_build_and_train_model(model_name, task_name, N, layers, n_inputs, n_outputs, ladder_modes, is_addition, observable,
                                 include_initial_squeezing, include_initial_mixing, is_passive_gaussian,
                                 train_set, valid_set, loss_function=mse, hopping_iters=200,
                                 in_preprocs=[], out_prepocs=[], postprocs=[], init_pars=None, save=True):
@@ -723,7 +742,6 @@ def optax_build_and_train_model(model_name, N, layers, n_inputs, n_outputs, ladd
             # Displacement
             bounds += [disp_bounds for _ in range(2 * N)]
 
-    print(f"Number of tunable parameters: {n_pars}")
     assert len(bounds) == n_pars, (
         f"Number of bounds {len(bounds)} does not match number of parameters {n_pars}."
     )
@@ -749,21 +767,9 @@ def optax_build_and_train_model(model_name, N, layers, n_inputs, n_outputs, ladd
     # ----------------------------------------------------------------------
     # 2. Create QNN and preprocess dataset
     # ----------------------------------------------------------------------
-    qnn = QNN(
-        model_name,
-        N,
-        layers,
-        n_inputs,
-        n_outputs,
-        ladder_modes,
-        is_addition,
-        observable,
-        include_initial_squeezing,
-        include_initial_mixing,
-        is_passive_gaussian,
-        in_preprocs,
-        out_prepocs,
-        postprocs,
+    qnn = QNN(model_name, task_name, N, layers, n_inputs, n_outputs, ladder_modes, is_addition, observable,
+        include_initial_squeezing, include_initial_mixing, is_passive_gaussian, init_pars,
+        in_preprocs, out_prepocs, postprocs,
     )
 
     train_inputs = reduce(lambda x, func: func(x), qnn.in_preprocessors, train_set[0])
@@ -921,7 +927,7 @@ def optax_build_and_train_model(model_name, N, layers, n_inputs, n_outputs, ladd
     return qnn, loss_values, validation_loss
 
 
-def adam_build_and_train_model(model_name, N, layers, n_inputs, n_outputs, ladder_modes, is_addition, observable,
+def adam_build_and_train_model(model_name, task_name, N, layers, n_inputs, n_outputs, ladder_modes, is_addition, observable,
                                include_initial_squeezing, include_initial_mixing, is_passive_gaussian,
                                train_set, valid_set, loss_function=mse, hopping_iters=200, 
                                in_preprocs=[], out_prepocs=[], postprocs=[], init_pars=None, save=True,
@@ -978,7 +984,6 @@ def adam_build_and_train_model(model_name, N, layers, n_inputs, n_outputs, ladde
             # Displacement bounds
             bounds += [disp_bounds for _ in range(2 * N)]
 
-    print(f"Number of tunable parameters: {n_pars}")
     assert len(bounds) == n_pars, (
         f"Number of bounds {len(bounds)} does not match number of parameters {n_pars}."
     )
@@ -1000,21 +1005,9 @@ def adam_build_and_train_model(model_name, N, layers, n_inputs, n_outputs, ladde
     # ------------------------------------------------------------------
     # 2. Build QNN and preprocess dataset
     # ------------------------------------------------------------------
-    qnn = QNN(
-        model_name,
-        N,
-        layers,
-        n_inputs,
-        n_outputs,
-        ladder_modes,
-        is_addition,
-        observable,
-        include_initial_squeezing,
-        include_initial_mixing,
-        is_passive_gaussian,
-        in_preprocs,
-        out_prepocs,
-        postprocs,
+    qnn = QNN(model_name, task_name, N, layers, n_inputs, n_outputs, ladder_modes, is_addition, observable,
+        include_initial_squeezing, include_initial_mixing, is_passive_gaussian, init_pars, 
+        in_preprocs, out_prepocs, postprocs,
     )
 
     train_inputs = reduce(lambda x, func: func(x), qnn.in_preprocessors, train_set[0])

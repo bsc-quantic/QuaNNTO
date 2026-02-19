@@ -19,8 +19,8 @@ class QNN:
     '''
     Class for continuous variables quantum (optics) neural network building, training, evaluation and testing.
     '''
-    def __init__(self, model_name, N, layers, n_in, n_out, ladder_modes=[0], is_addition=True, observable='position',
-                 include_initial_squeezing=False, include_initial_mixing=False, is_passive_gaussian=False,
+    def __init__(self, model_name, task_name, N, layers, n_in, n_out, ladder_modes=[0], is_addition=True, observable='position',
+                 include_initial_squeezing=False, include_initial_mixing=False, is_passive_gaussian=False, parameters=None,
                  in_preprocessors=[], out_preprocessors=[], postprocessors=[]):
         # The number of modes N must be greater or equal to the number of inputs and outputs
         assert N >= n_in
@@ -28,10 +28,12 @@ class QNN:
         
         # QONN's architecture hyperparameters
         self.model_name = model_name
+        self.task_name = task_name
         self.N = N
         self.layers = layers
         self.ladder_modes = ladder_modes
         self.is_addition = is_addition
+        self.non_gaussianity = 'addition' if is_addition else 'subtraction'
         self.n_in = n_in
         self.n_out = n_out
         self.observable = observable
@@ -42,6 +44,11 @@ class QNN:
         self.include_initial_squeezing = include_initial_squeezing
         self.include_initial_mixing = include_initial_mixing
         self.is_passive_gaussian = is_passive_gaussian
+        self.tunable_parameters = parameters
+        print(' =============================================')
+        print(f' ========= QONN MODEL SPECIFICATIONS ========= ')
+        print(' =============================================')
+        print(f'Model name: {model_name}\nTask name: {task_name}\nN={N}, L={layers}, ladder modes={ladder_modes}, non-Gaussianity {self.non_gaussianity}, observable={observable}\nInitial squeezing: {include_initial_squeezing}, Initial mixing: {include_initial_mixing}, Passive Gaussian: {is_passive_gaussian}\nInput preprocessors: {in_preprocessors}\nOutput preprocessors: {out_preprocessors}\nPostprocessors: {postprocessors}\nNumber of parameters: {len(parameters) if parameters is not None else None}')
         
         # Quadratures - Fock space transformation utils
         self.u_bar = CanonicalLadderTransformations(N)
