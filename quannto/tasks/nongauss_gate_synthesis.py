@@ -63,7 +63,7 @@ for (N, l, ladder_modes, is_addition, in_norm_range) in zip(qnns_modes, qnns_lay
     postprocessors = []
 
     # === BUILD, TRAIN AND TEST QNN ===
-    qnn, train_loss, valid_loss = optimize(model_name, N, l, n_inputs, n_outputs, ladder_modes, is_addition, observable,
+    qnn, train_loss, valid_loss = optimize(model_name, task_name, N, l, n_inputs, n_outputs, ladder_modes, is_addition, observable,
                                            include_initial_squeezing, include_initial_mixing, is_passive_gaussian,
                                            train_dataset, None, loss_function, basinhopping_iters,
                                            in_preprocessors, out_preprocessors, postprocessors, init_pars=params)

@@ -12,10 +12,10 @@ from quannto.core.loss_functions import *
 np.random.seed(42)
 
 # === HYPERPARAMETERS DEFINITION ===
-qnns_modes = [2,3,4]
+qnns_modes = [2]
 qnns_ladder_modes = [[[0,1]]]
-qnns_layers = [1,1,1]
-qnns_is_addition = [False, False, False]
+qnns_layers = [1]
+qnns_is_addition = [False]
 include_initial_squeezing = False
 include_initial_mixing = False
 is_passive_gaussian = False
@@ -28,9 +28,9 @@ in_norm_ranges = [(-3, 3)]*len(qnns_modes)
 out_norm_ranges = [(1, 3)]*len(qnns_modes)
 
 # === OPTIMIZER SETTINGS ===
-optimize = hybrid_build_and_train_model
+optimize = build_and_train_model
 loss_function = mse
-basinhopping_iters = 8
+basinhopping_iters = 3
 params = None
 
 # === DATASET (TARGET FUNCTION) SETTINGS ===
@@ -90,7 +90,7 @@ for (N, l, ladder_modes, is_addition, in_norm_range, out_norm_range) in zip(qnns
         postprocessors.append(partial(rescale_data, data_range=out_norm_range, scale_data_range=output_range))
 
     # === BUILD, TRAIN AND TEST QNN ===
-    qnn, train_loss, valid_loss = optimize(model_name, N, l, n_inputs, n_outputs, ladder_modes, is_addition, observable,
+    qnn, train_loss, valid_loss = optimize(model_name, task_name, N, l, n_inputs, n_outputs, ladder_modes, is_addition, observable,
                                            include_initial_squeezing, include_initial_mixing, is_passive_gaussian,
                                            train_dataset, valid_dataset, loss_function, basinhopping_iters,
                                            in_preprocessors, out_preprocessors, postprocessors, init_pars=params)
@@ -104,11 +104,11 @@ for (N, l, ladder_modes, is_addition, in_norm_range, out_norm_range) in zip(qnns
     print(f'\n==========\nTESTING LOSS FOR N={N}, L={l}, LADDER MODES={ladder_modes}: {loss_value}\n==========')
     
     # === SAVE QNN MODEL RESULTS ===
-    with open(models_train_losses_path(model_name, "txt"), "wb") as f:
+    with open(models_train_losses_path(model_name, "npy"), "wb") as f:
         np.save(f, np.array(train_loss))
-    with open(models_valid_losses_path(model_name, "txt"), "wb") as f:
+    with open(models_valid_losses_path(model_name, "npy"), "wb") as f:
         np.save(f, np.array(valid_loss))
-    with open(models_testing_results_path(model_name, "txt"), "wb") as f:
+    with open(models_testing_results_path(model_name, "npy"), "wb") as f:
         np.save(f, np.array(qnn_pred))
 
 # === PLOT AND SAVE JOINT RESULTS ===

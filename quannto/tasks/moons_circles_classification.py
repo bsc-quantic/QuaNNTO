@@ -38,6 +38,7 @@ num_cats = 2
 dataset_size_per_cat = trainset_size // 2
 validset_size_per_cat = validset_size // 2
 model_name = f"{dataset_name}_{qnn_modes}modes_{qnn_layers}layers_ph{qnn_ladder_modes}_in{in_norm_range}_out{out_norm_range}_datasize{trainset_size}"
+task_name = f"{dataset_name}_{num_cats}categs_classification"
 dataset_dir = str(datasets_dir() / dataset_name)
 
 # 1. FULL DATASET: Load moons (or circles) dataset and shuffle
@@ -93,7 +94,7 @@ postprocessors = []
 #postprocessors.append(partial(np.ravel))
 
 # === BUILD, TRAIN AND TEST QNN ===
-qnn, train_loss, valid_loss = optimize(model_name, qnn_modes, qnn_layers, n_inputs, n_outputs, qnn_ladder_modes, qnn_is_addition, observable,
+qnn, train_loss, valid_loss = optimize(model_name, task_name, qnn_modes, qnn_layers, n_inputs, n_outputs, qnn_ladder_modes, qnn_is_addition, observable,
                                         include_initial_squeezing, include_initial_mixing, is_passive_gaussian,
                                         train_dataset, valid_dataset, loss_function, basinhopping_iters, in_preprocessors, out_preprocessors, postprocessors)
 qnn_preds, norms, loss_value = qnn.test_model(test_dataset[0], test_dataset[1], loss_function)

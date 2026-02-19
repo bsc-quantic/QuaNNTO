@@ -11,10 +11,10 @@ from quannto.core.loss_functions import *
 np.random.seed(42)
 
 # === HYPERPARAMETERS DEFINITION ===
-qnns_modes = [5]
-qnns_ladder_modes = [[[0],[1]]]
-qnns_layers = [2]
-qnns_is_addition = [False]
+qnns_modes = [5,5]
+qnns_ladder_modes = [[[]],[[0]]]
+qnns_layers = [1,1]
+qnns_is_addition = [False,False]
 include_initial_squeezing = False
 include_initial_mixing = False
 is_passive_gaussian = False
@@ -27,7 +27,7 @@ out_norm_ranges = [(1, 3)]*len(qnns_modes)
 # === OPTIMIZER SETTINGS ===
 optimize = build_and_train_model
 loss_function = cross_entropy
-basinhopping_iters = 1
+basinhopping_iters = 3
 params = None
 
 # === DATASET SETTINGS ===
@@ -97,7 +97,7 @@ for (N, l, ladder_modes, is_addition, in_norm_range, out_norm_range) in zip(qnns
     postprocessors.append(partial(np.ravel))
 
     # === BUILD, TRAIN AND TEST QNN ===
-    qnn, train_loss, valid_loss = optimize(model_name, N, l, n_inputs, n_outputs, ladder_modes, is_addition, observable, 
+    qnn, train_loss, valid_loss = optimize(model_name, task_name, N, l, n_inputs, n_outputs, ladder_modes, is_addition, observable, 
                                            include_initial_squeezing, include_initial_mixing, is_passive_gaussian,
                                            train_dataset, valid_dataset, loss_function, basinhopping_iters,
                                            in_preprocessors, out_preprocessors, postprocessors, init_pars=params)
