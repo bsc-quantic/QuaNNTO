@@ -32,7 +32,7 @@ def plot_noisy_dataset(task_name, train_dataset, real_function,
     plt.close(fig)
 
 def plot_qnns_testing(inputs, expected_outputs, qnns_outputs, legend_labels, filename,
-                      title=None, figsize=(5.5, 4.2), fontsize=14, title_fontsize=14, legend_fontsize=13):
+                      top_ylim=None, title=None, figsize=(5.5, 4.2), fontsize=14, title_fontsize=14, legend_fontsize=13):
     fig, ax = plt.subplots(figsize=figsize)
     ax.plot(inputs, expected_outputs, c='black', linewidth=7.0, alpha=0.25, label='Expected results')
     c = 0
@@ -43,8 +43,9 @@ def plot_qnns_testing(inputs, expected_outputs, qnns_outputs, legend_labels, fil
         ax.set_title(f'{title}', fontsize=title_fontsize)
 
     ax.set_xlabel('Input', fontsize=fontsize)
-    #ax.set_ylabel('Output', fontsize=fontsize)
-    #plt.ylim(top=np.max(expected_outputs) + len(qnns_outputs)*0.5 + 0.3)
+    ax.set_ylabel('Output', fontsize=fontsize)
+    if top_ylim is not None:
+        plt.ylim(top=top_ylim)
     ax.tick_params(axis='both', labelsize=fontsize)
 
     ax.grid(linestyle='--', linewidth=0.4)
