@@ -57,7 +57,6 @@ for (N, l, ladder_modes, is_addition, in_norm_range) in zip(qnns_modes, qnns_lay
     qnn = QNN.load_model(models_json_path(model_name, "txt"))
     qnn.print_qnn()
     qnn.save_operator_matrices()
-    print('DATASET', train_dataset)
     res, norm, loss = qnn.test_model(train_dataset[0], train_dataset[1], mse)
     print('NORM: ', norm)
     total_loss = 0
