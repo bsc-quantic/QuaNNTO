@@ -372,7 +372,7 @@ class QNN:
         mean_vector, V = self.apply_gaussian_transformations(mean_vector, V)
         
         # 3. Compute the expectation values of all combinations of ladder operators pairs over the final Gaussian state
-        K_exp_vals = compute_quad_exp_vals(self.N, V, mean_vector)
+        K_exp_vals = compute_quad_exp_vals(self.N, V)
 
         # 4. Compute coefficients for trace expression and normalization terms
         traces_terms_coefs = self.compute_coefficients() if self.layers > 1 else self.jax_ones_coefs

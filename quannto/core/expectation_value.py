@@ -259,53 +259,24 @@ def complete_trace_expression(N, layers, ladder_modes, is_addition, n_outputs, i
         expanded_expr = expand(sup_dag*sup)
     return expanded_expr
 
-def exp_val_ladder_jk(N, j, k, V, means):
-    '''
-    Computes the expectation value of two annihilation operators (in mode j and k) of a Gaussian state based 
-    on the covariance matrix of the state.
-
-    :param N: Number of modes of the QNN
-    :param j: Mode of the first annihilation operator
-    :param k: Mode of the second annihilation operator
-    :param V: Covariance matrix of the Gaussian state
-    :param means: Means vector of the Gaussian state
-    :return: Expectation value of a pair of annihilation operators of a Gaussian state
-    '''
-    return 0.5*(V[j,k] - V[N+j, N+k] + 1j*(V[j, N+k] + V[N+j, k]))
-
-def exp_val_ladder_jdagger_k(N, j, k, V, means):
-    '''
-    Computes the expectation value of one annihilation and one creation operators (in mode j and k) 
-    of a Gaussian state based on the covariance matrix of the state.
-
-    :param N: Number of modes of the QNN
-    :param j: Mode of the creation operator
-    :param k: Mode of the annihilation operator
-    :param V: Covariance matrix of the Gaussian state
-    :param means: Means vector of the Gaussian state
-    :return: Expectation value of one creation and one annihilation operators of a Gaussian state
-    '''
-    delta = jnp.where(j == k, 1, 0)
-    return 0.5*(V[j,k] + V[N+j, N+k] + 1j*(V[j, N+k] - V[N+j, k]) - delta)
-
-def compute_quad_exp_vals(N, V, means):
+def compute_quad_exp_vals(N, V):
     '''
     Computes the expectation value of all combinations of ladder operators pairs of all existing modes
     of a Gaussian state based on its covariance matrix and means vector.
 
     :param N: Number of modes of the QNN
-    :param V: Covariance matrix of the Gaussian state
-    :param means: Means vector of the Gaussian state
+    :param V: Covariance matrix in xxpp representation of the Gaussian state
     :return: All expectation values of the different configuration of a pair of ladder operators on all modes.
     '''
-    js = jnp.arange(N)
-    ks = jnp.arange(N)
-    
-    K00 = jax.vmap(jax.vmap(exp_val_ladder_jk, in_axes=(None, None, 0, None, None)), in_axes=(None, 0, None, None, None))(N, js, ks, V, means)
-    K01 = jax.vmap(jax.vmap(exp_val_ladder_jdagger_k, in_axes=(None, None, 0, None, None)), in_axes=(None, 0, None, None, None))(N, js, ks, V, means)
-    K10 = K01.T + jnp.eye(N, dtype=K01.dtype)
-    K11 = K00.conj()
+    Vxx = V[:N, :N]
+    Vpp = V[N:, N:]
+    Vxp = V[:N, N:]
+    Vpx = V[N:, :N]
 
+    K00 = 0.5 * (Vxx - Vpp + 1j * (Vxp + Vpx))
+    K01 = 0.5 * (Vxx + Vpp + 1j * (Vxp - Vpx) - jnp.eye(N, dtype=V.dtype))
+    K10 = K01.T + jnp.eye(N, dtype=K01.dtype)
+    K11 = jnp.conj(K00)
     return jnp.stack([K00, K01, K10, K11], axis=0)
 
 def wick_expansion_expval(trace_idx, tr_term_idx, N, jax_lens, jax_modes, jax_types, jax_lpms, quadratic_exp_vals, means_vector):
