@@ -37,7 +37,7 @@ def plot_qnns_testing(inputs, expected_outputs, qnns_outputs, legend_labels, fil
     ax.plot(inputs, expected_outputs, c='black', linewidth=7.0, alpha=0.25, label='Expected results')
     c = 0
     for (qnn_outputs, legend_label, linestyle) in zip(qnns_outputs, legend_labels, linestyles):
-        ax.plot(inputs, np.real_if_close(qnn_outputs), c=colors[c], linestyle=linestyle, linewidth=1.8, label=legend_label)
+        ax.plot(inputs, np.real_if_close(qnn_outputs, tol=1e-9), c=colors[c], linestyle=linestyle, linewidth=1.8, label=legend_label)
         c += 1
     if title is not None:
         ax.set_title(f'{title}', fontsize=title_fontsize)
