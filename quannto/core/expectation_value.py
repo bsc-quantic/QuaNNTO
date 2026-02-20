@@ -336,11 +336,10 @@ def wick_expansion_expval(trace_idx, tr_term_idx, N, jax_lens, jax_modes, jax_ty
             operand=None
         )
 
-    # 4. Compute products for all existing sets of loop perfect matchings
-    prods = jax.vmap(term_prod, in_axes=(0,0))(p1, p2)
-
-    # 5. Sum each set's loop perfect matching product to get final expectation value
-    finalsum = jnp.sum(prods)
+    # 4. Compute products for all existing sets of loop perfect matchings and sum them to get the expectation value of the term
+    finalsum = jnp.sum(
+        jax.vmap(term_prod, in_axes=(0,0))(p1, p2)
+    )
     return finalsum
 
 def get_expectation_value(trace_idx, tr_term_idx, N, jax_lens, jax_modes, jax_types, jax_lpms, quadratic_exp_vals, means_vector):
