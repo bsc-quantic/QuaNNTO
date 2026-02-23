@@ -2,6 +2,17 @@ from __future__ import annotations
 from pathlib import Path
 import os
 
+def arch_cache_dir() -> Path:
+    env = os.getenv("QUANNTO_CACHE_DIR")
+    if env:
+        p = Path(env).expanduser().resolve()
+        p.mkdir(parents=True, exist_ok=True)
+        return p
+    # default next to repo (adjust parents as needed for your layout)
+    p = Path(__file__).resolve().parents[2] / "quannto" / "cache"
+    p.mkdir(parents=True, exist_ok=True)
+    return p
+
 def quannto_results_dir() -> Path:
     """
     Base directory where QuaNNTO writes outputs (params, losses, results, figures, datasets).

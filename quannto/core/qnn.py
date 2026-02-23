@@ -1,17 +1,18 @@
 import numpy as np
 import jsonpickle
-import time
 from functools import reduce
 import jax
 from jax import lax
 import jax.numpy as jnp
+
+from quannto.core.qnn_archs_helper import apply_arch_arrays, arch_signature, extract_arch_arrays, save_compiled, try_load_compiled
 
 from .data_processors import pad_3d_list_of_lists, to_np_array
 
 from quannto.utils.cvquantum_utils import *
 from quannto.core.expectation_value import *
 from quannto.utils.results_utils import *
-from quannto.utils.path_utils import models_json_path, models_params_path, models_operators_path
+from quannto.utils.path_utils import arch_cache_dir, models_json_path, models_params_path, models_operators_path
 
 jax.config.update("jax_enable_x64", True)
 
@@ -45,89 +46,164 @@ class QNN:
         self.include_initial_mixing = include_initial_mixing
         self.is_passive_gaussian = is_passive_gaussian
         self.tunable_parameters = parameters
+        self.u_bar = CanonicalLadderTransformations(N) # Quadratures - Fock space transformation utils
         print(' =============================================')
         print(f' ========= QONN MODEL SPECIFICATIONS ========= ')
         print(' =============================================')
         print(f'Model name: {model_name}\nTask name: {task_name}\nN={N}, L={layers}, ladder modes={ladder_modes}, non-Gaussianity {self.non_gaussianity}, observable={observable}\nInitial squeezing: {include_initial_squeezing}, Initial mixing: {include_initial_mixing}, Passive Gaussian: {is_passive_gaussian}\nInput preprocessors: {in_preprocessors}\nOutput preprocessors: {out_preprocessors}\nPostprocessors: {postprocessors}\nNumber of parameters: {len(parameters) if parameters is not None else None}')
         
-        # Quadratures - Fock space transformation utils
-        self.u_bar = CanonicalLadderTransformations(N)
+        CACHE_VERSION = 1
+        sig, h = arch_signature(
+            N=self.N, layers=self.layers, n_in=self.n_in, n_out=self.n_out,
+            ladder_modes=self.ladder_modes, is_addition=self.is_addition, observable=self.observable,
+            include_initial_squeezing=self.include_initial_squeezing,
+            include_initial_mixing=self.include_initial_mixing,
+            is_passive_gaussian=self.is_passive_gaussian,
+            cache_version=CACHE_VERSION,
+        )
+        cache_root = arch_cache_dir()
+
+        loaded = try_load_compiled(cache_root, h)
+        # Load from cache if available and cache version matches; otherwise build the QONN architecture and save to cache
+        if loaded is not None and loaded[0].get("cache_version") == CACHE_VERSION:
+            meta, arrays = loaded
+            apply_arch_arrays(self, arrays)
+            self._set_trace_const()
+            print(f"[QuaNNTO] Architecture loaded from cache: arch_{h}")
+        else:
+            self._init_trace_expressions()
+            self._init_ladder_term_arrays()
+            self._init_wick_matchings()
+            self._strip_ladder_ops_from_trace_terms()
+            self._init_trace_term_ranges()
+            self._compile_trace_term_coeffs()
+            self._device_put_arch_arrays()
+
+            # Save the architecture arrays to cache for future reuse
+            arrays = extract_arch_arrays(self)
+            save_compiled(cache_root, h, sig, arrays, atomic=True)
+            print(f"[QuaNNTO] Architecture saved in cache: arch_{h}")
         
-        # Full expectation value expression of the wavefunction (photon additions + observable to be measured)
-        self.trace_expr = complete_trace_expression(self.N, layers, ladder_modes, is_addition, self.n_out, include_obs=True, obs=observable)
-        # Normalization expression of the wavefunction related to photon additions
-        self.norm_trace_expr = complete_trace_expression(self.N, layers, ladder_modes, is_addition, self.n_out, include_obs=False)
+    def _set_trace_const(self):
+        # Observable constant coefficient (scalar or per-output vector)
+        obs = self.observable
+        if obs == "number":
+            self.trace_const = 1
+        elif obs == "position":
+            self.trace_const = ONEOVERSQRT2
+        elif obs == "momentum":
+            self.trace_const = -1j * ONEOVERSQRT2
+        elif obs in ("cubicphase", "catstates"):
+            self.trace_const = jnp.ones(self.n_out)
+        else:
+            self.trace_const = 0
+        
+    def _init_trace_expressions(self):
+        """Build trace + norm expressions and trace constants for the observable."""
+        self.trace_expr = complete_trace_expression(
+            self.N, self.layers, self.ladder_modes, self.is_addition,
+            self.n_out, include_obs=True, obs=self.observable
+        )
+        self.norm_trace_expr = complete_trace_expression(
+            self.N, self.layers, self.ladder_modes, self.is_addition,
+            self.n_out, include_obs=False
+        )
         self.trace_expr.append(self.norm_trace_expr)
-        
-        # Observables constant coefficient
-        self.trace_const = 1 if observable=='number' else ONEOVERSQRT2 if observable=='position' else -1j*ONEOVERSQRT2 if observable=='momentum' else 0
-        
-        if observable=='cubicphase' or observable=='catstates':
-            self.trace_const = jnp.ones(len(self.trace_expr) - 1)
-        
-        # Extract ladder operators terms for expectation value expression(s)
-        self.modes, self.types = [], []
-        for outs in range(len(self.trace_expr)):
-            modes, types = extract_ladder_expressions(self.trace_expr[outs])
-            self.modes.append(modes)
-            self.types.append(types)
+        self._set_trace_const()
+
+    def _init_ladder_term_arrays(self):
+        """
+        Extract ladder-operator structure from each trace expression.
+        Produces padded arrays and the jax_* versions used in expectation computation.
+        """
+        modes_out, types_out = [], []
+        for expr in self.trace_expr:
+            modes, types = extract_ladder_expressions(expr)
+            modes_out.append(modes)
+            types_out.append(types)
+
+        self.modes = modes_out
+        self.types = types_out
+
         self.np_modes, self.lens_modes = to_np_array(self.modes)
         self.np_types, self.lens_types = to_np_array(self.types)
+
         self.jax_modes = jnp.array(self.np_modes)
         self.jax_types = jnp.array(self.np_types)
-        self.jax_lens = jnp.array(self.lens_modes)
+        self.jax_lens  = jnp.array(self.lens_modes)
         
-        # Compute all needed loop perfect matchings for the Wick's expansion of the trace expression
-        max_lpms = np.maximum(np.max(self.lens_modes), 2)
-        loop_pms = [loop_perfect_matchings(lens) for lens in range(2, max_lpms+1)]
-        self.jax_lpms = pad_3d_list_of_lists(loop_pms, 2*max_lpms)
-        
-        # Remove all ladder operators from symbolic expressions of the trace and norm
-        a = symbols(f'a0:{N}', commutative=False)
-        c = symbols(f'c0:{N}', commutative=False)
+    def _init_wick_matchings(self):
+        """Precompute loop perfect matchings needed for Wick expansion up to max term length."""
+        max_lpms = int(np.maximum(np.max(self.lens_modes), 2))
+        loop_pms = [loop_perfect_matchings(lens) for lens in range(2, max_lpms + 1)]
+        self.jax_lpms = pad_3d_list_of_lists(loop_pms, 2 * max_lpms)
+
+    def _strip_ladder_ops_from_trace_terms(self):
+        """
+        Convert each trace expression into a list of terms with ladder operators substituted out.
+        This yields purely coefficient-like symbolic terms.
+        """
+        a = symbols(f"a0:{self.N}", commutative=False)
+        c = symbols(f"c0:{self.N}", commutative=False)
+
         ladder_subs = {c[i]: 1 for i in range(self.N)}
         ladder_subs.update({a[i]: 1 for i in range(self.N)})
-        self.unnorm_expr_terms_out = []
-        for outs in range(len(self.trace_expr)):
-            if isinstance(self.trace_expr[outs], sp.Add):
-                unnorm_expr_terms = list(self.trace_expr[outs].args)
+
+        unnorm_expr_terms_out = []
+        for expr in self.trace_expr:
+            if isinstance(expr, sp.Add):
+                terms = list(expr.args)
             else:
-                unnorm_expr_terms = [self.trace_expr[outs]]
-            unnorm_subs_expr_terms = []
-            for term in unnorm_expr_terms:
-                new_term = term.subs(ladder_subs)
-                unnorm_subs_expr_terms.append(new_term)
-            self.unnorm_expr_terms_out.append(unnorm_subs_expr_terms)
+                terms = [expr]
+            unnorm_expr_terms_out.append([t.subs(ladder_subs) for t in terms])
+
+        self.unnorm_expr_terms_out = unnorm_expr_terms_out
+        self.num_terms_per_trace = jnp.array([len(ts) for ts in unnorm_expr_terms_out])
         
-        self.num_terms_per_trace = jnp.array([len(expr) for expr in self.unnorm_expr_terms_out])
-        print(f"Number of terms for each trace: {self.num_terms_per_trace}")
-        
+    def _init_trace_term_ranges(self):
+        """Build padded per-output term index ranges used for scanning terms."""
         self.exp_vals_inds = jnp.arange(len(self.jax_modes), dtype=jnp.int32)
         self.num_terms_in_trace = jnp.array([len(output_terms) for output_terms in self.modes])
         self.max_terms = jnp.max(self.num_terms_in_trace)
-        trace_terms_rngs, _ = to_np_array([[[i for i in range(num_terms)] for num_terms in self.num_terms_in_trace]])
+
+        # pad term indices [0..num_terms-1] to a common length
+        trace_terms_rngs, _ = to_np_array(
+            [[[i for i in range(num_terms)] for num_terms in self.num_terms_in_trace]]
+        )
         self.trace_terms_ranges = jnp.array(trace_terms_rngs[0])
-        
-        # Compile trace expression terms with respect to symplectic and displacement parameters
-        trace_terms_coefs_inds = []
-        trace_terms_coefs = []
-        trace_terms_meta = []
+    
+    def _compile_trace_term_coeffs(self):
+        """
+        Compile coefficient/meta index lists for trace terms.
+        Uses expressions_to_index_lists when needed; otherwise use a ones mask.
+        """
         if len(self.ladder_modes) > 0 and self.layers > 1:
+            trace_terms_coefs_inds = []
+            trace_terms_coefs = []
+            trace_terms_meta = []
+
             for subexpr_terms in self.unnorm_expr_terms_out:
-                all_inds, coefs, meta = expressions_to_index_lists(N, layers, subexpr_terms)
+                all_inds, coefs, meta = expressions_to_index_lists(self.N, self.layers, subexpr_terms)
+
+                # pad to max_terms (keep -1 padding to mask absent terms)
                 num_inds = len(all_inds[0])
-                for pad in range(len(subexpr_terms), self.max_terms):
-                    all_inds.append([-1]*num_inds)
+                for _ in range(len(subexpr_terms), int(self.max_terms)):
+                    all_inds.append([-1] * num_inds)
+
                 trace_terms_coefs_inds.append(all_inds)
                 trace_terms_coefs.append(coefs)
                 trace_terms_meta.append(meta)
+
             self.jax_traceterms_coefs_inds = jnp.array(trace_terms_coefs_inds, dtype=jnp.int32)
-            self.jax_traceterms_coefs = jnp.array(trace_terms_coefs, dtype=jnp.int32)
+            self.jax_traceterms_coefs      = jnp.array(trace_terms_coefs, dtype=jnp.int32)
+            self.trace_terms_meta          = trace_terms_meta  # keep python-side if you still use it
         else:
-            ones_coefs = np.ones_like(self.trace_terms_ranges)
-            ones_coefs[self.trace_terms_ranges == -1] = 0
-            self.jax_ones_coefs = jnp.array(ones_coefs)
-            
+            ones = np.ones_like(np.array(self.trace_terms_ranges))
+            ones[self.trace_terms_ranges == -1] = 0
+            self.jax_ones_coefs = jnp.array(ones)
+    
+    def _device_put_arch_arrays(self):
+        """Explicitly place the heavy arrays on device once."""
         self.exp_vals_inds      = jax.device_put(self.exp_vals_inds)
         self.trace_terms_ranges = jax.device_put(self.trace_terms_ranges)
         self.jax_lens           = jax.device_put(self.jax_lens)
@@ -135,7 +211,12 @@ class QNN:
         self.jax_types          = jax.device_put(self.jax_types)
         self.jax_lpms           = jax.device_put(self.jax_lpms)
 
-        
+        if hasattr(self, "jax_traceterms_coefs_inds"):
+            self.jax_traceterms_coefs_inds = jax.device_put(self.jax_traceterms_coefs_inds)
+            self.jax_traceterms_coefs      = jax.device_put(self.jax_traceterms_coefs)
+        if hasattr(self, "jax_ones_coefs"):
+            self.jax_ones_coefs = jax.device_put(self.jax_ones_coefs)
+
     def build_symp_orth_mat(self, parameters):
         '''
         Creates a symplectic-orthogonal (unitary) matrix with the complex exponential 
