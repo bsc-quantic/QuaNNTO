@@ -7,7 +7,7 @@ import jax.numpy as jnp
 
 from quannto.core.qnn_archs_helper import apply_arch_arrays, arch_signature, extract_arch_arrays, save_compiled, try_load_compiled
 
-from .data_processors import pad_3d_list_of_lists, to_np_array
+from .data_processors import pad_3d_list_of_lists, pad_data, to_np_array
 
 from quannto.utils.cvquantum_utils import *
 from quannto.core.expectation_value import *
@@ -39,6 +39,7 @@ class QNN:
         self.n_out = n_out
         self.observable = observable
         self.in_preprocessors = in_preprocessors
+        self.in_preprocessors.append(partial(pad_data, length=2*self.N)) # Always pad inputs to 2N vector for N-mode quadratures operations
         self.out_preprocessors = out_preprocessors
         self.postprocessors = postprocessors
         self.is_input_reupload = False

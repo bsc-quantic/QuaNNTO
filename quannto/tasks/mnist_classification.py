@@ -84,7 +84,6 @@ for (N, l, ladder_modes, is_addition, in_norm_range, out_norm_range) in zip(qnns
     in_preprocessors = []
     if in_norm_range != None:
         in_preprocessors.append(partial(rescale_set_with_ranges, data_ranges=input_ranges, rescale_range=in_norm_range))
-    in_preprocessors.append(partial(pad_data, length=2*N))
 
     out_preprocessors = []
     out_preprocessors.append(partial(one_hot_encoding, num_cats=num_cats))

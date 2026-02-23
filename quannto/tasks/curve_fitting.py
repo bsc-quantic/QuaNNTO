@@ -80,7 +80,6 @@ for (N, l, ladder_modes, is_addition, in_norm_range, out_norm_range) in zip(qnns
     in_preprocessors = []
     if in_norm_range != None:
         in_preprocessors.append(partial(rescale_data, data_range=input_range, scale_data_range=in_norm_range))
-    in_preprocessors.append(partial(pad_data, length=2*N))
 
     out_preprocessors = []
     postprocessors = []
