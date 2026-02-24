@@ -28,16 +28,16 @@ in_norm_ranges = [(-3, 3)]*len(qnns_modes)
 out_norm_ranges = [(1, 3)]*len(qnns_modes)
 
 # === OPTIMIZER SETTINGS ===
-optimize = build_and_train_model
+optimize = train_scipy
 loss_function = mse
-basinhopping_iters = 3
+basinhopping_iters = 5
 params = None
 
 # === DATASET (TARGET FUNCTION) SETTINGS ===
 target_function = cosh_1in_1out
 input_range = (-5, 5)
 trainset_noise = 3
-trainset_size = 100
+trainset_size = 20
 testset_size = 200
 validset_size = 50
 task_name = f"curvefitting_{target_function.__name__}_trainsize{trainset_size}_noise{trainset_noise}_rng{input_range[0]}to{input_range[1]}"

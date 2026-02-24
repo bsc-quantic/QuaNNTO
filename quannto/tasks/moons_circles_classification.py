@@ -25,7 +25,7 @@ in_norm_range = (-3, 3) # or None
 out_norm_range = (1, 3) # or None
 
 # === OPTIMIZER SETTINGS ===
-optimize = build_and_train_model
+optimize = train_scipy
 loss_function = cross_entropy
 basinhopping_iters = 2
 params = None

@@ -24,7 +24,7 @@ in_norm_ranges = [None]*len(qnns_modes) # or ranges (a, b)
 qnn_params = [None]*len(qnns_modes) # or list of arrays with initial parameters for each QNN
 
 # === OPTIMIZER SETTINGS ===
-optimize = build_and_train_model
+optimize = train_scipy
 loss_function = mse
 basinhopping_iters = 2
 

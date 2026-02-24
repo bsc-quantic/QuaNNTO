@@ -9,282 +9,34 @@ import jax.numpy as jnp
 from .loss_functions import mse
 from .qnn import QNN
 
-global global_it
-global local_it
-global bh_it
-
 # ---------------------------------------------------------------
-# Callbacks for SciPy optimizer and Basinhopping
+# Trainers utilities
 # ---------------------------------------------------------------
-def callback_opt_general(xk, cost_training, cost_validation):
-    '''
-    Prints and stores the MSE error value for each QNN training epoch.
-    
-    :param xk: QONN tunable parameters
-    '''
-    e = cost_training(xk)
-    loss_values.append(e)
-    #print(f'Training loss: {e}')
-    k = local_it["k"]
-    local_it["k"] += 1
-    
-    g_k = global_it["k"]
-    global_it["k"] += 1
+def _nongauss_symbol(is_addition):
+    """Human-readable non-Gaussian symbol for printing."""
+    return "â†" if is_addition else "â"
 
-    if cost_validation != None:
-        val_e = cost_validation(xk)
-        #print(f'Validation loss: {val_e}')
-        msg = f" Epoch {k:4d} | Total epochs {g_k:4d} | Train loss {loss_values[-1]:.6e} | Validation loss {validation_loss[-1]:.6e}"
-        validation_loss.append(val_e)
-    else:
-        msg = f"Epoch {k:4d} | Total epochs {g_k:4d} | | Train loss {loss_values[-1]:.6e}"
-        validation_loss.append(e)
-    print(msg, end="\r", flush=True)
-    
-def callback_hopping_general(x, f, accept, qnn, has_validation=False):
-    '''
-    Prints the best Basinhopping error achieved so far and the current one. 
-    If the current error is less than the best one so far, it substitutes the best loss values.
-    
-    :param x: QONN tunable parameters
-    :param f: Current Basinhopping error achieved
-    :param accept: Determines whether the current error achieved is accepted (stopping iterations)
-    '''
-    global best_loss_values
-    global loss_values
-    global best_validation_loss
-    global validation_loss
-    global best_pars
-    print()
-    if bh_it["k"] > 1:
-        print(f"Best loss so far: {best_loss_values[-1]}")
-    print(f"Basinhopping iteration {bh_it['k']}. Loss: {f}\n==========")
-    bh_it["k"] += 1
-    local_it["k"] = 0
-    if has_validation:
-        if best_validation_loss[-1] > validation_loss[-1]:
-            best_pars = x.copy()
-            best_loss_values = loss_values.copy()
-            best_validation_loss = validation_loss.copy()
-            qnn.build_QNN(best_pars)
-            qnn.save_model_parameters(best_pars)
-            qnn.save_operator_matrices()
-            qnn.save_model()
-    else:
-        if best_loss_values[-1] > loss_values[-1]:
-            best_pars = x.copy()
-            best_loss_values = loss_values.copy()
-            qnn.build_QNN(best_pars)
-            qnn.save_model_parameters(best_pars)
-            qnn.save_operator_matrices()
-            qnn.save_model()
-    loss_values = [9999]
-    validation_loss = [9999]
+def _apply_fns(x, fns):
+    """Applies a list of callables sequentially."""
+    return reduce(lambda acc, fn: fn(acc), fns, x)
 
-def build_and_train_model(model_name, task_name, N, layers, n_inputs, n_outputs,
-                          ladder_modes, is_addition, observable, 
-                          include_initial_squeezing, include_initial_mixing, is_passive_gaussian,
-                          train_set, valid_set, loss_function=mse, hopping_iters=2,
-                          in_preprocs=[], out_prepocs=[], postprocs=[], init_pars=None, save=True):
-    '''
-    Creates and trains a QNN model with the given hyperparameters and dataset by optimizing the 
-    tunable parameters of the QNN using L-BFGS-B + Basinhopping from SciPy which uses a 
-    JAX-jitted function for the training.
-    
-    :param name: Name of the model
-    :param N: Number of neurons per layer (modes of the quantum system)
-    :param layers: Number of layers
-    :param n_inputs: Number of QONN inputs
-    :param n_outputs: Number of QONN outputs
-    :param ladder_modes: Photon additions over system modes' that are desired (per layer)
-    :param is_addition: Boolean determining whether the non-Gaussian operation is photon addition (True) or cubic phase gate (False)
-    :param observable: Name of the observable to be measured ('position', 'momentum', 'number' or 'witness')
-    :param include_initial_squeezing: Boolean determining whether to include initial squeezing operations before the first layer
-    :param include_initial_mixing: Boolean determining whether to include initial mixing operation before the first layer
-    :param is_passive_gaussian: Boolean determining whether the QNN is passive Gaussian (no squeezing operations in the layers)
-    :param train_set: List of inputs and outputs to be learned
-    :param valid_set: Validation set to be evaluated every epoch testing the generalization of the QONN
-    :param loss_function: Function that computes the loss between the predicted and the expected value (default 'mse')
-    :param hopping_iters: Number of Basinhopping iterations
-    :param in_preprocs: List of preprocessors for the dataset inputs
-    :param out_preprocs: List of preprocessors for the dataset outputs
-    :param postprocs: List of postprocessors (postprocessing of QONN yielded data)
-    :param init_pars: Initialization parameters for the QNN
-    :param save: Boolean determining whether to save the model (default=True)
-    :return: Trained QNN model
-    '''
-    # ---------------------------------------------------------------
-    # 1. Number of parameters and bounds
-    # ---------------------------------------------------------------
-    assert layers == len(ladder_modes)
-    
-    n_pars = layers*(2*N**2 + 3*N)
-    if include_initial_squeezing:
-        n_pars += N
-    if include_initial_mixing:
-        n_pars += N**2
-    if is_passive_gaussian:
-        n_pars -= layers*(N**2 + N)
-    
-    if type(init_pars) == type(None):
-        init_pars = np.random.rand(n_pars) # TODO: Consider parameterize momentum too
-    else:
-        assert len(init_pars) == n_pars
-    
-    passive_bounds = (None, None)
-    init_sqz_bounds = (-np.log(5.5), np.log(5.5)) # Initial squeezing
-    sqz_bounds = (-np.log(5.5), np.log(5.5))
-    disp_bounds = (None, None)
-    bounds = []
-    if include_initial_squeezing:
-        bounds += [init_sqz_bounds for _ in range(N)] # Initial squeezing
-    if include_initial_mixing:
-        bounds += [passive_bounds for _ in range(N**2)] # Initial mixing
-    for _ in range(layers):
-        if is_passive_gaussian:
-            # Passive optics bounds for Q1
-            bounds += [passive_bounds for _ in range(N**2)]
-            # Displacement bounds
-            bounds += [disp_bounds for _ in range(2*N)]
-        else:
-            # Passive optics bounds for Q1, Q2
-            bounds += [passive_bounds for _ in range(2*N**2)]
-            # Squeezing bounds
-            bounds += [sqz_bounds for _ in range(N)]
-            # Displacement bounds
-            bounds += [disp_bounds for _ in range(2*N)]
-    
-    assert len(bounds) == n_pars, f"Number of bounds {len(bounds)} does not match number of parameters {n_pars}."
-    
-    # ---------------------------------------------------------------
-    # 3. Build QNN, preprocess dataset and define training functions
-    # ---------------------------------------------------------------
-    qnn = QNN(model_name, task_name, N, layers, n_inputs, n_outputs, ladder_modes, is_addition, observable,
-              include_initial_squeezing, include_initial_mixing, is_passive_gaussian, init_pars,
-              in_preprocs, out_prepocs, postprocs)
-    
-    train_inputs = reduce(lambda x, func: func(x), qnn.in_preprocessors, train_set[0])
-    train_outputs = reduce(lambda x, func: func(x), qnn.out_preprocessors, train_set[1])
-    if valid_set != None:
-        valid_inputs = reduce(lambda x, func: func(x), qnn.in_preprocessors, valid_set[0])
-        valid_outputs = reduce(lambda x, func: func(x), qnn.out_preprocessors, valid_set[1])
-    
-    global best_loss_values
-    best_loss_values = [9999]
-    
-    global loss_values
-    loss_values = [9999]
-    
-    global best_validation_loss
-    best_validation_loss = [9999]
-    
-    global validation_loss
-    validation_loss = [9999]
-    
-    global best_pars
-    best_pars = []
-    
-    global global_it
-    global local_it
-    global bh_it
-    global_it = {"k": 0}
-    local_it = {"k": 0}
-    bh_it = {"k": 1}
-    
-    training_QNN = partial(qnn.train_QNN, inputs_dataset=train_inputs, outputs_dataset=train_outputs, loss_function=loss_function)
-    if valid_set != None:
-        validate_QNN = partial(qnn.train_QNN, inputs_dataset=valid_inputs, outputs_dataset=valid_outputs, loss_function=loss_function)
-    else:
-        validate_QNN = None
-    
-    # ---------------------------------------------------------------
-    # 4. Training with SciPy L-BFGS-B + Basinhopping
-    # ---------------------------------------------------------------
-    callback = partial(callback_opt_general, cost_training=training_QNN, cost_validation=validate_QNN)
-    callback_hopping = partial(callback_hopping_general, qnn=qnn, has_validation=False if validate_QNN == None else True)
-    
-    training_start = time.time()
-    minimizer_kwargs = {"method": "L-BFGS-B", "bounds": bounds, "callback": callback}
-    opt_result = opt.basinhopping(training_QNN, init_pars, niter=hopping_iters, minimizer_kwargs=minimizer_kwargs, callback=callback_hopping)
-    train_time = time.time() - training_start
-    print(f'Total training time: {train_time} seconds')
-    print(f'Time per epoch: {train_time / (len(best_loss_values)-1)} seconds')
-    
-    if is_addition:
-        nongauss_op = "â†"
-    else:
-        nongauss_op = "â"
-    print(f'\nOPTIMIZATION ERROR FOR N={N}, L={layers}, {nongauss_op} modes={np.array(ladder_modes[0])+1}\n{best_loss_values[-1]}')
-    
-    # Build final QNN with best Basinhopping parameters
-    qnn.build_QNN(best_pars)
-    qnn.print_qnn()
-    
-    if save:
-        qnn.save_model()
-        
-    if best_loss_values[0] == 9999:
-        best_loss_values = best_loss_values[1:]
-        best_validation_loss = best_validation_loss[1:]
-    
-    return qnn, best_loss_values, best_validation_loss
-
-def hybrid_build_and_train_model(model_name, task_name, N, layers, n_inputs, n_outputs, ladder_modes, is_addition, observable,
-                                 include_initial_squeezing, include_initial_mixing, is_passive_gaussian,
-                                 train_set, valid_set, loss_function=mse, hopping_iters=2,
-                                 in_preprocs=[], out_prepocs=[], postprocs=[], init_pars=None, save=True,
-                                 adam_epochs=200, adam_learning_rate=1e-2, adam_weight_decay=0.0):
+def _compute_num_parameters(N, layers, include_initial_squeezing, include_initial_mixing, is_passive_gaussian):
     """
-    Creates and trains a QNN model with the given hyperparameters and dataset
-    by optimizing the tunable parameters of the QNN using a hybrid approach:
-    first using Adam/AdamW (pure JAX) for a number of epochs, and then
-    refining the solution with SciPy's L-BFGS-B.
-    
-    :param model_name: Name of the QNN model
-    :param N: Number of modes
-    :param layers: Number of layers in the QNN
-    :param n_inputs: Number of input features
-    :param n_outputs: Number of output features
-    :param ladder_modes: Ladder modes for non-Gaussian operations
-    :param is_addition: Whether to use addition non-Gaussian operation
-    :param observable: Observable to measure
-    :param include_initial_squeezing: Whether to include initial squeezing layer
-    :param include_initial_mixing: Whether to include initial mixing layer
-    :param is_passive_gaussian: Whether the Gaussian layers are passive
-    :param train_set: Training dataset (inputs, outputs)
-    :param valid_set: Validation dataset (inputs, outputs)
-    :param loss_function: Loss function to optimize
-    :param hopping_iters: Number of Basinhopping iterations (SciPy)
-    :param in_preprocs: Input preprocessors
-    :param out_prepocs: Output preprocessors
-    :param postprocs: Postprocessors
-    :param init_pars: Initial parameters for optimization
-    :param save: Whether to save the trained model
-    :param adam_epochs: Number of Adam epochs for initial training
-    :param adam_learning_rate: Learning rate for Adam optimizer
-    :param adam_weight_decay: Weight decay for AdamW optimizer
-    :return: Trained QNN model, training loss history, validation loss history
+    Computes the number of trainable parameters for the given architecture flags.
     """
-
-    # ---------------------------------------------------------------
-    # 1. Number of parameters and bounds
-    # ---------------------------------------------------------------
-    assert layers == len(ladder_modes)
     n_pars = layers * (2 * N**2 + 3 * N)
-
     if include_initial_squeezing:
         n_pars += N
     if include_initial_mixing:
         n_pars += N**2
     if is_passive_gaussian:
         n_pars -= layers * (N**2 + N)
+    return int(n_pars)
 
-    if isinstance(init_pars, type(None)):
-        init_pars = np.random.rand(n_pars)
-    else:
-        init_pars = np.asarray(init_pars)
-        assert len(init_pars) == n_pars
-
+def _build_bounds(N, layers, include_initial_squeezing, include_initial_mixing, is_passive_gaussian):
+    """
+    Builds SciPy-style bounds list in the exact parameter order used by QNN.build_QNN.
+    """
     passive_bounds = (None, None)
     init_sqz_bounds = (-np.log(5.5), np.log(5.5))  # Initial squeezing
     sqz_bounds = (-np.log(5.5), np.log(5.5))       # Layer squeezing
@@ -296,199 +48,252 @@ def hybrid_build_and_train_model(model_name, task_name, N, layers, n_inputs, n_o
     if include_initial_squeezing:
         bounds += [init_sqz_bounds for _ in range(N)]
 
-    # Initial mixing
+    # Initial mixing (passive)
     if include_initial_mixing:
         bounds += [passive_bounds for _ in range(N**2)]
 
     # Layer-by-layer
     for _ in range(layers):
         if is_passive_gaussian:
-            # Passive optics bounds for Q1
-            bounds += [passive_bounds for _ in range(N**2)]
-            # Displacement bounds
-            bounds += [disp_bounds for _ in range(2 * N)]
+            bounds += [passive_bounds for _ in range(N**2)]   # Q1
+            bounds += [disp_bounds for _ in range(2 * N)]     # displacement
         else:
-            # Passive optics bounds for Q1, Q2
-            bounds += [passive_bounds for _ in range(2 * N**2)]
-            # Squeezing bounds
-            bounds += [sqz_bounds for _ in range(N)]
-            # Displacement bounds
-            bounds += [disp_bounds for _ in range(2 * N)]
+            bounds += [passive_bounds for _ in range(2 * N**2)]  # Q1, Q2
+            bounds += [sqz_bounds for _ in range(N)]             # squeezing
+            bounds += [disp_bounds for _ in range(2 * N)]        # displacement
 
-    assert len(bounds) == n_pars, (
-        f"Number of bounds {len(bounds)} does not match number of parameters {n_pars}."
-    )
-    
-    # Set up bounds in JAX arrays for projection
-    lb = jnp.array(
-        [b[0] if b[0] is not None else -jnp.inf for b in bounds],
-        dtype=jnp.float64,
-    )
-    ub = jnp.array(
-        [b[1] if b[1] is not None else jnp.inf for b in bounds],
-        dtype=jnp.float64,
-    )
+    return bounds
 
-    def project(params_jax):
-        """
-        Projects parameters into the bounds (like L-BFGS-B in SciPy).
-        :param params: QNN tunable parameters
-        :return: Projected parameters
-        """
-        return jnp.clip(params_jax, lb, ub)
+def _init_parameters(n_pars, init_pars=None, rng=None, dtype=np.float64):
+    """
+    Creates or validates the initial parameter vector.
+    """
+    if rng is None:
+        rng = np.random.default_rng()
 
+    if init_pars is None:
+        return rng.random(n_pars, dtype=dtype)
 
-    # ---------------------------------------------------------------
-    # 3. Build QNN, preprocess dataset and define training functions
-    # ---------------------------------------------------------------
+    init_pars = np.asarray(init_pars, dtype=dtype)
+    assert init_pars.shape == (n_pars,), f"init_pars shape {init_pars.shape} does not match ({n_pars},)"
+    return init_pars
+
+def _build_projector(bounds, dtype=jnp.float64):
+    """
+    Builds a simple projection function params -> clip(params, lb, ub) from SciPy-style bounds.
+    """
+    lb = jnp.array([b[0] if b[0] is not None else -jnp.inf for b in bounds], dtype=dtype)
+    ub = jnp.array([b[1] if b[1] is not None else  jnp.inf for b in bounds], dtype=dtype)
+
+    def project(params):
+        return jnp.clip(params, lb, ub)
+
+    return project, lb, ub
+
+def _build_qnn_and_preprocess_datasets(
+    *,
+    model_name, task_name,
+    N, layers, n_inputs, n_outputs,
+    ladder_modes, is_addition, observable,
+    include_initial_squeezing, include_initial_mixing, is_passive_gaussian,
+    train_set, valid_set,
+    init_pars,
+    in_preprocs=None, out_prepocs=None, postprocs=None,
+):
+    """
+    Builds the QNN object and applies preprocessors to training/validation datasets.
+    """
+    if in_preprocs is None:
+        in_preprocs = []
+    if out_prepocs is None:
+        out_prepocs = []
+    if postprocs is None:
+        postprocs = []
+
     qnn = QNN(
-        model_name, task_name, N, layers, n_inputs, n_outputs, ladder_modes, is_addition, observable,
-        include_initial_squeezing, include_initial_mixing, is_passive_gaussian, init_pars,
+        model_name, task_name,
+        N, layers, n_inputs, n_outputs,
+        ladder_modes, is_addition, observable,
+        include_initial_squeezing, include_initial_mixing, is_passive_gaussian,
+        init_pars,
         in_preprocs, out_prepocs, postprocs,
     )
-    
-    train_inputs = reduce(lambda x, func: func(x), qnn.in_preprocessors, train_set[0])
-    train_outputs = reduce(lambda x, func: func(x), qnn.out_preprocessors, train_set[1])
+
+    # Preprocess datasets (Python side, once)
+    train_inputs = _apply_fns(train_set[0], qnn.in_preprocessors)
+    train_outputs = _apply_fns(train_set[1], qnn.out_preprocessors)
 
     if valid_set is not None:
-        valid_inputs = reduce(lambda x, func: func(x), qnn.in_preprocessors, valid_set[0])
-        valid_outputs = reduce(lambda x, func: func(x), qnn.out_preprocessors, valid_set[1])
+        valid_inputs = _apply_fns(valid_set[0], qnn.in_preprocessors)
+        valid_outputs = _apply_fns(valid_set[1], qnn.out_preprocessors)
     else:
         valid_inputs = None
         valid_outputs = None
 
-    global best_loss_values
-    best_loss_values = [9999]
+    return qnn, train_inputs, train_outputs, valid_inputs, valid_outputs
 
-    global loss_values
-    loss_values = [9999]
+def _finalize_model(qnn, best_params, *, save=True):
+    """
+    Builds the final model at the best parameters and optionally saves it.
+    """
+    best_params = np.asarray(best_params, dtype=np.float64)
+    qnn.build_QNN(best_params)
+    qnn.print_qnn()
+    if save:
+        qnn.save_model()
+    return qnn
 
-    global best_validation_loss
-    best_validation_loss = [9999]
+# ---------------------------------------------------------------
+# SciPy training helpers (L-BFGS-B + basinhopping)
+# ---------------------------------------------------------------
+class _ObjectiveCache:
+    """
+    Wrapper that caches the last x -> f(x) evaluation.
+    Useful because SciPy callbacks do not receive f(x), so we would otherwise recompute it.
+    """
+    def __init__(self, fn):
+        self.fn = fn
+        self.last_x = None
+        self.last_value = None
 
-    global validation_loss
-    validation_loss = [9999]
+    def __call__(self, x):
+        v = float(self.fn(x))
+        self.last_x = np.asarray(x).copy()
+        self.last_value = v
+        return v
 
-    global best_pars
-    best_pars = []
-    
-    global global_it
-    global local_it
-    global bh_it
-    global_it = {"k": 0}
-    local_it = {"k": 0}
-    bh_it = {"k": 1}
+    def get(self, x):
+        x = np.asarray(x)
+        if self.last_x is not None and x.shape == self.last_x.shape and np.array_equal(x, self.last_x):
+            return self.last_value
+        return float(self.fn(x))
 
-    training_QNN = partial(
-        qnn.train_QNN,
-        inputs_dataset=train_inputs,
-        outputs_dataset=train_outputs,
-        loss_function=loss_function,
+class _BasinhoppingState:
+    """
+    Tracks current and best histories across basinhopping restarts.
+    """
+    def __init__(self, init_pars):
+        self.global_it = 0
+        self.local_it = 0
+        self.bh_it = 1
+
+        self.current_train = []
+        self.current_valid = []
+
+        self.best_train = [np.inf]
+        self.best_valid = [np.inf]
+        self.best_pars = np.asarray(init_pars).copy()
+
+    def _metric(self, has_validation):
+        return self.current_valid[-1] if has_validation else self.current_train[-1]
+
+    def _best_metric(self, has_validation):
+        return self.best_valid[-1] if has_validation else self.best_train[-1]
+
+def callback_opt_general(xk, *, state, cost_cache, cost_validation=None, print_every=1):
+    """
+    Prints and stores the loss value for each SciPy optimizer epoch.
+
+    :param xk: QONN tunable parameters
+    :param state: _BasinhoppingState
+    :param cost_cache: _ObjectiveCache for training objective
+    :param cost_validation: validation objective (callable) or None
+    :param print_every: print frequency
+    """
+    train_loss = cost_cache.get(xk)
+    state.current_train.append(train_loss)
+
+    if cost_validation is not None:
+        val_loss = float(cost_validation(xk))
+    else:
+        val_loss = train_loss
+    state.current_valid.append(val_loss)
+
+    state.local_it += 1
+    state.global_it += 1
+
+    if (state.local_it % print_every) == 0:
+        msg = (
+            f"BH {state.bh_it:3d} | "
+            f"Epoch {state.local_it:4d} | "
+            f"Total epochs {state.global_it:5d} | "
+            f"Train loss {train_loss:.6e} | "
+            f"Validation loss {val_loss:.6e}"
+        )
+        print(msg, end="\r", flush=True)
+
+def callback_hopping_general(x, f, accept, *, state, qnn, has_validation=False, save_best=True):
+    """
+    Basinhopping callback: compares the last local-minimization metric with the best so far.
+    If improved, stores best params and histories and optionally saves the model.
+
+    :param x: Current parameters at the end of local minimization
+    :param f: Current training loss f(x) (as reported by basinhopping)
+    :param accept: Basinhopping accept flag
+    """
+    print()
+
+    if len(state.current_train) == 0:
+        print(f"Basinhopping iteration {state.bh_it}. Loss: {float(f):.6e}\n==========")
+        state.bh_it += 1
+        state.local_it = 0
+        return
+
+    current_metric = state._metric(has_validation)
+    best_metric = state._best_metric(has_validation)
+
+    if state.bh_it > 1:
+        print(f"Best loss so far: {best_metric:.6e}")
+    print(f"Basinhopping iteration {state.bh_it}. Loss: {float(f):.6e}\n==========")
+
+    if current_metric < best_metric:
+        state.best_pars = np.asarray(x).copy()
+        state.best_train = state.current_train.copy()
+        state.best_valid = state.current_valid.copy()
+
+        if save_best:
+            qnn.build_QNN(state.best_pars)
+            qnn.save_model_parameters(state.best_pars)
+            qnn.save_operator_matrices()
+            qnn.save_model()
+
+    state.bh_it += 1
+    state.local_it = 0
+    state.current_train = []
+    state.current_valid = []
+
+def _run_scipy_basinhopping(
+    *,
+    qnn,
+    init_pars,
+    bounds,
+    hopping_iters,
+    training_QNN,
+    validate_QNN=None,
+    save_best=True,
+    print_every=1,
+):
+    """
+    Runs SciPy basinhopping + L-BFGS-B with clean state tracking and non-verbose printing.
+    Returns (best_pars, best_train_history, best_valid_history, train_time).
+    """
+    state = _BasinhoppingState(init_pars)
+    cost_cache = _ObjectiveCache(training_QNN)
+
+    callback = partial(
+        callback_opt_general,
+        state=state,
+        cost_cache=cost_cache,
+        cost_validation=validate_QNN,
+        print_every=print_every,
     )
-
-    if valid_set is not None:
-        validate_QNN = partial(
-            qnn.train_QNN,
-            inputs_dataset=valid_inputs,
-            outputs_dataset=valid_outputs,
-            loss_function=loss_function,
-        )
-    else:
-        validate_QNN = None
-
-    # ---------------------------------------------------------------
-    # 5. Phase 1: Adam/AdamW warmup (pure JAX)
-    # ---------------------------------------------------------------
-    if adam_epochs > 0:
-        print("\n=== Phase 1: Adam/AdamW warmup (JAX) ===")
-
-        params = project(jnp.array(init_pars, dtype=jnp.float64))
-
-        # Choose Adam or AdamW
-        if adam_weight_decay != 0.0:
-            optimizer = optax.adamw(
-                learning_rate=adam_learning_rate,
-                weight_decay=adam_weight_decay,
-            )
-        else:
-            optimizer = optax.adam(learning_rate=adam_learning_rate)
-
-        opt_state = optimizer.init(params)
-
-        def loss_fn_jax(p):
-            p_proj = project(p)
-            return training_QNN(p_proj)
-
-        loss_and_grad = jax.value_and_grad(loss_fn_jax)
-
-        @jax.jit
-        def adam_step(p, state):
-            loss_val, grads = loss_and_grad(p)
-            updates, state = optimizer.update(grads, state, p)
-            p = optax.apply_updates(p, updates)
-            p = project(p)
-            return p, state, loss_val
-        
-        # Initial evaluation
-        adam_best_params = params
-        adam_best_loss = float(loss_fn_jax(params))
-
-        if validate_QNN is not None:
-            adam_best_val_loss = float(validate_QNN(np.array(adam_best_params)))
-        else:
-            adam_best_val_loss = adam_best_loss
-
-        print(
-            f"[Adam] Epoch 0/{adam_epochs} | "
-            f"train loss = {adam_best_loss:.6g} | "
-            f"val loss = {adam_best_val_loss:.6g}",
-            end="\r",
-            flush=True,
-        )
-        adam_start = time.time()
-
-        for epoch in range(1, adam_epochs + 1):
-            params, opt_state, loss_val = adam_step(params, opt_state)
-            train_loss = float(loss_val)
-
-            if validate_QNN is not None:
-                val_loss = float(validate_QNN(np.array(params)))
-            else:
-                val_loss = train_loss
-
-            print(
-                f"[Adam] Epoch {epoch}/{adam_epochs} | "
-                f"train loss = {train_loss:.6g} | "
-                f"val loss = {val_loss:.6g}",
-                end="\r",
-                flush=True,
-            )
-
-            if val_loss < adam_best_val_loss:
-                adam_best_val_loss = val_loss
-                adam_best_loss = train_loss
-                adam_best_params = params
-
-        adam_time = time.time() - adam_start
-        print(f"Adam warmup total time: {adam_time:.3f} s")
-        print(f"Adam warmup time per epoch: {adam_time / adam_epochs:.6f} s")
-        print(
-            f"Best Adam train loss = {adam_best_loss:.6g}, "
-            f"best Adam val loss = {adam_best_val_loss:.6g}"
-        )
-
-        init_pars = np.asarray(adam_best_params, dtype=np.float64)
-
-    else:
-        print("\n[INFO] Skipping Adam warmup (adam_epochs <= 0)")
-
-    # ---------------------------------------------------------------
-    # 6. Phase 2: Basinhopping with L-BFGS-B (SciPy)
-    # ---------------------------------------------------------------
-    callback = partial(callback_opt_general, cost_training=training_QNN, cost_validation=validate_QNN)
-    callback_hopping = partial(callback_hopping_general, qnn=qnn, has_validation=False if validate_QNN == None else True)
-    
-    training_start = time.time()
+    callback_hop = partial(
+        callback_hopping_general,
+        state=state,
+        qnn=qnn,
+        has_validation=(validate_QNN is not None),
+        save_best=save_best,
+    )
 
     minimizer_kwargs = {
         "method": "L-BFGS-B",
@@ -496,113 +301,547 @@ def hybrid_build_and_train_model(model_name, task_name, N, layers, n_inputs, n_o
         "callback": callback,
     }
 
-    print("\n=== Phase 2: Basinhopping with L-BFGS-B (SciPy) ===")
-    opt_result = opt.basinhopping(
-        training_QNN,
-        init_pars,
+    training_start = time.time()
+    _ = opt.basinhopping(
+        cost_cache,
+        np.asarray(init_pars, dtype=np.float64),
         niter=hopping_iters,
         minimizer_kwargs=minimizer_kwargs,
-        callback=callback_hopping,
+        callback=callback_hop,
+    )
+    train_time = time.time() - training_start
+    print()
+
+    # If never improved, fall back to the last local history if available
+    if np.isinf(state.best_train[-1]):
+        state.best_pars = np.asarray(init_pars, dtype=np.float64)
+        if len(state.current_train) > 0:
+            state.best_train = state.current_train
+            state.best_valid = state.current_valid
+        else:
+            state.best_train = [np.inf]
+            state.best_valid = [np.inf]
+
+    return state.best_pars, state.best_train, state.best_valid, train_time
+
+# ---------------------------------------------------------------
+# JAX training helpers (Adam/AdamW, Optax L-BFGS, simple GD)
+# ---------------------------------------------------------------
+def _run_adam_warmup(
+    *,
+    init_pars,
+    training_QNN,
+    validate_QNN=None,
+    project=None,
+    epochs=200,
+    learning_rate=1e-2,
+    weight_decay=0.0,
+    print_every=1,
+):
+    """
+    Pure-JAX Adam/AdamW warmup. Returns (best_params_np, train_hist, valid_hist, warmup_time).
+    """
+    if epochs <= 0:
+        return np.asarray(init_pars, dtype=np.float64), [], [], 0.0
+
+    params = jnp.asarray(init_pars, dtype=jnp.float64)
+    if project is not None:
+        params = project(params)
+
+    if weight_decay != 0.0:
+        optimizer = optax.adamw(learning_rate=learning_rate, weight_decay=weight_decay)
+    else:
+        optimizer = optax.adam(learning_rate=learning_rate)
+
+    opt_state = optimizer.init(params)
+
+    def loss_fn(p):
+        if project is not None:
+            p = project(p)
+        return training_QNN(p)
+
+    loss_and_grad = jax.value_and_grad(loss_fn)
+
+    @jax.jit
+    def step(p, s):
+        v, g = loss_and_grad(p)
+        upd, s = optimizer.update(g, s, p)
+        p = optax.apply_updates(p, upd)
+        if project is not None:
+            p = project(p)
+        return p, s, v
+
+    train_hist = []
+    valid_hist = []
+
+    best_params = params
+    best_train = float(loss_fn(params))
+    if validate_QNN is not None:
+        best_valid = float(validate_QNN(best_params))
+    else:
+        best_valid = best_train
+
+    train_hist.append(best_train)
+    valid_hist.append(best_valid)
+
+    print(
+        f"[Adam] Epoch {0}/{epochs} | train loss = {best_train:.6e} | val loss = {best_valid:.6e}",
+        end="\r",
+        flush=True,
+    )
+    t0 = time.time()
+
+    for ep in range(1, epochs + 1):
+        params, opt_state, loss_val = step(params, opt_state)
+        train_loss = float(loss_val)
+
+        if validate_QNN is not None:
+            val_loss = float(validate_QNN(params))
+        else:
+            val_loss = train_loss
+
+        train_hist.append(train_loss)
+        valid_hist.append(val_loss)
+
+        if (ep % print_every) == 0:
+            print(
+                f"[Adam] Epoch {ep}/{epochs} | train loss = {train_loss:.6e} | val loss = {val_loss:.6e}",
+                end="\r",
+                flush=True,
+            )
+
+        if val_loss < best_valid:
+            best_valid = val_loss
+            best_train = train_loss
+            best_params = params
+
+    warmup_time = time.time() - t0
+    print()
+
+    return np.asarray(best_params, dtype=np.float64), train_hist, valid_hist, warmup_time
+
+def _run_optax_lbfgs(
+    *,
+    init_pars,
+    loss_fn_jit,
+    val_loss_fn_jit=None,
+    project=None,
+    max_iter=200,
+    tol=1e-6,
+    print_every=1,
+):
+    """
+    Optax L-BFGS loop. Returns (best_params_np, train_hist, valid_hist, train_time).
+    """
+    params = jnp.asarray(init_pars, dtype=jnp.float64)
+    if project is not None:
+        params = project(params)
+
+    opt_lbfgs = optax.lbfgs()
+    opt_state = opt_lbfgs.init(params)
+
+    value_and_grad = optax.value_and_grad_from_state(loss_fn_jit)
+
+    train_hist = []
+    valid_hist = []
+
+    # Initial evaluation
+    train0 = float(loss_fn_jit(params))
+    if val_loss_fn_jit is not None:
+        valid0 = float(val_loss_fn_jit(params))
+    else:
+        valid0 = train0
+
+    train_hist.append(train0)
+    valid_hist.append(valid0)
+
+    best_params = params
+    best_valid = valid0
+
+    t0 = time.time()
+    for it in range(1, max_iter + 1):
+        value, grad = value_and_grad(params, state=opt_state)
+
+        updates, opt_state = opt_lbfgs.update(
+            grad,
+            opt_state,
+            params,
+            value=value,
+            grad=grad,
+            value_fn=loss_fn_jit,
+        )
+        params = optax.apply_updates(params, updates)
+        if project is not None:
+            params = project(params)
+
+        train_loss = float(value)
+        if val_loss_fn_jit is not None:
+            val_loss = float(val_loss_fn_jit(params))
+        else:
+            val_loss = train_loss
+
+        train_hist.append(train_loss)
+        valid_hist.append(val_loss)
+
+        if (it % print_every) == 0:
+            print(
+                f"[L-BFGS] Epoch {it}/{max_iter} | train loss = {train_loss:.6e} | val loss = {val_loss:.6e}",
+                end="\r",
+                flush=True,
+            )
+
+        if val_loss < best_valid:
+            best_valid = val_loss
+            best_params = params
+
+        grad_norm = float(jnp.linalg.norm(grad))
+        if grad_norm < tol:
+            print()
+            print(f"[L-BFGS] Early stopping at iter {it}, ||grad|| = {grad_norm:.3e}")
+            break
+
+    train_time = time.time() - t0
+    print()
+
+    return np.asarray(best_params, dtype=np.float64), train_hist, valid_hist, train_time
+
+# ---------------------------------------------------------------
+# Trainer 1 (Recommended): SciPy basinhopping (L-BFGS-B) with JAX-wrapped model evaluation
+# ---------------------------------------------------------------
+def train_scipy(
+    model_name, task_name,
+    N, layers, n_inputs, n_outputs,
+    ladder_modes, is_addition, observable,
+    include_initial_squeezing, include_initial_mixing, is_passive_gaussian,
+    train_set, valid_set,
+    loss_function=mse, hopping_iters=2,
+    in_preprocs=None, out_prepocs=None, postprocs=None,
+    init_pars=None, save=True,
+    print_every=1,
+    save_best_each_basin=True,
+):
+    """
+    Creates and trains a QNN model using SciPy L-BFGS-B + basinhopping.
+    """
+
+    # ---------------------------------------------------------------
+    # 1. Number of parameters and bounds
+    # ---------------------------------------------------------------
+    assert layers == len(ladder_modes)
+
+    n_pars = _compute_num_parameters(
+        N, layers,
+        include_initial_squeezing, include_initial_mixing, is_passive_gaussian,
+    )
+    bounds = _build_bounds(N, layers, include_initial_squeezing, include_initial_mixing, is_passive_gaussian)
+    assert len(bounds) == n_pars, f"Number of bounds {len(bounds)} does not match number of parameters {n_pars}."
+
+    init_pars = _init_parameters(n_pars, init_pars=init_pars)
+
+    # ---------------------------------------------------------------
+    # 2. Build QNN and preprocess datasets
+    # ---------------------------------------------------------------
+    qnn, train_inputs, train_outputs, valid_inputs, valid_outputs = _build_qnn_and_preprocess_datasets(
+        model_name=model_name,
+        task_name=task_name,
+        N=N,
+        layers=layers,
+        n_inputs=n_inputs,
+        n_outputs=n_outputs,
+        ladder_modes=ladder_modes,
+        is_addition=is_addition,
+        observable=observable,
+        include_initial_squeezing=include_initial_squeezing,
+        include_initial_mixing=include_initial_mixing,
+        is_passive_gaussian=is_passive_gaussian,
+        train_set=train_set,
+        valid_set=valid_set,
+        init_pars=init_pars,
+        in_preprocs=in_preprocs,
+        out_prepocs=out_prepocs,
+        postprocs=postprocs,
     )
 
-    train_time = time.time() - training_start
-    print(f"Total training time: {train_time} seconds")
-    print(f"Time per epoch: {train_time / (len(best_loss_values) - 1)} seconds")
+    # ---------------------------------------------------------------
+    # 3. Define training/validation objectives
+    # ---------------------------------------------------------------
+    train_inputs_jax = jnp.asarray(train_inputs)
+    train_outputs_jax = jnp.asarray(train_outputs)
 
-    if is_addition:
-        nongauss_op = "â†"
+    training_QNN = partial(
+        qnn.train_QNN,
+        inputs_dataset=train_inputs_jax,
+        outputs_dataset=train_outputs_jax,
+        loss_function=loss_function,
+    )
+
+    if valid_inputs is not None:
+        valid_inputs_jax = jnp.asarray(valid_inputs)
+        valid_outputs_jax = jnp.asarray(valid_outputs)
+
+        validate_QNN = partial(
+            qnn.train_QNN,
+            inputs_dataset=valid_inputs_jax,
+            outputs_dataset=valid_outputs_jax,
+            loss_function=loss_function,
+        )
     else:
-        nongauss_op = "â"
+        validate_QNN = None
+
+    # SciPy expects numpy params, but we keep dtype stable by converting inside
+    def training_cost(x):
+        return float(training_QNN(jnp.asarray(x, dtype=jnp.float64)))
+
+    if validate_QNN is not None:
+        def validation_cost(x):
+            return float(validate_QNN(jnp.asarray(x, dtype=jnp.float64)))
+    else:
+        validation_cost = None
+
+    # ---------------------------------------------------------------
+    # 4. Basinhopping training
+    # ---------------------------------------------------------------
+    best_pars, best_train, best_valid, train_time = _run_scipy_basinhopping(
+        qnn=qnn,
+        init_pars=init_pars,
+        bounds=bounds,
+        hopping_iters=hopping_iters,
+        training_QNN=training_cost,
+        validate_QNN=validation_cost,
+        save_best=(save and save_best_each_basin),
+        print_every=print_every,
+    )
+
+    n_epochs = max(1, len(best_train))
+    print(f"Total training time: {train_time:.3f} seconds")
+    print(f"Time per epoch: {train_time / n_epochs:.6f} seconds")
 
     print(
         f"\nOPTIMIZATION ERROR FOR N={N}, L={layers}, "
-        f"{nongauss_op} modes={np.array(ladder_modes[0]) + 1}\n"
-        f"{best_loss_values[-1]}"
+        f"{_nongauss_symbol(is_addition)} modes={np.array(ladder_modes[0]) + 1}\n"
+        f"{best_valid[-1] if valid_set is not None else best_train[-1]}"
     )
 
-    # Build final QNN with best Basinhopping parameters
-    qnn.build_QNN(best_pars)
-    qnn.print_qnn()
+    # ---------------------------------------------------------------
+    # 5. Build final QNN with best parameters
+    # ---------------------------------------------------------------
+    _finalize_model(qnn, best_pars, save=save)
 
-    if save:
-        qnn.save_model()
+    return qnn, best_train, best_valid
 
-    if best_loss_values[0] == 9999:
-        best_loss_values = best_loss_values[1:]
-        best_validation_loss = best_validation_loss[1:]
-
-    return qnn, best_loss_values, best_validation_loss
-
-def jax_gd_build_and_train_model(model_name, task_name, N, layers, n_inputs, n_outputs, ladder_modes, is_addition, observable,
-                                 include_initial_squeezing, include_initial_mixing, is_passive_gaussian, 
-                                 train_set, valid_set, loss_function=mse, hopping_iters=200,
-                                 in_preprocs=[], out_prepocs=[], postprocs=[], init_pars=None, save=True, learning_rate=5e-3):
+# ---------------------------------------------------------------
+# Trainer 2 (Recommended): Hybrid (Pure JAX Adam warmup + SciPy basinhopping with JAX-wrapped model evaluation)
+# ---------------------------------------------------------------
+def train_hybrid_adamjax_scipy(
+    model_name, task_name,
+    N, layers, n_inputs, n_outputs,
+    ladder_modes, is_addition, observable,
+    include_initial_squeezing, include_initial_mixing, is_passive_gaussian,
+    train_set, valid_set,
+    loss_function=mse, hopping_iters=2,
+    in_preprocs=None, out_prepocs=None, postprocs=None,
+    init_pars=None, save=True,
+    adam_epochs=200, adam_learning_rate=1e-2, adam_weight_decay=0.0,
+    print_every=1,
+    save_best_each_basin=True,
+):
     """
-    Creates and trains a QNN model with the given hyperparameters and dataset
-    by optimizing the tunable parameters of the QNN using pure JAX
-    (gradient descent) instead of SciPy.
+    Hybrid training: Adam/AdamW warmup (pure JAX) then SciPy L-BFGS-B + basinhopping.
+    """
 
-    hopping_iters: number of epochs
-    learning_rate: step size for gradient descent
+    # ---------------------------------------------------------------
+    # 1. Number of parameters and bounds
+    # ---------------------------------------------------------------
+    assert layers == len(ladder_modes)
+
+    n_pars = _compute_num_parameters(
+        N, layers,
+        include_initial_squeezing, include_initial_mixing, is_passive_gaussian,
+    )
+    bounds = _build_bounds(N, layers, include_initial_squeezing, include_initial_mixing, is_passive_gaussian)
+    assert len(bounds) == n_pars, f"Number of bounds {len(bounds)} does not match number of parameters {n_pars}."
+
+    init_pars = _init_parameters(n_pars, init_pars=init_pars)
+
+    project, _, _ = _build_projector(bounds, dtype=jnp.float64)
+
+    # ---------------------------------------------------------------
+    # 2. Build QNN and preprocess datasets
+    # ---------------------------------------------------------------
+    qnn, train_inputs, train_outputs, valid_inputs, valid_outputs = _build_qnn_and_preprocess_datasets(
+        model_name=model_name,
+        task_name=task_name,
+        N=N,
+        layers=layers,
+        n_inputs=n_inputs,
+        n_outputs=n_outputs,
+        ladder_modes=ladder_modes,
+        is_addition=is_addition,
+        observable=observable,
+        include_initial_squeezing=include_initial_squeezing,
+        include_initial_mixing=include_initial_mixing,
+        is_passive_gaussian=is_passive_gaussian,
+        train_set=train_set,
+        valid_set=valid_set,
+        init_pars=init_pars,
+        in_preprocs=in_preprocs,
+        out_prepocs=out_prepocs,
+        postprocs=postprocs,
+    )
+
+    # ---------------------------------------------------------------
+    # 3. Define training/validation objectives (JAX)
+    # ---------------------------------------------------------------
+    train_inputs_jax = jnp.asarray(train_inputs)
+    train_outputs_jax = jnp.asarray(train_outputs)
+
+    training_QNN = partial(
+        qnn.train_QNN,
+        inputs_dataset=train_inputs_jax,
+        outputs_dataset=train_outputs_jax,
+        loss_function=loss_function,
+    )
+
+    if valid_inputs is not None:
+        valid_inputs_jax = jnp.asarray(valid_inputs)
+        valid_outputs_jax = jnp.asarray(valid_outputs)
+
+        validate_QNN = partial(
+            qnn.train_QNN,
+            inputs_dataset=valid_inputs_jax,
+            outputs_dataset=valid_outputs_jax,
+            loss_function=loss_function,
+        )
+    else:
+        validate_QNN = None
+
+    # ---------------------------------------------------------------
+    # 4. Phase 1: Adam/AdamW warmup
+    # ---------------------------------------------------------------
+    if adam_epochs > 0:
+        print("\n=== Phase 1: Adam/AdamW warmup (JAX) ===")
+        init_pars, _, _, adam_time = _run_adam_warmup(
+            init_pars=init_pars,
+            training_QNN=training_QNN,
+            validate_QNN=validate_QNN,
+            project=project,
+            epochs=adam_epochs,
+            learning_rate=adam_learning_rate,
+            weight_decay=adam_weight_decay,
+            print_every=max(1, print_every),
+        )
+        print(f"Adam warmup total time: {adam_time:.3f} s")
+    else:
+        print("\n[INFO] Skipping Adam warmup (adam_epochs <= 0)")
+
+    # ---------------------------------------------------------------
+    # 5. Phase 2: SciPy basinhopping + L-BFGS-B
+    # ---------------------------------------------------------------
+    def training_cost(x):
+        return float(training_QNN(project(jnp.asarray(x, dtype=jnp.float64))))
+
+    if validate_QNN is not None:
+        def validation_cost(x):
+            return float(validate_QNN(project(jnp.asarray(x, dtype=jnp.float64))))
+    else:
+        validation_cost = None
+
+    print("\n=== Phase 2: Basinhopping with L-BFGS-B (SciPy) ===")
+    best_pars, best_train, best_valid, train_time = _run_scipy_basinhopping(
+        qnn=qnn,
+        init_pars=init_pars,
+        bounds=bounds,
+        hopping_iters=hopping_iters,
+        training_QNN=training_cost,
+        validate_QNN=validation_cost,
+        save_best=(save and save_best_each_basin),
+        print_every=print_every,
+    )
+
+    n_epochs = max(1, len(best_train))
+    print(f"Total training time: {train_time:.3f} seconds")
+    print(f"Time per epoch: {train_time / n_epochs:.6f} seconds")
+
+    print(
+        f"\nOPTIMIZATION ERROR FOR N={N}, L={layers}, "
+        f"{_nongauss_symbol(is_addition)} modes={np.array(ladder_modes[0]) + 1}\n"
+        f"{best_valid[-1] if valid_set is not None else best_train[-1]}"
+    )
+
+    # ---------------------------------------------------------------
+    # 6. Build final QNN with best parameters
+    # ---------------------------------------------------------------
+    _finalize_model(qnn, best_pars, save=save)
+
+    return qnn, best_train, best_valid
+
+# ---------------------------------------------------------------
+# Trainer 3: Pure JAX (gradient descent)
+# ---------------------------------------------------------------
+def train_gdjax(
+    model_name, task_name,
+    N, layers, n_inputs, n_outputs,
+    ladder_modes, is_addition, observable,
+    include_initial_squeezing, include_initial_mixing, is_passive_gaussian,
+    train_set, valid_set,
+    loss_function=mse, hopping_iters=200,
+    in_preprocs=None, out_prepocs=None, postprocs=None,
+    init_pars=None, save=True,
+    learning_rate=5e-3,
+    print_every=1,
+):
+    """
+    Creates and trains a QNN using pure JAX gradient descent.
+    hopping_iters: number of epochs.
     """
     assert layers == len(ladder_modes)
 
-    # =========================
-    # 1. Number of tunable parameters
-    # =========================
-    n_pars = layers * (2 * N**2 + 3 * N)
-    if include_initial_squeezing:
-        n_pars += N
-    if include_initial_mixing:
-        n_pars += N**2
-    if is_passive_gaussian:
-        n_pars -= layers * (N**2 + N)
+    # ---------------------------------------------------------------
+    # 1. Number of parameters and initialization
+    # ---------------------------------------------------------------
+    n_pars = _compute_num_parameters(
+        N, layers,
+        include_initial_squeezing, include_initial_mixing, is_passive_gaussian,
+    )
+    init_pars = _init_parameters(n_pars, init_pars=init_pars)
 
-    if init_pars is None:
-        init_pars = np.random.rand(n_pars)
-    else:
-        assert len(init_pars) == n_pars
-
-    # =========================
-    # 2. Create QNN and preprocess dataset
-    # =========================
-    qnn = QNN(model_name, task_name, N, layers, n_inputs, n_outputs, ladder_modes, is_addition, observable,
-        include_initial_squeezing, include_initial_mixing, is_passive_gaussian, init_pars,
-        in_preprocs, out_prepocs, postprocs
+    # ---------------------------------------------------------------
+    # 2. Build QNN and preprocess datasets
+    # ---------------------------------------------------------------
+    qnn, train_inputs, train_outputs, valid_inputs, valid_outputs = _build_qnn_and_preprocess_datasets(
+        model_name=model_name,
+        task_name=task_name,
+        N=N,
+        layers=layers,
+        n_inputs=n_inputs,
+        n_outputs=n_outputs,
+        ladder_modes=ladder_modes,
+        is_addition=is_addition,
+        observable=observable,
+        include_initial_squeezing=include_initial_squeezing,
+        include_initial_mixing=include_initial_mixing,
+        is_passive_gaussian=is_passive_gaussian,
+        train_set=train_set,
+        valid_set=valid_set,
+        init_pars=init_pars,
+        in_preprocs=in_preprocs,
+        out_prepocs=out_prepocs,
+        postprocs=postprocs,
     )
 
-    train_inputs = reduce(lambda x, func: func(x), qnn.in_preprocessors, train_set[0])
-    train_outputs = reduce(lambda x, func: func(x), qnn.out_preprocessors, train_set[1])
-
-    if valid_set is not None:
-        valid_inputs = reduce(lambda x, func: func(x), qnn.in_preprocessors, valid_set[0])
-        valid_outputs = reduce(lambda x, func: func(x), qnn.out_preprocessors, valid_set[1])
-    else:
-        valid_inputs = None
-        valid_outputs = None
-
-    train_inputs = jax.device_put(jnp.array(train_inputs))
-    train_outputs = jax.device_put(jnp.array(train_outputs))
+    train_inputs = jnp.asarray(train_inputs)
+    train_outputs = jnp.asarray(train_outputs)
 
     if valid_inputs is not None:
-        valid_inputs = jax.device_put(jnp.array(valid_inputs))
-        valid_outputs = jax.device_put(jnp.array(valid_outputs))
+        valid_inputs = jnp.asarray(valid_inputs)
+        valid_outputs = jnp.asarray(valid_outputs)
 
-    # =========================
-    # 3. Initialize JAX parameters
-    # =========================
-    params = jax.device_put(jnp.array(init_pars))
+    # ---------------------------------------------------------------
+    # 3. Define loss function and gradient
+    # ---------------------------------------------------------------
+    params = jnp.asarray(init_pars, dtype=jnp.float64)
 
-    # =========================
-    # 4. Define loss and gradient functions purely in JAX
-    # =========================
-    def full_loss_fn(p):
-        """
-        Full-JAX loss function
-        :param p: QNN tunable parameters
-        :return: Loss value
-        devuelve: escalar jnp (loss sobre todo el train_set)
-        """
+    def loss_fn(p):
         return qnn.train_QNN(
             p,
             inputs_dataset=train_inputs,
@@ -610,29 +849,23 @@ def jax_gd_build_and_train_model(model_name, task_name, N, layers, n_inputs, n_o
             loss_function=loss_function,
         )
 
-    # value_and_grad with respect to parameters
-    loss_and_grad = jax.jit(jax.value_and_grad(full_loss_fn))
+    loss_and_grad = jax.jit(jax.value_and_grad(loss_fn))
 
-    # =========================
-    # 5. Training (pure JAX + Python loop)
-    # =========================
-    loss_values = []
-    validation_loss = []
-    best_loss = jnp.inf
-    best_pars = params
+    # ---------------------------------------------------------------
+    # 4. Training loop
+    # ---------------------------------------------------------------
+    train_hist = []
+    valid_hist = []
 
-    training_start = time.time()
+    best_params = params
+    best_valid = np.inf
 
-    for epoch in range(hopping_iters):
-        # 5.1. Forward + backward
-        loss, grads = loss_and_grad(params)
-
-        loss_values.append(float(loss))
-
-        # 5.2. Update parameters (simple GD)
+    t0 = time.time()
+    for epoch in range(1, hopping_iters + 1):
+        loss_val, grads = loss_and_grad(params)
         params = params - learning_rate * grads
 
-        # 5.3. Validation (if any)
+        train_loss = float(loss_val)
         if valid_inputs is not None:
             val_loss = float(
                 qnn.train_QNN(
@@ -643,155 +876,104 @@ def jax_gd_build_and_train_model(model_name, task_name, N, layers, n_inputs, n_o
                 )
             )
         else:
-            val_loss = float(loss)
+            val_loss = train_loss
 
-        validation_loss.append(val_loss)
+        train_hist.append(train_loss)
+        valid_hist.append(val_loss)
 
-        # 5.4. Save best parameters
-        if val_loss < best_loss:
-            best_loss = val_loss
-            best_pars = params
+        if val_loss < best_valid:
+            best_valid = val_loss
+            best_params = params
 
-        print(
-            f"Epoch {epoch+1}/{hopping_iters} "
-            f" | train loss = {float(loss):.6g}"
-            f" | val loss = {val_loss:.6g}"
-        )
+        if (epoch % print_every) == 0:
+            print(
+                f"[GD] Epoch {epoch}/{hopping_iters} | train loss = {train_loss:.6e} | val loss = {val_loss:.6e}",
+                end="\r",
+                flush=True,
+            )
 
-    train_time = time.time() - training_start
+    train_time = time.time() - t0
+    print()
     print(f"Total training time: {train_time:.3f} seconds")
-    print(f"Time per epoch: {train_time / hopping_iters:.3f} seconds")
-
-    # =========================
-    # 6. Build final QNN with best parameters
-    # =========================
-    if is_addition:
-        nongauss_op = "â†"
-    else:
-        nongauss_op = "â"
-
+    print(f"Time per epoch: {train_time / max(1, hopping_iters):.6f} seconds")
     print(
-        f"\nFINAL ERROR FOR N={N}, L={layers}, {nongauss_op} "
-        f"modes={np.array(ladder_modes[0]) + 1}\n{best_loss}"
+        f"\nFINAL ERROR FOR N={N}, L={layers}, "
+        f"{_nongauss_symbol(is_addition)} modes={np.array(ladder_modes[0]) + 1}\n"
+        f"{best_valid}"
     )
 
-    # Construye la QNN con los mejores parámetros encontrados
-    qnn.build_QNN(best_pars)
-    qnn.tunable_parameters = best_pars
-    qnn.print_qnn()
+    _finalize_model(qnn, np.asarray(best_params), save=save)
 
-    if save:
-        qnn.save_model()
+    return qnn, train_hist, valid_hist
 
-    return qnn, loss_values, validation_loss
-
-
-def optax_build_and_train_model(model_name, task_name, N, layers, n_inputs, n_outputs, ladder_modes, is_addition, observable,
-                                include_initial_squeezing, include_initial_mixing, is_passive_gaussian,
-                                train_set, valid_set, loss_function=mse, hopping_iters=200,
-                                in_preprocs=[], out_prepocs=[], postprocs=[], init_pars=None, save=True):
+# ---------------------------------------------------------------
+# Trainer 4: Optax L-BFGS (pure JAX) - TODO: Fix excessive slow optimization
+# ---------------------------------------------------------------
+def train_optax_lbfgs(
+    model_name, task_name,
+    N, layers, n_inputs, n_outputs,
+    ladder_modes, is_addition, observable,
+    include_initial_squeezing, include_initial_mixing, is_passive_gaussian,
+    train_set, valid_set,
+    loss_function=mse, hopping_iters=200,
+    in_preprocs=None, out_prepocs=None, postprocs=None,
+    init_pars=None, save=True,
+    tol=1e-6,
+    print_every=1,
+):
     """
-    Creates and trains a QNN model with the given hyperparameters and dataset by
-    optimizing the tunable parameters of the QNN using Optax L-BFGS.
+    Creates and trains a QNN using Optax L-BFGS.
     """
     assert layers == len(ladder_modes)
 
-    # ----------------------------------------------------------------------
-    # 1. Number of parameters and bounds
-    # ----------------------------------------------------------------------
-    n_pars = layers * (2 * N**2 + 3 * N)
-    if include_initial_squeezing:
-        n_pars += N
-    if include_initial_mixing:
-        n_pars += N**2
-    if is_passive_gaussian:
-        n_pars -= layers * (N**2 + N)
-
-    if init_pars is None:
-        init_pars = np.random.rand(n_pars).astype(np.float64)
-    else:
-        init_pars = np.asarray(init_pars, dtype=np.float64)
-        assert init_pars.shape == (n_pars,)
-
-    # Bounds like L-BFGS-B from SciPy
-    passive_bounds = (None, None)
-    init_sqz_bounds = (-np.log(5.5), np.log(5.5))  # Initial squeezing
-    sqz_bounds = (-np.log(5.5), np.log(5.5))       # Layer squeezing
-    disp_bounds = (None, None)
-
-    bounds = []
-    # Initial squeezing
-    if include_initial_squeezing:
-        bounds += [init_sqz_bounds for _ in range(N)]
-    # Initial mixing
-    if include_initial_mixing:
-        bounds += [passive_bounds for _ in range(N**2)]
-
-    # Layer-by-layer
-    for _ in range(layers):
-        if is_passive_gaussian:
-            # Passive optics bounds for Q1
-            bounds += [passive_bounds for _ in range(N**2)]
-            # Displacement
-            bounds += [disp_bounds for _ in range(2 * N)]
-        else:
-            # Passive optics bounds for Q1, Q2
-            bounds += [passive_bounds for _ in range(2 * N**2)]
-            # Squeezing
-            bounds += [sqz_bounds for _ in range(N)]
-            # Displacement
-            bounds += [disp_bounds for _ in range(2 * N)]
-
-    assert len(bounds) == n_pars, (
-        f"Number of bounds {len(bounds)} does not match number of parameters {n_pars}."
+    # ---------------------------------------------------------------
+    # 1. Number of parameters and bounds (+ projector)
+    # ---------------------------------------------------------------
+    n_pars = _compute_num_parameters(
+        N, layers,
+        include_initial_squeezing, include_initial_mixing, is_passive_gaussian,
     )
+    bounds = _build_bounds(N, layers, include_initial_squeezing, include_initial_mixing, is_passive_gaussian)
+    assert len(bounds) == n_pars, f"Number of bounds {len(bounds)} does not match number of parameters {n_pars}."
 
-    # Set up bounds in JAX arrays for projection
-    lb = jnp.array(
-        [b[0] if b[0] is not None else -jnp.inf for b in bounds],
-        dtype=jnp.float64,
+    init_pars = _init_parameters(n_pars, init_pars=init_pars, dtype=np.float64)
+
+    project, _, _ = _build_projector(bounds, dtype=jnp.float64)
+
+    # ---------------------------------------------------------------
+    # 2. Build QNN and preprocess datasets
+    # ---------------------------------------------------------------
+    qnn, train_inputs, train_outputs, valid_inputs, valid_outputs = _build_qnn_and_preprocess_datasets(
+        model_name=model_name,
+        task_name=task_name,
+        N=N,
+        layers=layers,
+        n_inputs=n_inputs,
+        n_outputs=n_outputs,
+        ladder_modes=ladder_modes,
+        is_addition=is_addition,
+        observable=observable,
+        include_initial_squeezing=include_initial_squeezing,
+        include_initial_mixing=include_initial_mixing,
+        is_passive_gaussian=is_passive_gaussian,
+        train_set=train_set,
+        valid_set=valid_set,
+        init_pars=init_pars,
+        in_preprocs=in_preprocs,
+        out_prepocs=out_prepocs,
+        postprocs=postprocs,
     )
-    ub = jnp.array(
-        [b[1] if b[1] is not None else jnp.inf for b in bounds],
-        dtype=jnp.float64,
-    )
-
-    def project(params):
-        """
-        Projects parameters into the bounds (like L-BFGS-B in SciPy).
-        :param params: QNN tunable parameters
-        :return: Projected parameters
-        """
-        return jnp.clip(params, lb, ub)
-
-    # ----------------------------------------------------------------------
-    # 2. Create QNN and preprocess dataset
-    # ----------------------------------------------------------------------
-    qnn = QNN(model_name, task_name, N, layers, n_inputs, n_outputs, ladder_modes, is_addition, observable,
-        include_initial_squeezing, include_initial_mixing, is_passive_gaussian, init_pars,
-        in_preprocs, out_prepocs, postprocs,
-    )
-
-    train_inputs = reduce(lambda x, func: func(x), qnn.in_preprocessors, train_set[0])
-    train_outputs = reduce(lambda x, func: func(x), qnn.out_preprocessors, train_set[1])
-
-    if valid_set is not None:
-        valid_inputs = reduce(lambda x, func: func(x), qnn.in_preprocessors, valid_set[0])
-        valid_outputs = reduce(lambda x, func: func(x), qnn.out_preprocessors, valid_set[1])
-    else:
-        valid_inputs = None
-        valid_outputs = None
 
     train_inputs = jnp.asarray(train_inputs)
     train_outputs = jnp.asarray(train_outputs)
+
     if valid_inputs is not None:
         valid_inputs = jnp.asarray(valid_inputs)
         valid_outputs = jnp.asarray(valid_outputs)
 
-    # ----------------------------------------------------------------------
-    # 3. Loss functions (JAX) with projected parameters
-    # ----------------------------------------------------------------------
-
+    # ---------------------------------------------------------------
+    # 3. Define loss functions
+    # ---------------------------------------------------------------
     training_QNN = partial(
         qnn.train_QNN,
         inputs_dataset=train_inputs,
@@ -810,227 +992,110 @@ def optax_build_and_train_model(model_name, task_name, N, layers, n_inputs, n_ou
         validate_QNN = None
 
     def loss_fn(params):
-        """Loss over the training dataset (JAX, differentiable).
-        :param params: QNN tunable parameters
-        :return: Loss value
-        """
-        params_proj = project(params)
-        return training_QNN(params_proj)
+        return training_QNN(project(params))
 
     loss_fn_jit = jax.jit(loss_fn)
 
     if validate_QNN is not None:
         def val_loss_fn(params):
-            params_proj = project(params)
-            return validate_QNN(params_proj)
-
+            return validate_QNN(project(params))
         val_loss_fn_jit = jax.jit(val_loss_fn)
     else:
         val_loss_fn_jit = None
 
-    # ----------------------------------------------------------------------
-    # 4. L-BFGS training loop (Optax)
-    # ----------------------------------------------------------------------
-    params = jnp.asarray(init_pars, dtype=jnp.float64)
-    params = project(params)
-
-    opt = optax.lbfgs()
-    opt_state = opt.init(params)
-
-    value_and_grad = optax.value_and_grad_from_state(loss_fn_jit)
-
-    max_iter = hopping_iters
-    tol = 1e-6
-
-    loss_values = []
-    validation_loss = []
-
-    # Initial evaluation
-    train_loss_0 = float(loss_fn_jit(params))
-    if val_loss_fn_jit is not None:
-        valid_loss_0 = float(val_loss_fn_jit(params))
-    else:
-        valid_loss_0 = train_loss_0
-
-    loss_values.append(train_loss_0)
-    validation_loss.append(valid_loss_0)
-
-    best_params = params
-    best_train_loss = train_loss_0
-    best_valid_loss = valid_loss_0
-
-    training_start = time.time()
-
-    for i in range(max_iter):
-        value, grad = value_and_grad(params, state=opt_state)
-
-        updates, opt_state = opt.update(
-            grad,
-            opt_state,
-            params,
-            value=value,
-            grad=grad,
-            value_fn=loss_fn_jit,
-        )
-        params = optax.apply_updates(params, updates)
-        params = project(params)
-
-        train_loss_i = float(value)
-        loss_values.append(train_loss_i)
-
-        if val_loss_fn_jit is not None:
-            valid_loss_i = float(val_loss_fn_jit(params))
-        else:
-            valid_loss_i = train_loss_i
-
-        validation_loss.append(valid_loss_i)
-
-        print(
-            f"Epoch {i+1}/{max_iter} "
-            f" | train loss = {float(train_loss_i):.6g}"
-            f" | val loss = {valid_loss_i:.6g}"
-        )
-        if valid_loss_i < best_valid_loss:
-            best_valid_loss = valid_loss_i
-            best_train_loss = train_loss_i
-            best_params = params
-
-        grad_norm = float(jnp.linalg.norm(grad))
-        if grad_norm < tol:
-            print(f"Early stopping at iter {i+1}, ||grad|| = {grad_norm:.3e}")
-            break
-
-    train_time = time.time() - training_start
-    n_epochs = max(1, len(loss_values) - 1)
-    print(f"Total training time: {train_time:.3f} seconds")
-    print(f"Time per epoch: {train_time / n_epochs:.6f} seconds")
-
-    if is_addition:
-        nongauss_op = "â†"
-    else:
-        nongauss_op = "â"
-    print(
-        f"\nOPTIMIZATION ERROR FOR N={N}, L={layers}, "
-        f"{nongauss_op} modes={np.array(ladder_modes[0]) + 1}\n"
-        f"{best_train_loss}"
+    # ---------------------------------------------------------------
+    # 4. Optax L-BFGS loop
+    # ---------------------------------------------------------------
+    best_params, train_hist, valid_hist, train_time = _run_optax_lbfgs(
+        init_pars=init_pars,
+        loss_fn_jit=loss_fn_jit,
+        val_loss_fn_jit=val_loss_fn_jit,
+        project=project,
+        max_iter=hopping_iters,
+        tol=tol,
+        print_every=print_every,
     )
 
-    # ----------------------------------------------------------------------
-    # 5. Build final QNN with best parameters
-    # ----------------------------------------------------------------------
-    qnn.build_QNN(np.asarray(best_params, dtype=np.float64))
-    qnn.print_qnn()
+    print(f"Total training time: {train_time:.3f} seconds")
+    print(f"Time per epoch: {train_time / max(1, len(train_hist)):.6f} seconds")
+    print(
+        f"\nOPTIMIZATION ERROR FOR N={N}, L={layers}, "
+        f"{_nongauss_symbol(is_addition)} modes={np.array(ladder_modes[0]) + 1}\n"
+        f"{valid_hist[-1]}"
+    )
 
-    if save:
-        qnn.save_model()
+    _finalize_model(qnn, best_params, save=save)
 
-    return qnn, loss_values, validation_loss
+    return qnn, train_hist, valid_hist
 
-
-def adam_build_and_train_model(model_name, task_name, N, layers, n_inputs, n_outputs, ladder_modes, is_addition, observable,
-                               include_initial_squeezing, include_initial_mixing, is_passive_gaussian,
-                               train_set, valid_set, loss_function=mse, hopping_iters=200, 
-                               in_preprocs=[], out_prepocs=[], postprocs=[], init_pars=None, save=True,
-                               learning_rate=1e-2, weight_decay=0.0):
+# ---------------------------------------------------------------
+# Trainer 5: Adam/AdamW (pure JAX) - TODO: Check loss jumps and final performance, maybe add learning rate decay or early stopping
+# ---------------------------------------------------------------
+def train_adamjax(
+    model_name, task_name,
+    N, layers, n_inputs, n_outputs,
+    ladder_modes, is_addition, observable,
+    include_initial_squeezing, include_initial_mixing, is_passive_gaussian,
+    train_set, valid_set,
+    loss_function=mse, hopping_iters=200,
+    in_preprocs=None, out_prepocs=None, postprocs=None,
+    init_pars=None, save=True,
+    learning_rate=1e-2,
+    weight_decay=0.0,
+    print_every=1,
+):
     """
-    Creates and trains a QNN model with the given hyperparameters and dataset
-    by optimizing the tunable parameters of the QNN using a pure-JAX optimizer
-    (Adam/AdamW via Optax).
+    Creates and trains a QNN using pure-JAX Adam/AdamW.
     """
     assert layers == len(ladder_modes)
 
-    # ------------------------------------------------------------------
-    # 1. Number of parameters and bounds
-    # ------------------------------------------------------------------
-    n_pars = layers * (2 * N**2 + 3 * N)
-    if include_initial_squeezing:
-        n_pars += N
-    if include_initial_mixing:
-        n_pars += N**2
-    if is_passive_gaussian:
-        n_pars -= layers * (N**2 + N)
+    # ---------------------------------------------------------------
+    # 1. Number of parameters and bounds (+ projector)
+    # ---------------------------------------------------------------
+    n_pars = _compute_num_parameters(
+        N, layers,
+        include_initial_squeezing, include_initial_mixing, is_passive_gaussian,
+    )
+    bounds = _build_bounds(N, layers, include_initial_squeezing, include_initial_mixing, is_passive_gaussian)
+    assert len(bounds) == n_pars, f"Number of bounds {len(bounds)} does not match number of parameters {n_pars}."
 
-    if init_pars is None:
-        init_pars = np.random.rand(n_pars)
-    else:
-        init_pars = np.asarray(init_pars)
-        assert init_pars.shape == (n_pars,)
+    init_pars = _init_parameters(n_pars, init_pars=init_pars, dtype=np.float64)
+    project, _, _ = _build_projector(bounds, dtype=jnp.float64)
 
-    passive_bounds = (None, None)
-    init_sqz_bounds = (-np.log(5.5), np.log(5.5))  # Initial squeezing
-    sqz_bounds = (-np.log(5.5), np.log(5.5))       # Layer squeezing
-    disp_bounds = (None, None)
-
-    bounds = []
-    # Initial squeezing
-    if include_initial_squeezing:
-        bounds += [init_sqz_bounds for _ in range(N)]
-    # Initial mixing
-    if include_initial_mixing:
-        bounds += [passive_bounds for _ in range(N**2)]
-
-    # Layer-by-layer bounds
-    for _ in range(layers):
-        if is_passive_gaussian:
-            # Passive optics bounds for Q1
-            bounds += [passive_bounds for _ in range(N**2)]
-            # Displacement bounds
-            bounds += [disp_bounds for _ in range(2 * N)]
-        else:
-            # Passive optics bounds for Q1, Q2
-            bounds += [passive_bounds for _ in range(2 * N**2)]
-            # Squeezing bounds
-            bounds += [sqz_bounds for _ in range(N)]
-            # Displacement bounds
-            bounds += [disp_bounds for _ in range(2 * N)]
-
-    assert len(bounds) == n_pars, (
-        f"Number of bounds {len(bounds)} does not match number of parameters {n_pars}."
+    # ---------------------------------------------------------------
+    # 2. Build QNN and preprocess datasets
+    # ---------------------------------------------------------------
+    qnn, train_inputs, train_outputs, valid_inputs, valid_outputs = _build_qnn_and_preprocess_datasets(
+        model_name=model_name,
+        task_name=task_name,
+        N=N,
+        layers=layers,
+        n_inputs=n_inputs,
+        n_outputs=n_outputs,
+        ladder_modes=ladder_modes,
+        is_addition=is_addition,
+        observable=observable,
+        include_initial_squeezing=include_initial_squeezing,
+        include_initial_mixing=include_initial_mixing,
+        is_passive_gaussian=is_passive_gaussian,
+        train_set=train_set,
+        valid_set=valid_set,
+        init_pars=init_pars,
+        in_preprocs=in_preprocs,
+        out_prepocs=out_prepocs,
+        postprocs=postprocs,
     )
 
-    # Convert bounds to JAX arrays for projection
-    lb = jnp.array(
-        [b[0] if b[0] is not None else -jnp.inf for b in bounds],
-        dtype=jnp.float64,
-    )
-    ub = jnp.array(
-        [b[1] if b[1] is not None else jnp.inf for b in bounds],
-        dtype=jnp.float64,
-    )
-
-    def project(params):
-        """Proyección simple a la caja [lb, ub]."""
-        return jnp.clip(params, lb, ub)
-
-    # ------------------------------------------------------------------
-    # 2. Build QNN and preprocess dataset
-    # ------------------------------------------------------------------
-    qnn = QNN(model_name, task_name, N, layers, n_inputs, n_outputs, ladder_modes, is_addition, observable,
-        include_initial_squeezing, include_initial_mixing, is_passive_gaussian, init_pars, 
-        in_preprocs, out_prepocs, postprocs,
-    )
-
-    train_inputs = reduce(lambda x, func: func(x), qnn.in_preprocessors, train_set[0])
-    train_outputs = reduce(lambda x, func: func(x), qnn.out_preprocessors, train_set[1])
-
-    if valid_set is not None:
-        valid_inputs = reduce(lambda x, func: func(x), qnn.in_preprocessors, valid_set[0])
-        valid_outputs = reduce(lambda x, func: func(x), qnn.out_preprocessors, valid_set[1])
-    else:
-        valid_inputs = None
-        valid_outputs = None
-
-    train_inputs = jax.device_put(jnp.array(train_inputs))
-    train_outputs = jax.device_put(jnp.array(train_outputs))
+    train_inputs = jnp.asarray(train_inputs)
+    train_outputs = jnp.asarray(train_outputs)
 
     if valid_inputs is not None:
-        valid_inputs = jax.device_put(jnp.array(valid_inputs))
-        valid_outputs = jax.device_put(jnp.array(valid_outputs))
+        valid_inputs = jnp.asarray(valid_inputs)
+        valid_outputs = jnp.asarray(valid_outputs)
 
-    # ------------------------------------------------------------------
-    # 3. Define loss functions (JAX) with projected parameters
-    # ------------------------------------------------------------------
-
+    # ---------------------------------------------------------------
+    # 3. Define training/validation functions (JAX)
+    # ---------------------------------------------------------------
     training_QNN = partial(
         qnn.train_QNN,
         inputs_dataset=train_inputs,
@@ -1048,115 +1113,28 @@ def adam_build_and_train_model(model_name, task_name, N, layers, n_inputs, n_out
     else:
         validate_QNN = None
 
-    def loss_fn(params):
-        params_proj = project(params)
-        return training_QNN(params_proj)
-
-    # ------------------------------------------------------------------
-    # 4. Configure Adam/AdamW optimizer (Optax)
-    # ------------------------------------------------------------------
-    params = jnp.array(init_pars, dtype=jnp.float64)
-    params = project(params)
-
-    # AdamW with decoupled weight decay. For plain Adam, set weight_decay=0.0
-    if weight_decay != 0.0:
-        optimizer = optax.adamw(learning_rate=learning_rate, weight_decay=weight_decay)
-    else:
-        optimizer = optax.adam(learning_rate=learning_rate)
-
-    opt_state = optimizer.init(params)
-
-    @jax.jit
-    def train_step(params, opt_state):
-        """
-        Single training step (forward + backward + update).
-        :param params: Current QNN tunable parameters
-        :param opt_state: Current optimizer state
-        :return: Updated parameters, updated optimizer state, loss value
-        """
-        loss, grads = jax.value_and_grad(loss_fn)(params)
-        updates, opt_state = optimizer.update(grads, opt_state, params)
-        params = optax.apply_updates(params, updates)
-        params = project(params)
-        return params, opt_state, loss
-
-    # ------------------------------------------------------------------
-    # 5. Training loop
-    # ------------------------------------------------------------------
-    loss_values = []
-    validation_loss = []
-
-    best_params = params
-    best_train_loss = jnp.inf
-    best_valid_loss = jnp.inf
-
-    training_start = time.time()
-
-    # Initial evaluation
-    init_train_loss = float(loss_fn(params))
-    if validate_QNN is not None:
-        init_valid_loss = float(validate_QNN(project(params)))
-    else:
-        init_valid_loss = init_train_loss
-
-    loss_values.append(init_train_loss)
-    validation_loss.append(init_valid_loss)
-    best_train_loss = init_train_loss
-    best_valid_loss = init_valid_loss
-    best_params = params
-
-    epoch = 0
-    max_iter = 10000
-    target_loss = 1e-3
-    val_loss = 9999
-    #for epoch in range(hopping_iters):
-    while val_loss > target_loss and epoch < max_iter - 1:
-        epoch += 1
-        params, opt_state, loss = train_step(params, opt_state)
-        train_loss = float(loss)
-        loss_values.append(train_loss)
-
-        if validate_QNN is not None:
-            val_loss = float(validate_QNN(project(params)))
-        else:
-            val_loss = train_loss
-
-        validation_loss.append(val_loss)
-
-        if val_loss < best_valid_loss:
-            best_valid_loss = val_loss
-            best_train_loss = train_loss
-            best_params = params
-
-        print(
-            f"Epoch {epoch+1}/{hopping_iters} "
-            f"| train loss = {train_loss:.6g} "
-            f"| val loss = {val_loss:.6g}"
-        )
-
-    train_time = time.time() - training_start
-    effective_epochs = max(1, len(loss_values) - 1)
-    print(f"Total training time: {train_time} seconds")
-    print(f"Time per epoch: {train_time / effective_epochs} seconds")
-
-    # ------------------------------------------------------------------
-    # 6. Build final QNN with best parameters
-    # ------------------------------------------------------------------
-    if is_addition:
-        nongauss_op = "â†"
-    else:
-        nongauss_op = "â"
-
-    print(
-        f"\nFINAL ERROR FOR N={N}, L={layers}, {nongauss_op} "
-        f"modes={np.array(ladder_modes[0]) + 1}\n{best_train_loss}"
+    # ---------------------------------------------------------------
+    # 4. Adam/AdamW training
+    # ---------------------------------------------------------------
+    best_params, train_hist, valid_hist, train_time = _run_adam_warmup(
+        init_pars=init_pars,
+        training_QNN=training_QNN,
+        validate_QNN=validate_QNN,
+        project=project,
+        epochs=hopping_iters,
+        learning_rate=learning_rate,
+        weight_decay=weight_decay,
+        print_every=print_every,
     )
 
-    best_pars_np = np.asarray(best_params, dtype=np.float64)
-    qnn.build_QNN(best_pars_np)
-    qnn.print_qnn()
+    print(f"Total training time: {train_time:.3f} seconds")
+    print(f"Time per epoch: {train_time / max(1, hopping_iters):.6f} seconds")
+    print(
+        f"\nFINAL ERROR FOR N={N}, L={layers}, "
+        f"{_nongauss_symbol(is_addition)} modes={np.array(ladder_modes[0]) + 1}\n"
+        f"{valid_hist[-1] if len(valid_hist) else np.nan}"
+    )
 
-    if save:
-        qnn.save_model()
+    _finalize_model(qnn, best_params, save=save)
 
-    return qnn, loss_values, validation_loss
+    return qnn, train_hist, valid_hist

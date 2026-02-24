@@ -25,7 +25,7 @@ in_norm_ranges = [(-3, 3)]*len(qnns_modes) # or ranges (a, b)
 out_norm_ranges = [(1, 3)]*len(qnns_modes)
 
 # === OPTIMIZER SETTINGS ===
-optimize = build_and_train_model
+optimize = train_scipy
 loss_function = cross_entropy
 basinhopping_iters = 3
 params = None

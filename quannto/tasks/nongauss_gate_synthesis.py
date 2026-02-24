@@ -23,7 +23,7 @@ observable = 'cubicphase'
 in_norm_ranges = [None]*len(qnns_modes) # or ranges (a, b)
 
 # === OPTIMIZER SETTINGS ===
-optimize = hybrid_build_and_train_model
+optimize = train_hybrid_adamjax_scipy
 loss_function = mse
 basinhopping_iters = 0
 params = None
