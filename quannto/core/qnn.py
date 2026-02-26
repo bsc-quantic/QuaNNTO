@@ -226,8 +226,7 @@ class QNN:
         :param parameters: Parameters to create the Hermitian matrix for the final SO matrix
         :return: Symplectic-orthogonal matrix made to be applied over the quadratures of the system
         '''
-        H = general_hermitian_matrix(parameters, self.N)
-        U = unitary_from_hermitian(H)
+        U = build_general_unitary(self.N, parameters)
         return self.u_bar.to_canonical_op(U)
         
     def build_quadratic_gaussians(self, parameters, current_par_idx):
