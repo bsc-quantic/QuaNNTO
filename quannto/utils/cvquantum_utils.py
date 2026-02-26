@@ -60,17 +60,18 @@ def general_hermitian_matrix(pars: jnp.ndarray, N: int) -> jnp.ndarray:
 
 def givens_rotation(N, i, j, theta, phi):
     """Construct a Givens rotation matrix."""
-    G = np.eye(N, dtype=complex)
-    G[i, i] = np.cos(theta) * np.exp(1j * phi)
-    G[j, j] = np.cos(theta)
-    G[i, j] = -np.sin(theta)
-    G[j, i] = np.sin(theta) * np.exp(1j * phi)
+    G = jnp.eye(N, dtype=complex)
+    G = G.at[i, i].set(jnp.cos(theta) * jnp.exp(1j * phi))
+    G = G.at[j, j].set(jnp.cos(theta))
+    G = G.at[i, j].set(-jnp.sin(theta))
+    G = G.at[j, i].set(jnp.sin(theta) * jnp.exp(1j * phi))
     return G
 
+@partial(jax.jit, static_argnums=(0,))
 def build_general_unitary(N, params):
     """Build an NxN unitary matrix using Givens rotations and phase shifts."""
     assert len(params) == N**2, f"Expected {N**2} parameters, got {len(params)}."
-    U = np.eye(N, dtype=complex)
+    U = jnp.eye(N, dtype=complex)
     idx = 0
     # Apply Givens rotations
     for i in range(N):
@@ -81,8 +82,8 @@ def build_general_unitary(N, params):
             U = G @ U  # Multiply on the left
             idx += 2
     # Apply phase shifts on the diagonal
-    phases = np.exp(1j * params[idx:idx + N])
-    U = U @ np.diag(phases)
+    phases = jnp.exp(1j * params[idx:idx + N])
+    U = U @ jnp.diag(phases)
     return U
 
 @jax.jit
