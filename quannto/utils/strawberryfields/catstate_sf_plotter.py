@@ -1,14 +1,15 @@
 import numpy as np
 
 from quannto.utils.path_utils import figures_dir, models_operators_path
-from quannto.utils.strawberryfields.general_tools import cat_even_ket, fidelity_pure_vs_mixed, fidelity_two_pure, mode_view_from_ket, reduced_rho_from_ket, six_order_moments_operators, mode_moments_from_ket
+from quannto.utils.strawberryfields.general_tools import cat_even_ket, fidelity_pure_vs_mixed, fidelity_two_pure, reduced_rho_from_ket, six_order_moments_operators, mode_moments_from_ket
 from quannto.utils.strawberryfields.wigner_plotters import *
 from quannto.utils.strawberryfields.qonn_builder import run_qonn
 
 
-N = 3
+N = 1
 L = 1
-subtractions = [[1,2]]
+subtractions = [[0,0]]
+input_range = (-1, 1)
 qnn_label = f'N={N}, L={L}, â in modes {[m+1 for m in subtractions[0]]}'
 print(qnn_label)
 cat_cutoff = 20
@@ -16,7 +17,7 @@ qonn_cutoff = 20
 trained_stats = 15
 input_alpha = -1.0 + 0.0j
 phi = 0.0
-qonn_model_name = f'catstate_phi{phi}_trainsize1_stats{trained_stats}_cut{cat_cutoff}_rng-1.0to-1.0_N{N}_L{L}_sub{subtractions}_inNone'
+qonn_model_name = f'catstate_phi{phi}_trainsize1_stats{trained_stats}_cut{cat_cutoff}_rng{input_range[0]}to{input_range[-1]}_N{N}_L{L}_sub{subtractions}_inNone'
 
 S_l = np.load(models_operators_path(qonn_model_name, "S_l", "npy"))
 D_l = np.load(models_operators_path(qonn_model_name, "D_l", "npy"))
