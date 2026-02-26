@@ -206,4 +206,4 @@ def fidelity_two_pure(ket1, ket2):
     phi = np.asarray(ket2, dtype=complex).reshape(-1)
     psi = psi / np.linalg.norm(psi)
     phi = phi / np.linalg.norm(phi)
-    return float(np.real_if_close(np.vdot(psi, phi)))
+    return float(np.real_if_close(np.vdot(psi, phi), tol=1e-5))
