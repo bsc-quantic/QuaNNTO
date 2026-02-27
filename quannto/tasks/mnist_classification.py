@@ -2,11 +2,11 @@ from functools import partial
 import numpy as np
 import os.path
 
-from quannto.core.qnn_trainers import *
 from quannto.utils.path_utils import datasets_dir, models_testing_results_path, models_train_losses_path, models_valid_losses_path
-from quannto.utils.results_utils import *
-from quannto.core.data_processors import *
-from quannto.core.loss_functions import *
+from quannto.core.data_processors import rescale_data, rescale_set_with_ranges, one_hot_encoding, softmax_discretization, greatest_probability
+from quannto.core.loss_functions import cross_entropy
+from quannto.core.qnn_trainers import *
+from quannto.utils.results_utils import plot_confusion_matrix, plot_per_class_accuracy_hist, plot_per_class_accuracy_markers
 
 np.random.seed(42)
 
@@ -48,6 +48,7 @@ if os.path.isfile(dataset_dir + "_inputs.npy"):
     dataset = [inputs, outputs]
     input_ranges = np.array([(np.min(dataset[0][:,col]), np.max(dataset[0][:,col])) for col in range(len(dataset[0][0]))])
 else:
+    from quannto.core.data_processors import pca_mnist, autoencoder_mnist
     while True:
         dataset = pca_mnist(n_inputs, categories) if continuize_method == 'pca' else autoencoder_mnist(n_inputs, categories)
         input_ranges = np.array([(np.min(dataset[0][:,col]), np.max(dataset[0][:,col])) for col in range(len(dataset[0][0]))])

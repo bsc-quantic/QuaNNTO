@@ -1,11 +1,11 @@
 from functools import partial
 import numpy as np
 
-from quannto.core.qnn_trainers import *
 from quannto.utils.path_utils import datasets_dir, models_testing_results_path, models_train_losses_path
-from quannto.utils.results_utils import *
-from quannto.core.data_processors import *
-from quannto.core.loss_functions import *
+from quannto.core.data_processors import rescale_data
+from quannto.core.loss_functions import mse
+from quannto.core.qnn_trainers import *
+from quannto.utils.results_utils import plot_qnns_loglosses
 
 np.random.seed(42)
 

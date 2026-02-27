@@ -1,7 +1,7 @@
 import numpy as np
 
 from quannto.utils.path_utils import datasets_dir, models_testing_results_path, models_train_losses_path, models_valid_losses_path
-from quannto.utils.results_utils import *
+from quannto.utils.results_utils import plot_confusion_matrix, plot_per_class_accuracy_hist, plot_per_class_accuracy_markers, plot_qnns_loglosses
 
 # === HYPERPARAMETERS DEFINITION ===
 qnns_modes = [6, 6]

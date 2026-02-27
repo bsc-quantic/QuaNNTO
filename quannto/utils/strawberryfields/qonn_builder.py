@@ -1,9 +1,8 @@
 import numpy as np
 import scipy.integrate as si
-
 if not hasattr(si, "simps") and hasattr(si, "simpson"):
     si.simps = si.simpson
-import strawberryfields as sf
+from strawberryfields import Engine, Program
 from strawberryfields.ops import Ket, GaussianTransform, Dgate
 
 from quannto.utils.strawberryfields.general_tools import apply_annihilation_to_ket
@@ -29,8 +28,8 @@ def apply_gaussian_layer(ket_in, N, cutoff, S, d):
     S = np.real_if_close(np.array(S))
     d = np.real_if_close(np.array(d))
 
-    eng = sf.Engine("fock", backend_options={"cutoff_dim": cutoff})
-    prog = sf.Program(N)
+    eng = Engine("fock", backend_options={"cutoff_dim": cutoff})
+    prog = Program(N)
     with prog.context as q:
         Ket(ket_in) | tuple(q[i] for i in range(N))
 
@@ -60,8 +59,8 @@ def run_qonn(N, cutoff, layers, subtractions, input_alpha=None):
 
     # optional input encoding D(alpha) on mode 0
     if input_alpha is not None:        
-        eng = sf.Engine("fock", backend_options={"cutoff_dim": cutoff})
-        prog = sf.Program(N)
+        eng = Engine("fock", backend_options={"cutoff_dim": cutoff})
+        prog = Program(N)
         
         r = np.abs(input_alpha)
         phi = np.angle(input_alpha)

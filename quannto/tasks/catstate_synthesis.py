@@ -1,19 +1,19 @@
 from functools import partial
 import os
 
-from quannto.core.qnn_trainers import *
 from quannto.utils.path_utils import datasets_dir, models_testing_results_path, models_train_losses_path
-from quannto.utils.results_utils import *
-from quannto.core.data_processors import *
-from quannto.core.loss_functions import *
+from quannto.core.data_processors import rescale_data
+from quannto.core.loss_functions import mse
+from quannto.core.qnn_trainers import *
+from quannto.utils.results_utils import plot_qnns_loglosses
 
 np.random.seed(42)
 
 # === HYPERPARAMETERS DEFINITION ===
-qnns_modes = [3]
-qnns_ladder_modes = [[[1,2]]]
+qnns_modes = [2]
+qnns_ladder_modes = [[[1,1]]]
 qnns_layers = [1]
-qnns_is_addition = [False]
+qnns_is_addition = [False] * len(qnns_modes)
 include_initial_squeezing = False
 include_initial_mixing = False
 is_passive_gaussian = False

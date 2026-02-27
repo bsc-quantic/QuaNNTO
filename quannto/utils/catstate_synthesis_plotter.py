@@ -1,10 +1,10 @@
 import os
 import numpy as np
 
+from quannto.utils.path_utils import datasets_dir, models_json_path, models_train_losses_path
 from quannto.core.loss_functions import mse
 from quannto.core.qnn import QNN
-from quannto.utils.path_utils import datasets_dir, models_json_path, models_testing_results_path, models_testing_results_path, models_train_losses_path
-from quannto.utils.results_utils import *
+from quannto.utils.results_utils import plot_qnns_loglosses
 
 np.random.seed(42)
 

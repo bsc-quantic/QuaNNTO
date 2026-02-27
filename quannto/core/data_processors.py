@@ -1,8 +1,6 @@
 import numpy as np
-import tensorflow as tf
 import jax.numpy as jnp
 import jax.nn as jnn
-from sklearn.decomposition import PCA
 
 def trigonometric_feature_expressivity(features, num_final_features):
     transf_feats = np.zeros((len(features), num_final_features))
@@ -90,6 +88,7 @@ def filter_dataset_categories(inputs, outputs, categories):
     return (np.array(filtered_inputs), np.array(filtered_outputs))
 
 def autoencoder_mnist(latent_dim, categories):
+    import tensorflow as tf
     # Load MNIST dataset
     (x_train, y_train), (x_test, y_test) = tf.keras.datasets.mnist.load_data()
     (x_train, y_train) = filter_dataset_categories(x_train, y_train, categories)
@@ -157,6 +156,8 @@ def pca_mnist(latent_dim, categories):
         x_test_compressed: (N_test, latent_dim)
         y_test_column:     (N_test, 1)
     """
+    import tensorflow as tf
+    from sklearn.decomposition import PCA
     # Load MNIST dataset
     (x_train, y_train), (x_test, y_test) = tf.keras.datasets.mnist.load_data()
     (x_train, y_train) = filter_dataset_categories(x_train, y_train, categories)

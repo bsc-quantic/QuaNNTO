@@ -124,7 +124,7 @@ def create_J(N):
 
 class CanonicalLadderTransformations:
     """
-    Convert between canonical (q,p) basis and ladder (a, a†) basis.
+    Convert between canonical (x,p) basis and ladder (a, a†) basis.
     
     to_ladder @ symplectic @ to_ladder†   ↔   unitary blocks for ladder ops
     """

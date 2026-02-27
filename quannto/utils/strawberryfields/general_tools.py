@@ -3,8 +3,8 @@ import math
 import scipy.integrate as si
 if not hasattr(si, "simps") and hasattr(si, "simpson"): # Temporary fix for older scipy versions where simps was named simpson
     si.simps = si.simpson
-import strawberryfields as sf
-from strawberryfields.ops import Ket, Coherent, Vgate
+from strawberryfields import Engine, Program
+from strawberryfields.ops import Ket, DensityMatrix, Coherent, Vgate
 
 def annihilation_matrix(cutoff):
     a = np.zeros((cutoff, cutoff), dtype=complex)
@@ -132,8 +132,8 @@ def mode_moments_from_ket(ket, moments, cutoff, mode=0):
 
 def state_from_ket(ket, N, cutoff):
     """Load a ket into SF and return the state."""
-    eng = sf.Engine("fock", backend_options={"cutoff_dim": cutoff})
-    prog = sf.Program(N)
+    eng = Engine("fock", backend_options={"cutoff_dim": cutoff})
+    prog = Program(N)
     with prog.context as q:
         Ket(ket) | tuple(q[i] for i in range(N))
     return eng.run(prog).state
@@ -168,10 +168,10 @@ def state_from_single_mode_rho(rho, cutoff):
         raise ValueError("rho has ~zero trace")
     rho = rho / tr
 
-    eng = sf.Engine("fock", backend_options={"cutoff_dim": cutoff})
-    prog = sf.Program(1)
+    eng = Engine("fock", backend_options={"cutoff_dim": cutoff})
+    prog = Program(1)
     with prog.context as q:
-        sf.ops.DensityMatrix(rho) | q[0]   # load the state in Fock basis
+        DensityMatrix(rho) | q[0]   # load the state in Fock basis
     return eng.run(prog).state
 
 def catstate_moments(alpha, moments, cutoff=20, phi=0.0):
@@ -180,12 +180,12 @@ def catstate_moments(alpha, moments, cutoff=20, phi=0.0):
     [<a>, <a^2>, <a^3>, <a^\dagger n>, <n>]
     Returns: list of tuples (alpha, np.array([...])).
     """
-    eng = sf.Engine(backend="fock", backend_options={"cutoff_dim": cutoff})
+    eng = Engine(backend="fock", backend_options={"cutoff_dim": cutoff})
     # Prepare the cat ket and load it into the backend
     ket = cat_even_ket(alpha, cutoff, phi=phi)
-    prog = sf.Program(1)
+    prog = Program(1)
     with prog.context as q:
-        sf.ops.Ket(ket) | q[0]
+        Ket(ket) | q[0]
     result = eng.run(prog)
     state = result.state
     rho = state.reduced_dm(0)  # single-mode density matrix, shape (cutoff, cutoff)
@@ -200,8 +200,8 @@ def cubicphase_moments(alpha, gamma, cutoff=20):
     after applying Vgate(gamma) to |alpha>, using cutoff n_max.
     """
     # 1) Run the SF program
-    eng = sf.Engine("fock", backend_options={"cutoff_dim": cutoff})
-    prog = sf.Program(1)
+    eng = Engine("fock", backend_options={"cutoff_dim": cutoff})
+    prog = Program(1)
     
     # 2) Generate the coherent state and apply cubic phase gate V
     with prog.context as q:

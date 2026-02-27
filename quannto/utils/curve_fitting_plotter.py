@@ -1,8 +1,8 @@
 import numpy as np
 
-from quannto.dataset_gens.synthetic_datasets import *
 from quannto.utils.path_utils import models_testing_results_path, models_train_losses_path, models_valid_losses_path
-from quannto.utils.results_utils import *
+from quannto.dataset_gens.synthetic_datasets import *
+from quannto.utils.results_utils import plot_qnns_testing, plot_qnns_loglosses
 
 # === QONNs HYPERPARAMETERS ===
 qnns_modes = [2,2,2]

@@ -1,8 +1,6 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib
-import seaborn as sns
-from sklearn.metrics import confusion_matrix
 
 from quannto.core.data_processors import softmax_discretization
 from quannto.utils.path_utils import figures_dir
@@ -99,18 +97,20 @@ def plot_qnns_loglosses(train_losses, valid_losses, legend_labels, filename,
         print(f'{legend_labels[i]}: {train_losses[i][-1]}')
         
 def plot_confusion_matrix(model_name, expected_cats, qnn_pred_cats):
+    from sklearn.metrics import confusion_matrix
+    from seaborn import heatmap
     # Generate the confusion matrix
     cm = confusion_matrix(expected_cats, qnn_pred_cats)
     # Normalize the confusion matrix
     cm_normalized = cm.astype('float') / cm.sum(axis=1)[:, np.newaxis]
     # Plotting the confusion matrix as a green heatmap with variable opacity
     plt.figure(figsize=(8, 6))
-    sns.heatmap(cm_normalized, annot=True, fmt='.2f', cmap='Greens', alpha=cm_normalized)
+    heatmap(cm_normalized, annot=True, fmt='.2f', cmap='Greens', alpha=cm_normalized)
     plt.title('Confusion Matrix')
     plt.xlabel('Predicted Label')
     plt.ylabel('True Label')
     plt.savefig(figures_dir() / f"cm_{model_name}.pdf", bbox_inches="tight")
-    #plt.show()
+    plt.show()
     plt.clf()
     
 def plot_qnn_decision(X, y, qonn_outputs, model_name, title="QONN decision boundary"):

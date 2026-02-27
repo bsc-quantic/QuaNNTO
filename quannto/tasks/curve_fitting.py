@@ -2,18 +2,18 @@ from functools import partial
 import numpy as np
 import os.path
 
-from quannto.core.qnn_trainers import *
-from quannto.dataset_gens.synthetic_datasets import *
 from quannto.utils.path_utils import datasets_dir, models_testing_results_path, models_train_losses_path, models_valid_losses_path
-from quannto.utils.results_utils import *
-from quannto.core.data_processors import *
-from quannto.core.loss_functions import *
+from quannto.dataset_gens.synthetic_datasets import *
+from quannto.core.data_processors import get_range, rescale_data
+from quannto.core.loss_functions import mse
+from quannto.core.qnn_trainers import *
+from quannto.utils.results_utils import plot_noisy_dataset, plot_qnns_loglosses, plot_qnns_testing
 
 np.random.seed(42)
 
 # === HYPERPARAMETERS DEFINITION ===
-qnns_modes = [2]
-qnns_ladder_modes = [[[0,1]]]
+qnns_modes = [4]
+qnns_ladder_modes = [[[1,2,3]]]
 qnns_layers = [1]
 qnns_is_addition = [False]
 include_initial_squeezing = False
@@ -30,13 +30,13 @@ out_norm_ranges = [(1, 3)]*len(qnns_modes)
 # === OPTIMIZER SETTINGS ===
 optimize = train_scipy
 loss_function = mse
-basinhopping_iters = 5
+basinhopping_iters = 2
 params = None
 
 # === DATASET (TARGET FUNCTION) SETTINGS ===
-target_function = cosh_1in_1out
-input_range = (-5, 5)
-trainset_noise = 3
+target_function = trig_fun
+input_range = (-1, 2.5)
+trainset_noise = 0.1
 trainset_size = 20
 testset_size = 200
 validset_size = 50
@@ -113,5 +113,5 @@ for (N, l, ladder_modes, is_addition, in_norm_range, out_norm_range) in zip(qnns
 # === PLOT AND SAVE JOINT RESULTS ===
 nongauss_ops = ['â†' if is_addition else 'â' for is_addition in qnns_is_addition]
 filename = task_name+"_N"+str(qnns_modes)+"_L"+str(qnns_layers)+"_ph"+str(nongauss_ops)+str(qnns_ladder_modes)
-plot_qnns_testing(test_dataset[0], test_dataset[1], qnns_preds, legend_labels, filename)
+plot_qnns_testing(test_dataset[0], test_dataset[1], qnns_preds, legend_labels, filename, top_ylim=output_range[1] + len(qnns)*0.5 + 0.3)
 plot_qnns_loglosses(train_losses, valid_losses, legend_labels, filename)

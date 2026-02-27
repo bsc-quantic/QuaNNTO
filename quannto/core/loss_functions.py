@@ -1,9 +1,5 @@
-from functools import partial
-import jax
 import jax.numpy as jnp
 import jax.nn as jnn
-import numpy as np
-from .data_processors import softmax_discretization
 
 def mse(expected: jnp.ndarray,
                       obtained: jnp.ndarray) -> jnp.ndarray:

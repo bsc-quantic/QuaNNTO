@@ -2,8 +2,8 @@ import numpy as np
 
 from quannto.utils.path_utils import figures_dir, models_operators_path
 from quannto.utils.strawberryfields.general_tools import cat_even_ket, fidelity_pure_vs_mixed, fidelity_two_pure, reduced_rho_from_ket, six_order_moments_operators, mode_moments_from_ket
-from quannto.utils.strawberryfields.wigner_plotters import *
 from quannto.utils.strawberryfields.qonn_builder import run_qonn
+from quannto.utils.strawberryfields.wigner_plotters import *
 
 
 N = 1

@@ -1,10 +1,7 @@
 import numpy as np
-import scipy.integrate as si
 
 from quannto.utils.path_utils import datasets_dir
-from quannto.utils.strawberryfields.general_tools import catstate_moments, moments_from_rho, six_order_moments_operators
-if not hasattr(si, "simps") and hasattr(si, "simpson"):
-    si.simps = si.simpson
+from quannto.utils.strawberryfields.general_tools import catstate_moments, six_order_moments_operators
 
 def build_catstates_dataset(alpha_list, moments, cutoff=20, phi=0.0):
     """

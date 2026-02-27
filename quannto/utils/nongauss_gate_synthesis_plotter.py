@@ -1,7 +1,7 @@
 import numpy as np
 
 from quannto.utils.path_utils import datasets_dir, models_train_losses_path
-from quannto.utils.results_utils import *
+from quannto.utils.results_utils import plot_qnns_loglosses
 
 # === HYPERPARAMETERS DEFINITION ===
 qnns_modes = [2, 2, 2, 3, 4]
