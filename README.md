@@ -7,29 +7,29 @@ _QuaNNTO_ is an HPC library made with [JAX](https://github.com/jax-ml/jax) for e
 
 ## Installation
 
-Create and activate a virtual environment (recommended):
+### Option A — User
 
     python -m venv .venv
     source .venv/bin/activate  # on Windows: .venv\Scripts\activate
     pip install -U pip
-
-### Install from GitHub (latest `master`)
-
     pip install git+https://github.com/bsc-quantic/QuaNNTO.git
 
-### Install from a local clone (recommended for development)
+### Option B — Development
 
     git clone https://github.com/bsc-quantic/QuaNNTO.git
     cd QuaNNTO
+    python -m venv .venv
+    source .venv/bin/activate  # on Windows: .venv\Scripts\activate
+    pip install -U pip
     pip install -e .
 
-### Optional extras
+### Optional modules
 
-Install MNIST utilities (TensorFlow):
+MNIST utilities (TensorFlow):
 
     pip install "quannto[mnist]"
 
-Install Strawberry Fields helpers:
+Strawberry Fields plugging:
 
     pip install "quannto[sf]"
 
