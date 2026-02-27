@@ -5,6 +5,40 @@ _Article:_ [Hardware-inspired Continuous Variables Quantum Optical Neural Networ
 
 _QuaNNTO_ is an HPC library made with [JAX](https://github.com/jax-ml/jax) for exact simulation of continuous-variable quantum optical neural networks (QONN). The simulation technique is based on Wick-Isserlis expansions and Bogoliubov transformations, which allows an exact computation of expectation values of continuous observables (such as position) on quantum states built by a finite set of Gaussian and creation/annihilation operators, avoiding truncations in the infinite-dimensional Hilbert space that describe the quantum optical system.
 
+## Installation
+
+Create and activate a virtual environment (recommended):
+
+    python -m venv .venv
+    source .venv/bin/activate  # on Windows: .venv\Scripts\activate
+    pip install -U pip
+
+### Install from GitHub (latest `master`)
+
+    pip install git+https://github.com/bsc-quantic/QuaNNTO.git
+
+### Install from a local clone (recommended for development)
+
+    git clone https://github.com/bsc-quantic/QuaNNTO.git
+    cd QuaNNTO
+    pip install -e .
+
+### Optional extras
+
+Install MNIST utilities (TensorFlow):
+
+    pip install "quannto[mnist]"
+
+Install Strawberry Fields helpers:
+
+    pip install "quannto[sf]"
+
+Developer tools (testing / dependency checks):
+
+    pip install "quannto[dev]"
+
+## User guide
+
 __In `examples_ipynb`, Jupyter notebooks examples are provided for a diverse number of tasks, all of them explanatory and ready to run.__
 
 The main QONN hyperparameters:
