@@ -1,10 +1,10 @@
 import numpy as np
 import math
 import scipy.integrate as si
-if not hasattr(si, "simps") and hasattr(si, "simpson"):
+if not hasattr(si, "simps") and hasattr(si, "simpson"): # Temporary fix for older scipy versions where simps was named simpson
     si.simps = si.simpson
 import strawberryfields as sf
-from strawberryfields.ops import Ket
+from strawberryfields.ops import Ket, Coherent, Vgate
 
 def annihilation_matrix(cutoff):
     a = np.zeros((cutoff, cutoff), dtype=complex)
@@ -193,6 +193,48 @@ def catstate_moments(alpha, moments, cutoff=20, phi=0.0):
     moments_expvals = np.array([obs["a1"], obs["a2"], obs["n1"], obs["a3"], obs["a2adag"], obs["n2"], obs["a4"], obs["a3adag"], obs["a5"], obs["a4adag"], obs["a3adag2"], obs["n3"], obs["a6"], obs["a5adag"], obs["a4adag2"]], dtype=complex)
 
     return moments_expvals
+
+def cubicphase_moments(alpha, gamma, cutoff=20):
+    """
+    Returns a dict of expectation values for {a, a†, , p^2, x^3, p^3}
+    after applying Vgate(gamma) to |alpha>, using cutoff n_max.
+    """
+    # 1) Run the SF program
+    eng = sf.Engine("fock", backend_options={"cutoff_dim": cutoff})
+    prog = sf.Program(1)
+    
+    # 2) Generate the coherent state and apply cubic phase gate V
+    with prog.context as q:
+        Coherent(alpha)    | q[0]
+        Vgate(gamma)  | q[0]
+    state = eng.run(prog).state
+
+    rho = state.reduced_dm(0)  # shape = (cutoff, cutoff)
+
+    # 3) Compute statistical moments of the state (FIXME: Refactor moments hardcoding)
+    a = np.zeros((cutoff, cutoff), dtype=complex)
+    for n in range(cutoff-1):
+        a[n, n+1] = np.sqrt(n+1)
+    adag = a.conj().T
+    
+    a_mean = np.trace(rho @ a)
+    
+    a2 = np.trace(rho @ (a @ a))
+    n = np.trace(rho @ (adag @ a))
+
+    a3 = np.trace(rho @ (a @ a @ a))
+    adag_n = np.trace(rho @ (adag @ adag @ a))
+    
+    n2 = np.trace(rho @ (adag @ a @ adag @ a))
+
+    return {
+        "a":  a_mean,
+        "a2": a2,
+        "a3": a3,
+        "a†n": adag_n,
+        "n": n,
+        "n2": n2
+    }
 
 def fidelity_pure_vs_mixed(ket_pure, rho_mix):
     """F = <ket|rho|ket> for pure |ket> and density matrix rho."""
