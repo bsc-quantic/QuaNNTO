@@ -1,3 +1,24 @@
 [build-system]
 requires = ["setuptools>=64", "wheel"]
 build-backend = "setuptools.build_meta"
+
+[project]
+name = "quannto"
+version = "0.1.0"
+requires-python = ">=3.10"
+dependencies = [
+  "jax",
+  "jsonpickle",
+  "matplotlib",
+  "numpy",
+  "optax",
+  "scikit-learn",
+  "scipy",
+  "seaborn",
+  "sympy",
+]
+
+[project.optional-dependencies]
+mnist = ["tensorflow"]
+sf = ["strawberryfields"]
+dev = ["pip-tools", "deptry", "pytest"]
