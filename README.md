@@ -7,25 +7,20 @@ _QuaNNTO_ is an HPC library made with [JAX](https://github.com/jax-ml/jax) for e
 
 ## Installation
 
-### Option A — User
+Clone and install `QuaNNTO` with its necessary modules in a Python virtual environment.
 
-    python -m venv .venv
-    source .venv/bin/activate  # on Windows: .venv\Scripts\activate
-    pip install -U pip
-    pip install git+https://github.com/bsc-quantic/QuaNNTO.git
-
-### Option B — Development
-
-    git clone https://github.com/bsc-quantic/QuaNNTO.git
-    cd QuaNNTO
-    python -m venv .venv
-    source .venv/bin/activate  # on Windows: .venv\Scripts\activate
-    pip install -U pip
-    pip install -e .
+```sh
+git clone https://github.com/bsc-quantic/QuaNNTO.git
+cd QuaNNTO
+python -m venv .venv
+source .venv/bin/activate  # on Windows: .venv\Scripts\activate
+pip install -U pip
+pip install -e .
+```
 
 ### Optional modules
 
-MNIST utilities (TensorFlow):
+TensorFlow for _MNIST_ preprocessing through _PCA_ or _Autoencoders_:
 
     pip install "quannto[mnist]"
 
