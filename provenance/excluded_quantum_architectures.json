@@ -1,0 +1,24 @@
+[
+  {
+    "id": "cubic_n2_l3",
+    "figure": 3,
+    "task": "cubic",
+    "N": 2,
+    "subtractions": [
+      [
+        1
+      ],
+      [
+        1
+      ],
+      [
+        1
+      ]
+    ],
+    "checkpoint_stem": "fock_cubicphase_gamma0.2_trainsize50_rng-2.0to2.0_N2_L3_sub[[1], [1], [1]]_inNone",
+    "loss_history": "fock_cubicphase_gamma0.2_trainsize50_rng-2.0to2.0_N2_L3_sub[[1], [1], [1]]_inNone.npy",
+    "notes": "Historical three-layer architecture; no checkpoint was supplied and it is excluded from the revised manuscript table.",
+    "included_in_paper": false,
+    "table": "II"
+  }
+]

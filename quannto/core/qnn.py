@@ -11,6 +11,7 @@ from quannto.core.qnn_archs_helper import apply_arch_arrays, arch_signature, ext
 from quannto.utils.cvquantum_utils import CanonicalLadderTransformations, build_general_unitary, check_symp_orth
 from quannto.utils.path_utils import arch_cache_dir, models_json_path, models_params_path, models_operators_path
 from quannto.core.expectation_value import *
+from quannto.core.wick_subset_dp import compute_exp_val_loop_subset_dp
 
 jax.config.update("jax_enable_x64", True)
 
@@ -18,13 +19,23 @@ class QNN:
     '''
     Class for continuous variables quantum (optics) neural network building, training, evaluation and testing.
     '''
-    def __init__(self, model_name, task_name, N, layers, n_in, n_out, ladder_modes=[0], is_addition=True, observable='position',
+    def __init__(self, model_name, task_name, N, layers, n_in, n_out, ladder_modes=None, is_addition=True, observable='position',
                  include_initial_squeezing=False, include_initial_mixing=False, is_passive_gaussian=False, parameters=None,
-                 in_preprocessors=[], out_preprocessors=[], postprocessors=[]):
+                 in_preprocessors=None, out_preprocessors=None, postprocessors=None,
+                 expectation_backend="loop_matchings", expectation_batch_size=1):
         # The number of modes N must be greater or equal to the number of inputs and outputs
         assert N >= n_in
         assert N >= n_out
         
+        if ladder_modes is None:
+            ladder_modes = [[] for _ in range(layers)]
+        if expectation_backend not in {"loop_matchings", "subset_dp"}:
+            raise ValueError("Unknown expectation backend")
+        if expectation_batch_size != 1:
+            raise ValueError("This QNN evaluates expectation terms with batch size 1")
+        self.expectation_backend = expectation_backend
+        self.expectation_batch_size = expectation_batch_size
+
         # QONN's architecture hyperparameters
         self.model_name = model_name
         self.task_name = task_name
@@ -36,10 +47,10 @@ class QNN:
         self.n_in = n_in
         self.n_out = n_out
         self.observable = observable
-        self.in_preprocessors = in_preprocessors
+        self.in_preprocessors = list(in_preprocessors or [])
         self.in_preprocessors.append(partial(pad_data, length=2*self.N)) # Always pad inputs to 2N vector for N-mode quadratures operations
-        self.out_preprocessors = out_preprocessors
-        self.postprocessors = postprocessors
+        self.out_preprocessors = list(out_preprocessors or [])
+        self.postprocessors = list(postprocessors or [])
         self.is_input_reupload = False
         self.include_initial_squeezing = include_initial_squeezing
         self.include_initial_mixing = include_initial_mixing
@@ -51,7 +62,7 @@ class QNN:
         print(' =============================================')
         print(f'Model name: {model_name}\nTask name: {task_name}\nN={N}, L={layers}, ladder modes={ladder_modes}, non-Gaussianity {self.non_gaussianity}, observable={observable}\nInitial squeezing: {include_initial_squeezing}, Initial mixing: {include_initial_mixing}, Passive Gaussian: {is_passive_gaussian}\nInput preprocessors: {in_preprocessors}\nOutput preprocessors: {out_preprocessors}\nPostprocessors: {postprocessors}\nNumber of parameters: {len(parameters) if parameters is not None else None}')
         
-        CACHE_VERSION = 1
+        CACHE_VERSION = 2
         sig, h = arch_signature(
             N=self.N, layers=self.layers, n_in=self.n_in, n_out=self.n_out,
             ladder_modes=self.ladder_modes, is_addition=self.is_addition, observable=self.observable,
@@ -176,7 +187,7 @@ class QNN:
         Compile coefficient/meta index lists for trace terms.
         Uses expressions_to_index_lists when needed; otherwise use a ones mask.
         """
-        if len(self.ladder_modes) > 0 and self.layers > 1:
+        if any(self.ladder_modes) and self.layers > 1:
             trace_terms_coefs_inds = []
             trace_terms_coefs = []
             trace_terms_meta = []
@@ -339,8 +350,8 @@ class QNN:
                 start = (l - 1) * S_dim
                 end   = l * S_dim
                 l_disp = -self.S_fock[l] @ d_fock_vec
-                if l < (self.layers - 2):
-                    next_slice = self.D_concat[(l + 1) * S_dim : (l + 2) * S_dim]
+                if l < (self.layers - 1):
+                    next_slice = self.D_concat[l * S_dim : (l + 1) * S_dim]
                     l_disp = l_disp + self.S_fock[l] @ next_slice
                 self.D_concat = self.D_concat.at[start:end].set(l_disp)
         
@@ -382,6 +393,45 @@ class QNN:
             new_means = QNN.apply_linear_gaussian(self.D_l[l], new_means)
         return new_means, new_V
         
+    def build_gaussian_core_xxpp(self, inputs_disp):
+        """
+        Build the Gaussian core (means and covariance in xxpp ordering)
+        before evaluating any observable or inserted trace.
+
+        Parameters
+        ----------
+        inputs_disp : jnp.ndarray
+            Real coherent-state displacements already padded to length 2N
+            if using the standard QuaNNTO preprocessing pipeline.
+
+        Returns
+        -------
+        mean_vector : jnp.ndarray
+            Final Gaussian-core first moments in xxpp ordering.
+        V : jnp.ndarray
+            Final Gaussian-core covariance matrix in xxpp ordering.
+        """
+        tuned_inputs = inputs_disp
+
+        # Initial vacuum
+        mean_vector = jnp.zeros((2 * self.N,), dtype=tuned_inputs.dtype)
+        V = 0.5 * jnp.eye(2 * self.N, dtype=tuned_inputs.dtype)
+
+        # Input displacement
+        mean_vector = QNN.apply_linear_gaussian(tuned_inputs, mean_vector)
+
+        # Optional initial Gaussian blocks
+        if self.include_initial_squeezing:
+            mean_vector, V = QNN.apply_quadratic_gaussian(self.Z0, mean_vector, V)
+
+        if self.include_initial_mixing:
+            mean_vector, V = QNN.apply_quadratic_gaussian(self.Q0, mean_vector, V)
+
+        # Main Gaussian layers
+        mean_vector, V = self.apply_gaussian_transformations(mean_vector, V)
+
+        return mean_vector, V
+
     def compute_coefficients(self):
         '''
         Computes the coefficients of each term of each trace expression.
@@ -392,6 +442,13 @@ class QNN:
         full_coef_vector = jnp.concatenate(
             [self.D_concat.ravel(), self.S_concat.ravel()]
         )
+
+        # Backward compatibility for cached multilayer Gaussian architectures
+        # compiled before they were classified separately from QONNs.  Their
+        # symbolic index vectors have length zero, so the associated factor is
+        # the empty product, equal to one.  Avoid indexing coefs_inds[0].
+        if self.jax_traceterms_coefs_inds.shape[-1] == 0:
+            return self.jax_traceterms_coefs[self.exp_vals_inds]
         
         def _trace_coefs(trace_term_idx, vec):
             def _coef_comp(coefs_inds, vec):
@@ -429,43 +486,51 @@ class QNN:
     def eval_QNN(self, inputs_disp):
         '''
         Evaluates the QONN for a given input.
-        
         :param inputs_disp: Input values of the QONN loaded as real coherent states
         :return: Normalized expectation values of the observables related to the QONN outputs
         '''
-        # 1. Prepare initial state: initial vacuum state displaced according to the inputs
-        tuned_inputs = inputs_disp
-        mean_vector = jnp.zeros((2*self.N,), dtype=tuned_inputs.dtype)
-        V = 0.5*jnp.eye(2*self.N)
-        mean_vector = QNN.apply_linear_gaussian(tuned_inputs, mean_vector)
-            
-        # 1.1. Add initial squeezing if specified
-        if self.include_initial_squeezing:
-            mean_vector, V = QNN.apply_quadratic_gaussian(self.Z0, mean_vector, V)
-            
-        # 1.2. Add initial mixing if specified
-        if self.include_initial_mixing:
-            mean_vector, V = QNN.apply_quadratic_gaussian(self.Q0, mean_vector, V)
+        # 1. Build the Gaussian core
+        mean_vector, V = self.build_gaussian_core_xxpp(inputs_disp)
 
-        # 2. Apply the Gaussian transformation acting as weights matrix and bias vector
-        mean_vector, V = self.apply_gaussian_transformations(mean_vector, V)
-        
-        # 3. Compute the expectation values of all combinations of ladder operators pairs over the final Gaussian state
+        # 2. Compute Gaussian ladder-pair expectation values
         K_exp_vals = compute_quad_exp_vals(self.N, V)
 
-        # 4. Compute coefficients for trace expression and normalization terms
-        traces_terms_coefs = self.compute_coefficients() if self.layers > 1 else self.jax_ones_coefs
-        
-        # 5. Compute the expectation values acting as outputs
-        exp_vals = compute_exp_val_loop(
-            self.exp_vals_inds, traces_terms_coefs, self.N, self.trace_terms_ranges, 
-            self.jax_lens, self.jax_modes, self.jax_types, self.jax_lpms,
-            K_exp_vals, mean_vector
+        # 3. Compute symbolic coefficients for trace-expression terms
+        traces_terms_coefs = (
+            self.compute_coefficients()
+            if hasattr(self, "jax_traceterms_coefs_inds")
+            else self.jax_ones_coefs
         )
-        
-        # 6. Multiply by trace coefficients and normalize (norm = last expectation value)
+
+        # 4. Evaluate all expectation values
+        if getattr(self, "expectation_backend", "loop_matchings") == "subset_dp":
+            exp_vals = compute_exp_val_loop_subset_dp(
+                self.exp_vals_inds,
+                traces_terms_coefs,
+                self.N,
+                self.trace_terms_ranges,
+                self.jax_lens,
+                self.jax_modes,
+                self.jax_types,
+                K_exp_vals,
+                mean_vector,
+            )
+        else:
+            exp_vals = compute_exp_val_loop(
+                self.exp_vals_inds,
+                traces_terms_coefs,
+                self.N,
+                self.trace_terms_ranges,
+                self.jax_lens,
+                self.jax_modes,
+                self.jax_types,
+                self.jax_lpms,
+                K_exp_vals,
+                mean_vector,
+            )
+
+        # 5. Normalize and return
         norm_outputs = self.finalize_observable_expval(exp_vals)
-        
         return norm_outputs, exp_vals[-1]
 
     @partial(jax.jit, static_argnums=(0,4))

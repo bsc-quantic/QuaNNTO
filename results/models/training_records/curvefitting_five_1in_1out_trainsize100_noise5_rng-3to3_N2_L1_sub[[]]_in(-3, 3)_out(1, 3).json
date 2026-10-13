@@ -1,0 +1,534 @@
+{
+  "schema_version": 1,
+  "trainer": "train_scipy",
+  "model_name": "curvefitting_five_1in_1out_trainsize100_noise5_rng-3to3_N2_L1_sub[[]]_in(-3, 3)_out(1, 3)",
+  "task_name": "curvefitting_five_1in_1out_trainsize100_noise5_rng-3to3",
+  "architecture": {
+    "N": 2,
+    "layers": 1,
+    "n_inputs": 1,
+    "n_outputs": 1,
+    "ladder_modes": [
+      []
+    ],
+    "is_addition": false,
+    "observable": "position",
+    "include_initial_squeezing": false,
+    "include_initial_mixing": false,
+    "is_passive_gaussian": false
+  },
+  "initialization": {
+    "source": "uniform_[0,1)",
+    "seed": 42,
+    "seed_sequence_entropy": 42,
+    "initialization_spawn_key": [
+      0
+    ],
+    "basinhopping_spawn_key": [
+      1
+    ],
+    "bit_generator": "PCG64",
+    "projected_to_bounds": false,
+    "parameters": [
+      0.9167441575549085,
+      0.9109866676343232,
+      0.8765925046098457,
+      0.3093184096141446,
+      0.9546560744177962,
+      0.1750945795537513,
+      0.996628139385393,
+      0.7520334780228151,
+      0.15038118437507397,
+      0.3833420481554085,
+      0.5792975461080213,
+      0.1754584087032055,
+      0.24936317204434189,
+      0.9278961759836157
+    ]
+  },
+  "bounds": [
+    [
+      null,
+      null
+    ],
+    [
+      null,
+      null
+    ],
+    [
+      null,
+      null
+    ],
+    [
+      null,
+      null
+    ],
+    [
+      null,
+      null
+    ],
+    [
+      null,
+      null
+    ],
+    [
+      null,
+      null
+    ],
+    [
+      null,
+      null
+    ],
+    [
+      -1.7047480922384253,
+      1.7047480922384253
+    ],
+    [
+      -1.7047480922384253,
+      1.7047480922384253
+    ],
+    [
+      null,
+      null
+    ],
+    [
+      null,
+      null
+    ],
+    [
+      null,
+      null
+    ],
+    [
+      null,
+      null
+    ]
+  ],
+  "n_parameters": 14,
+  "dtype": "float64",
+  "loss_function": "quannto.core.loss_functions.mse",
+  "lbfgsb": {
+    "options": {
+      "maxcor": 10,
+      "ftol": 2.220446049250313e-09,
+      "gtol": 1e-05,
+      "eps": 1e-08,
+      "maxfun": 15000,
+      "maxiter": 15000,
+      "maxls": 20
+    },
+    "jac": null,
+    "derivative_method": "SciPy forward finite differences"
+  },
+  "basinhopping": {
+    "niter": 3,
+    "T": 1.0,
+    "stepsize": 0.5,
+    "interval": 50,
+    "target_accept_rate": 0.5,
+    "stepwise_factor": 0.9,
+    "niter_success": null
+  },
+  "adam": null,
+  "software_versions": {
+    "numpy": "1.26.4",
+    "scipy": "1.13.1",
+    "jax": "0.6.2",
+    "jaxlib": "0.6.2",
+    "optax": "0.2.6"
+  },
+  "data": {
+    "train_inputs": {
+      "shape": [
+        100,
+        1
+      ],
+      "dtype": "float64",
+      "sha256": "0bede7508c634132dc76c4aa16575ccf823883a32d450b9049627b929d9491b4"
+    },
+    "train_targets": {
+      "shape": [
+        100,
+        1
+      ],
+      "dtype": "float64",
+      "sha256": "548680836ac4e8a42fd19c3d795e06c64a1f73ba20db66d6c1916504c9fc5446"
+    },
+    "processed_train_inputs": {
+      "shape": [
+        100,
+        4
+      ],
+      "dtype": "float64",
+      "sha256": "31dc04f18f43a4e2ff7474b6d828437aa0c890afc45e8b525cf564f2f85af727"
+    },
+    "processed_train_targets": {
+      "shape": [
+        100,
+        1
+      ],
+      "dtype": "float64",
+      "sha256": "1a05bbbf9ac31bee319b5d295e9fd705ab3a4bdfa8f6ba7481abec8389ef9eb6"
+    },
+    "validation_inputs": {
+      "shape": [
+        50,
+        1
+      ],
+      "dtype": "float64",
+      "sha256": "b8bdc8f12a7024f9eb9913bae2452a61f042dd281d1ebf8f5a50b9f9cc9d338b"
+    },
+    "validation_targets": {
+      "shape": [
+        50,
+        1
+      ],
+      "dtype": "float64",
+      "sha256": "a26c93291928cdc9ef7613192a4fa24d1e83618de3d44a2270fa8a1ec7e155f0"
+    },
+    "processed_validation_inputs": {
+      "shape": [
+        50,
+        4
+      ],
+      "dtype": "float64",
+      "sha256": "532f6141345648458ea09c0cdf7298b5d8c1677a3112fedb767b3f7753b92b4e"
+    },
+    "processed_validation_targets": {
+      "shape": [
+        50,
+        1
+      ],
+      "dtype": "float64",
+      "sha256": "a3a19bb9daf0316cc29545d1076bc38366bcddc992ddcd7e8e7aa66012fb633b"
+    }
+  },
+  "run_metadata": {
+    "entrypoint": "__main__",
+    "data_seed": 42
+  },
+  "history_note": "Chronological initial points, Adam/local iterates and basin endpoints; the selected model is at selection.history_index, not necessarily the last entry.",
+  "selection": {
+    "phase": "lbfgsb",
+    "event": "iterate",
+    "basin": 0,
+    "iteration": 3,
+    "accepted": null,
+    "train_loss": 0.03364640013661531,
+    "validation_loss": 0.0258047805990339,
+    "eligible": true,
+    "history_index": 3,
+    "metric": "validation_loss",
+    "value": 0.0258047805990339
+  },
+  "history": [
+    {
+      "phase": "lbfgsb",
+      "event": "initial",
+      "basin": 0,
+      "iteration": 0,
+      "accepted": null,
+      "train_loss": 1.45156858787411,
+      "validation_loss": 1.512364423737808,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 0,
+      "iteration": 1,
+      "accepted": null,
+      "train_loss": 0.8843186049175518,
+      "validation_loss": 0.8308065322401633,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 0,
+      "iteration": 2,
+      "accepted": null,
+      "train_loss": 0.05526908041357556,
+      "validation_loss": 0.042632351928651196,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 0,
+      "iteration": 3,
+      "accepted": null,
+      "train_loss": 0.03364640013661531,
+      "validation_loss": 0.0258047805990339,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 0,
+      "iteration": 4,
+      "accepted": null,
+      "train_loss": 0.03339990447514118,
+      "validation_loss": 0.02612275916333915,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 0,
+      "iteration": 5,
+      "accepted": null,
+      "train_loss": 0.03339845339299643,
+      "validation_loss": 0.026050141034348648,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 0,
+      "iteration": 6,
+      "accepted": null,
+      "train_loss": 0.03339826521452361,
+      "validation_loss": 0.02606408588473027,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "basin_end",
+      "basin": 0,
+      "iteration": 6,
+      "accepted": true,
+      "train_loss": 0.03339826521452361,
+      "validation_loss": 0.02606408588473027,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 1,
+      "iteration": 1,
+      "accepted": null,
+      "train_loss": 0.03452605031726031,
+      "validation_loss": 0.028333790108173107,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 1,
+      "iteration": 2,
+      "accepted": null,
+      "train_loss": 0.03419506068952142,
+      "validation_loss": 0.02788926313750952,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 1,
+      "iteration": 3,
+      "accepted": null,
+      "train_loss": 0.03339848531335379,
+      "validation_loss": 0.026083491897775014,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 1,
+      "iteration": 4,
+      "accepted": null,
+      "train_loss": 0.033398265226090025,
+      "validation_loss": 0.02606401102654166,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 1,
+      "iteration": 5,
+      "accepted": null,
+      "train_loss": 0.03339826521342823,
+      "validation_loss": 0.026064118134133715,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "basin_end",
+      "basin": 1,
+      "iteration": 5,
+      "accepted": true,
+      "train_loss": 0.03339826521342823,
+      "validation_loss": 0.026064118134133715,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 2,
+      "iteration": 1,
+      "accepted": null,
+      "train_loss": 0.22534138761305172,
+      "validation_loss": 0.19578235885808581,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 2,
+      "iteration": 2,
+      "accepted": null,
+      "train_loss": 0.18641937266663927,
+      "validation_loss": 0.15945272169039992,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 2,
+      "iteration": 3,
+      "accepted": null,
+      "train_loss": 0.03340482249905452,
+      "validation_loss": 0.02613795474843908,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 2,
+      "iteration": 4,
+      "accepted": null,
+      "train_loss": 0.03339827060438686,
+      "validation_loss": 0.02606660582595316,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 2,
+      "iteration": 5,
+      "accepted": null,
+      "train_loss": 0.03339826521343264,
+      "validation_loss": 0.0260641198349655,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "basin_end",
+      "basin": 2,
+      "iteration": 5,
+      "accepted": true,
+      "train_loss": 0.03339826521343264,
+      "validation_loss": 0.0260641198349655,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 3,
+      "iteration": 1,
+      "accepted": null,
+      "train_loss": 0.2806888734439235,
+      "validation_loss": 0.2460929162209919,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 3,
+      "iteration": 2,
+      "accepted": null,
+      "train_loss": 0.20670025227599823,
+      "validation_loss": 0.18582727964677342,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 3,
+      "iteration": 3,
+      "accepted": null,
+      "train_loss": 0.10206916520599184,
+      "validation_loss": 0.08769696485187387,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 3,
+      "iteration": 4,
+      "accepted": null,
+      "train_loss": 0.0349869215094132,
+      "validation_loss": 0.02608122967488946,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 3,
+      "iteration": 5,
+      "accepted": null,
+      "train_loss": 0.03342764971906688,
+      "validation_loss": 0.02598851113780281,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 3,
+      "iteration": 6,
+      "accepted": null,
+      "train_loss": 0.03339847235830155,
+      "validation_loss": 0.026071463319464163,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 3,
+      "iteration": 7,
+      "accepted": null,
+      "train_loss": 0.033398265964424356,
+      "validation_loss": 0.02606526311048063,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 3,
+      "iteration": 8,
+      "accepted": null,
+      "train_loss": 0.033398265213852175,
+      "validation_loss": 0.02606414724159614,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "basin_end",
+      "basin": 3,
+      "iteration": 8,
+      "accepted": true,
+      "train_loss": 0.033398265213852175,
+      "validation_loss": 0.02606414724159614,
+      "eligible": true
+    }
+  ],
+  "lbfgsb_iterations": 24,
+  "scipy_result": {
+    "message": [
+      "requested number of basinhopping iterations completed successfully"
+    ],
+    "nit": 3,
+    "minimization_failures": 0,
+    "lowest_training_local_result": {
+      "success": true,
+      "status": 0,
+      "message": "CONVERGENCE: NORM_OF_PROJECTED_GRADIENT_<=_PGTOL",
+      "fun": 0.03339826521342823,
+      "nit": 5,
+      "nfev": 105,
+      "njev": 7
+    }
+  },
+  "elapsed_seconds": 1.2426562519999607
+}

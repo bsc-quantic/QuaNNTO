@@ -1,0 +1,41 @@
+{
+  "baseline_definition": "paired fidelity at the exact random parameter vector saved before optimization in each training_record; no fresh random draw",
+  "initialization_seed": 42,
+  "convergence": {
+    "criterion": "two successive cutoff comparisons with max fidelity change <= 1e-7 and relative raw projected-norm change <= 1e-6",
+    "cat_final_cutoffs": {
+      "cat_n1_double": 120,
+      "cat_n2_aux_double": 40,
+      "cat_n2_both": 40,
+      "cat_n3_aux_pair": 50,
+      "cat_n2_l2": 80,
+      "cat_n1_single": 120,
+      "cat_n1_triple": 140,
+      "cat_n1_l2": 120
+    },
+    "cubic_final_cutoffs": {
+      "cubic_n2_l1": 50,
+      "cubic_n2_l2": 120,
+      "cubic_n3_l1": 60,
+      "cubic_n4_l1": 43,
+      "cubic_n2_double": 50
+    }
+  },
+  "cat": {
+    "cat_n1_double": 0.0002975497057758186,
+    "cat_n2_aux_double": 0.5065627383985918,
+    "cat_n2_both": 0.5617716410797207,
+    "cat_n3_aux_pair": 0.39426119024119666,
+    "cat_n2_l2": 0.11257436672511935,
+    "cat_n1_single": 0.006840658017378642,
+    "cat_n1_triple": 0.000049797280738418235,
+    "cat_n1_l2": 0.011874380538383236
+  },
+  "cubic_test_mean": {
+    "cubic_n2_l1": 0.3876933631677702,
+    "cubic_n2_l2": 0.07965174197178894,
+    "cubic_n3_l1": 0.26078546591673535,
+    "cubic_n4_l1": 0.4685265876531526,
+    "cubic_n2_double": 0.35842731215623813
+  }
+}

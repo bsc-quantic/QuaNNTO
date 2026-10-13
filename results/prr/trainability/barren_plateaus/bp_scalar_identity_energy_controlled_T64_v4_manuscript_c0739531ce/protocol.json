@@ -1,0 +1,105 @@
+{
+  "bootstrap": {
+    "confidence": 0.95,
+    "repetitions": 1000,
+    "resampling_unit": "initialization trial"
+  },
+  "circuit": {
+    "active_gaussian_layers": true,
+    "expectation_backend": "loop_matchings",
+    "initial_mixing": false,
+    "initial_squeezing": false,
+    "is_addition": false,
+    "observable": "position"
+  },
+  "co_primary_metric_rationale": "Each derivative coordinate is fixed before sampling and occupies the same relative first-layer Bloch-Messiah block across N and L.",
+  "co_primary_metrics": [
+    "Var_theta[dC/dtheta_i] for the matched passive coordinate",
+    "Var_theta[dC/dtheta_i] for the matched squeezing coordinate",
+    "Var_theta[dC/dtheta_i] for the matched displacement coordinate"
+  ],
+  "cost_specificity": "Every conclusion is specific to the fixed scalar homodyne MSE cost and the recorded initialization ensemble.",
+  "dataset": {
+    "batch_size": 32,
+    "dataset_seed": 1234,
+    "endpoints_included": true,
+    "fixed_across_all_parameter_trials_and_scan_points": true,
+    "input_interval": [
+      -0.75,
+      0.75
+    ],
+    "sha256": "6f0e805f2920930963bac9452a712291b65c927524dd41a5b555d485d663e3d9",
+    "task": "scalar identity regression x -> x"
+  },
+  "design_hash": "c0739531ce",
+  "ensemble": "energy_controlled",
+  "execution": {
+    "default_isolation": "one subprocess per unique architecture",
+    "failure_policy": "A failed, timed-out, or OOM-killed architecture is recorded and does not prevent later architectures from running.",
+    "partial_checkpoint_frequency": "after every completed trial"
+  },
+  "finite_size_interpretation": "This diagnostic probes only the accessible N<=5 and L<=3 regime. It neither establishes nor excludes an asymptotic barren plateau.",
+  "inactive_coordinate_definition": {
+    "criterion": "max_trial_abs_gradient <= tolerance",
+    "interpretation": "Numerical diagnostic only; it is reported because pooling a size-dependent number of inactive coordinates can bias global median summaries.",
+    "tolerance": 1e-12
+  },
+  "initialization": {
+    "energy_controlled": {
+      "displacement": "Normal(0,(0.05*energy_scale/sqrt(L))^2)",
+      "passive": "Normal(0,0.1^2), independent of L",
+      "squeezing": "Normal(0,(0.05*energy_scale/sqrt(L))^2)"
+    },
+    "legacy_uniform": "Independent U[0,1) parameters, matching the historical initialization distribution, not a selected old vector."
+  },
+  "literature_context": {
+    "reference": "B. Zhang and Q. Zhuang, Energy-dependent barren plateau in bosonic variational quantum circuits, arXiv:2305.01799; Quantum Sci. Technol. 10, 015009 (2025).",
+    "scope_caveat": "That result treats different bosonic variational ansatze and costs. It is context, not a theorem asserted for this conditionally normalized Gaussian-plus-ladder QONN."
+  },
+  "paired_design": "K and energy scale are excluded from the parameter seed, so fixed-N,L comparisons reuse the underlying random draws.",
+  "parameter_seed": 2026,
+  "protocol_version": 4,
+  "run_name": "bp_scalar_identity_energy_controlled_T64_v4_manuscript_c0739531ce",
+  "scan_design": {
+    "depths": [
+      1,
+      2,
+      3
+    ],
+    "energy_scales": [
+      0.25,
+      0.5,
+      1.0,
+      2.0,
+      4.0,
+      8.0
+    ],
+    "fixed_modes_for_depth": 2,
+    "fixed_modes_for_energy": 3,
+    "fixed_modes_for_ladder": 4,
+    "ladder_orders": [
+      0,
+      1,
+      2,
+      3,
+      4
+    ],
+    "profile": "manuscript",
+    "widths": [
+      2,
+      3,
+      4,
+      5
+    ]
+  },
+  "secondary_metrics": [
+    "median and mean parameterwise variance",
+    "empirically inactive-coordinate count and fraction",
+    "mean squared gradient per parameter and total gradient norm",
+    "complete one-row-per-parameter diagnostics",
+    "Gaussian-core photons per mode and in total",
+    "heralding norm and tiny/nonpositive-norm fractions"
+  ],
+  "trials": 64,
+  "width_resource_caveat": "The scalar input carries fixed total displacement energy, not fixed energy per mode, while initialized trainable operations can add size-dependent energy. Measured total and per-mode core energies are therefore reported, and the width scan is not a direct test of a fixed-per-mode-energy theorem."
+}

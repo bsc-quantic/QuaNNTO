@@ -1,0 +1,76 @@
+{
+  "status": "passed",
+  "environment": "Python 3.12.14, CPU, Linux",
+  "artifact_verification": {
+    "artifact_hashes": 1892,
+    "trainability": {
+      "configurations": 20,
+      "initializations": 64,
+      "derivative_variances": 60,
+      "recorded_gradchecks": 16,
+      "max_recorded_gradient_error": 1.9253903749127943e-09
+    },
+    "quantum_checkpoints": {
+      "cubic": 5,
+      "cat": 8
+    }
+  },
+  "fresh_gradient_replay": [
+    {
+      "architecture": "N2_L1_K0_es1",
+      "max_gradient_error": 0.0,
+      "loss_error": 0.0
+    },
+    {
+      "architecture": "N2_L1_K1_es1",
+      "max_gradient_error": 4.440892098500626e-16,
+      "loss_error": 1.1102230246251565e-16
+    },
+    {
+      "architecture": "N2_L2_K0_es1",
+      "max_gradient_error": 0.0,
+      "loss_error": 0.0
+    },
+    {
+      "architecture": "N2_L2_K1_es1",
+      "max_gradient_error": 6.661338147750939e-16,
+      "loss_error": 1.0408340855860843e-17
+    }
+  ],
+  "hierarchy_relative_differences": {
+    "best_squeezed_one_loss": 5.601290187291321e-15,
+    "slice_F_plus": 1.1022447276301544e-17,
+    "slice_F_minus_alpha1": 1.2160373410036748e-10,
+    "slice_parity": 2.2204460492503126e-16
+  },
+  "trainability_smoke": {
+    "complete": true,
+    "unique_configurations": 11,
+    "trials": 3,
+    "is_manuscript_result": false
+  },
+  "independent_fock_checks": "Scientific regression tests plus fresh eight-cat parity reconstruction; paired initial/trained fidelity export checked for cat_n1_single and cat_n2_l2.",
+  "not_rerun": [
+    "All basinhopping optimizations",
+    "Full 64-initialization campaign",
+    "Every cubic fidelity point at converged Fock cutoffs",
+    "TensorFlow preprocessing",
+    "GPU or cluster execution"
+  ],
+  "tests": {
+    "passed": 72,
+    "failed": 0,
+    "skipped": 0,
+    "fresh_extraction_seconds": 58.24
+  },
+  "package_checks": {
+    "fresh_dependency_install": true,
+    "fresh_extraction_full_suite": true,
+    "wheel_and_sdist_build": true,
+    "wheel_manifest_and_external_data_lookup": true,
+    "pip_check": true,
+    "separate_training_save_smoke": true,
+    "zip_crc": true
+  },
+  "dependency_lock_sha256": "655d01891364508b1e5a3908e05c39a1c0d0566dd107e01d4d72b48ac6112ed4"
+}

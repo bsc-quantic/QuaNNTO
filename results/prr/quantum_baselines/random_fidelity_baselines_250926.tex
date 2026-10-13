@@ -1,0 +1,50 @@
+% Paired random-initialization fidelity baselines, 25 Sep 2026.
+% F_init is evaluated at the exact parameter vector saved at the start of
+% the corresponding training run (seed 42), not at a fresh random draw.
+%
+% Cubic-phase synthesis: initial fidelity is the mean over the 49 unseen
+% midpoint coherent inputs, matching the reported test-set metric.
+\begin{tabular}{ccc ccccc}
+\hline
+$N$ & $L$ & $(K_1;\ldots;K_L)$ & $\mathcal L_{\mathrm{train}}^{\min}$ & $\overline F_{\mathrm{test}}^{\mathrm{init}}$ & $\overline F_{\mathrm{train}}$ & $\overline F_{\mathrm{test}}$ & $F_{\mathrm{test,min}}$ \\
+\hline
+2 & 1 & $(2)$       & 72.0468 & 0.388 & 0.528 & 0.530 & 0.294 \\
+2 & 2 & $(2);(2)$    & 41.2432 & 0.080 & 0.562 & 0.564 & 0.324 \\
+3 & 1 & $(2,3)$     & 108.777 & 0.261 & 0.431 & 0.432 & 0.001 \\
+4 & 1 & $(2,3,4)$   & 6.41382 & 0.469 & 0.594 & 0.597 & 0.419 \\
+2 & 1 & $(2,2)$     & 154.755 & 0.358 & 0.464 & 0.466 & $<10^{-3}$ \\
+\hline
+\end{tabular}
+
+% Full-precision paired initial means:
+% cubic_n2_l1     0.3876933631677702
+% cubic_n2_l2     0.07965174197178894
+% cubic_n3_l1     0.26078546591673535
+% cubic_n4_l1     0.4685265876531526
+% cubic_n2_double 0.35842731215623813
+
+% Cat-state engineering.
+\begin{tabular}{ccc ccc}
+\hline
+$N$ & $L$ & $(K_1;\ldots;K_L)$ & $\mathcal L_{\mathrm{train}}^{\min}$ & $F_{\mathrm{init}}$ & $F$ \\
+\hline
+1 & 1 & $(1,1)$     & 8.77402   & $2.98\times10^{-4}$ & 0.982 \\
+2 & 1 & $(2,2)$     & 0.0622683 & 0.507 & 0.851 \\
+2 & 1 & $(1,2)$     & 2.32990   & 0.562 & $<10^{-10}$ \\
+3 & 1 & $(2,3)$     & 0.0613729 & 0.394 & 0.829 \\
+2 & 2 & $(2);(2)$   & 0.152679  & 0.113 & 0.547 \\
+1 & 1 & $(1)$       & 2.32990   & 0.00684 & $<10^{-10}$ \\
+1 & 1 & $(1,1,1)$   & 103.730   & $4.98\times10^{-5}$ & 0.839 \\
+1 & 2 & $(1);(1)$   & 2.27036   & 0.0119 & 0.000322 \\
+\hline
+\end{tabular}
+
+% Full-precision paired initial fidelities:
+% cat_n1_double     0.0002975497057758186
+% cat_n2_aux_double 0.5065627383985918
+% cat_n2_both       0.5617716410797207
+% cat_n3_aux_pair   0.39426119024119666
+% cat_n2_l2         0.11257436672511935
+% cat_n1_single     0.006840658017378642
+% cat_n1_triple     0.000049797280738418235
+% cat_n1_l2         0.011874380538383236

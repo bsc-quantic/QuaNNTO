@@ -1,0 +1,75 @@
+{
+  "fits": {
+    "depth:gaussian": {
+      "probe_displacement__gradient_variance": {
+        "decay_rate": -1.3913731123275914,
+        "intercept": -1.0913398545985526,
+        "r2_log_fit": 0.9871218676174632,
+        "slope": 1.3913731123275914
+      },
+      "probe_passive__gradient_variance": {
+        "decay_rate": -2.505320130538589,
+        "intercept": -4.076269120493298,
+        "r2_log_fit": 0.9192938255289893,
+        "slope": 2.505320130538589
+      },
+      "probe_squeezing__gradient_variance": {
+        "decay_rate": -3.4314951188075633,
+        "intercept": -6.272593690508184,
+        "r2_log_fit": 0.9984034675323601,
+        "slope": 3.4314951188075633
+      },
+      "x": "L"
+    },
+    "depth:subtracted": {
+      "probe_displacement__gradient_variance": null,
+      "probe_passive__gradient_variance": null,
+      "probe_squeezing__gradient_variance": null,
+      "x": "L"
+    },
+    "width:gaussian": {
+      "probe_displacement__gradient_variance": {
+        "decay_rate": 0.0705365955462351,
+        "intercept": 0.591547992325885,
+        "r2_log_fit": 0.48671330062973184,
+        "slope": -0.0705365955462351
+      },
+      "probe_passive__gradient_variance": {
+        "decay_rate": 0.5631671116352368,
+        "intercept": -1.0661033540450955,
+        "r2_log_fit": 0.9259890403914106,
+        "slope": -0.5631671116352368
+      },
+      "probe_squeezing__gradient_variance": {
+        "decay_rate": 0.48267960650024333,
+        "intercept": -1.7567798367026963,
+        "r2_log_fit": 0.8925705109309383,
+        "slope": -0.48267960650024333
+      },
+      "x": "N"
+    },
+    "width:subtracted": {
+      "probe_displacement__gradient_variance": {
+        "decay_rate": 0.0213184578100672,
+        "intercept": 1.3758596827043694,
+        "r2_log_fit": 0.655667636383362,
+        "slope": -0.0213184578100672
+      },
+      "probe_passive__gradient_variance": {
+        "decay_rate": 0.4810084461542868,
+        "intercept": -0.3707720541135562,
+        "r2_log_fit": 0.8019737668251165,
+        "slope": -0.4810084461542868
+      },
+      "probe_squeezing__gradient_variance": {
+        "decay_rate": 0.20673639435119415,
+        "intercept": 0.949782575735387,
+        "r2_log_fit": 0.8572468383625725,
+        "slope": -0.20673639435119415
+      },
+      "x": "N"
+    }
+  },
+  "interpretation": "Exploratory finite-size fits of the three pre-registered matched derivatives only. Width/depth semilog slopes and energy log-log slopes do not establish or exclude an asymptotic barren plateau.",
+  "ladder_fit_omitted": "No fit is assigned to ladder order K: conditional normalization and heralding probability change with K, so K is not a circuit-size scaling variable for a barren-plateau claim."
+}

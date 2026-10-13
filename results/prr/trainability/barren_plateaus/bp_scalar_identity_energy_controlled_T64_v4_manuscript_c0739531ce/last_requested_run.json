@@ -1,0 +1,36 @@
+{
+  "aggregate_only": false,
+  "isolation": "process",
+  "overwrite": false,
+  "quick": false,
+  "requested_architecture_keys": [
+    "N2_L1_K0_es1",
+    "N3_L1_K0_es1",
+    "N4_L1_K0_es1",
+    "N5_L1_K0_es1",
+    "N2_L1_K1_es1",
+    "N3_L1_K1_es1",
+    "N4_L1_K1_es1",
+    "N5_L1_K1_es1",
+    "N2_L2_K0_es1",
+    "N2_L3_K0_es1",
+    "N2_L2_K1_es1",
+    "N2_L3_K1_es1",
+    "N4_L1_K2_es1",
+    "N4_L1_K3_es1",
+    "N4_L1_K4_es1",
+    "N3_L1_K1_es0p25",
+    "N3_L1_K1_es0p5",
+    "N3_L1_K1_es2",
+    "N3_L1_K1_es4",
+    "N3_L1_K1_es8"
+  ],
+  "requested_utc": "2026-09-02T15:59:43.512786Z",
+  "resume": true,
+  "sweeps": [
+    "width",
+    "depth",
+    "ladder",
+    "energy"
+  ]
+}

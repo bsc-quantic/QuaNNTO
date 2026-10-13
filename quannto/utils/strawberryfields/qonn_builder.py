@@ -10,7 +10,7 @@ from quannto.utils.strawberryfields.general_tools import apply_annihilation_to_k
 def apply_subtractions_layer(ket, cutoff, modes_list):
     """
     Apply a on each mode in modes_list sequentially (order irrelevant for different modes).
-    Returns (ket_new, probs_list_for_each_click_in_this_layer).
+    Returns (ket_new, squared_norms_for_each_annihilation).
     """
     probs = []
     for m in modes_list:
@@ -22,8 +22,9 @@ def apply_gaussian_layer(ket_in, N, cutoff, S, d):
     """
     Applies GaussianTransform(S) + displacement d to ket_in using SF.
     - S: 2N×2N symplectic in ordering (x1..xN, p1..pN)
-    - d_phys: length-2N displacement in the SAME ordering, in textbook (phys) units
-    If phys_convention=True, we rescale displacement by sqrt(2) for SF gates.
+    - d: length-2N vector (Re(alpha_1),...,Re(alpha_N), Im(alpha_1),...,Im(alpha_N)).
+      These are coherent amplitudes, not quadrature means; no sqrt(2) factor
+      belongs in Dgate. S_l and D_l are applied in increasing layer index.
     """
     S = np.real_if_close(np.array(S))
     d = np.real_if_close(np.array(d))
@@ -50,7 +51,9 @@ def run_qonn(N, cutoff, layers, subtractions, input_alpha=None):
     :param layers: list of dicts [{"S":..., "d":...}, ...] containing each layer's symplectic S and displacement d
     :param subtractions: list of lists, e.g. [[0],[1]] or [[0,1], []] denoting the subtracted modes of each layer
     :param input_alpha: optional complex coherent displacement encoded on mode 0 at input.
-    Returns (ket_out, probs_per_layer).
+    Returns (ket_out, squared_norms_per_layer). These ideal-annihilation
+    weights can exceed one and are not physical heralding probabilities.
+    This literal Fock simulation requires convergence in its intermediate cutoffs.
     """
     assert len(layers) == len(subtractions), "Need one subtractions list per layer."
     # start from vacuum ket

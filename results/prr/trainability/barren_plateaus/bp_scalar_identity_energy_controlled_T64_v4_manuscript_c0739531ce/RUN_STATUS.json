@@ -1,0 +1,20 @@
+{
+  "all_recorded_gradchecks_passed": true,
+  "design_complete": true,
+  "ensemble": "energy_controlled",
+  "failed_requested_architectures": [],
+  "incomplete_designed_architectures": [],
+  "num_completed_unique_configurations": 20,
+  "num_designed_unique_configurations": 20,
+  "num_partial_configurations": 0,
+  "num_plotted_scan_points_available": 25,
+  "num_probable_oom_or_sigkill": 0,
+  "num_requested_failures": 0,
+  "num_requested_unique_configurations": 20,
+  "num_timeouts": 0,
+  "protocol_version": 4,
+  "requested_complete": true,
+  "status_table": "configuration_status.csv",
+  "trials": 64,
+  "updated_utc": "2026-09-02T16:06:24.947738Z"
+}

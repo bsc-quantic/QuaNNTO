@@ -1,3 +1,9 @@
+import hashlib
+import json
+from importlib.metadata import version, PackageNotFoundError
+
+from quannto.utils.path_utils import quannto_results_dir
+
 import numpy as np
 from functools import reduce, partial
 import time
@@ -9,16 +15,16 @@ import jax.numpy as jnp
 from .loss_functions import mse
 from .qnn import QNN
 
-# ---------------------------------------------------------------
-# Trainers utilities
-# ---------------------------------------------------------------
+
 def _nongauss_symbol(is_addition):
     """Human-readable non-Gaussian symbol for printing."""
     return "â†" if is_addition else "â"
 
+
 def _apply_fns(x, fns):
     """Applies a list of callables sequentially."""
     return reduce(lambda acc, fn: fn(acc), fns, x)
+
 
 def _compute_num_parameters(N, layers, include_initial_squeezing, include_initial_mixing, is_passive_gaussian):
     """
@@ -32,6 +38,7 @@ def _compute_num_parameters(N, layers, include_initial_squeezing, include_initia
     if is_passive_gaussian:
         n_pars -= layers * (N**2 + N)
     return int(n_pars)
+
 
 def _build_bounds(N, layers, include_initial_squeezing, include_initial_mixing, is_passive_gaussian):
     """
@@ -64,6 +71,7 @@ def _build_bounds(N, layers, include_initial_squeezing, include_initial_mixing, 
 
     return bounds
 
+
 def _init_parameters(n_pars, init_pars=None, rng=None, dtype=np.float64):
     """
     Creates or validates the initial parameter vector.
@@ -78,6 +86,7 @@ def _init_parameters(n_pars, init_pars=None, rng=None, dtype=np.float64):
     assert init_pars.shape == (n_pars,), f"init_pars shape {init_pars.shape} does not match ({n_pars},)"
     return init_pars
 
+
 def _build_projector(bounds, dtype=jnp.float64):
     """
     Builds a simple projection function params -> clip(params, lb, ub) from SciPy-style bounds.
@@ -89,6 +98,7 @@ def _build_projector(bounds, dtype=jnp.float64):
         return jnp.clip(params, lb, ub)
 
     return project, lb, ub
+
 
 def _build_qnn_and_preprocess_datasets(
     *,
@@ -132,294 +142,440 @@ def _build_qnn_and_preprocess_datasets(
 
     return qnn, train_inputs, train_outputs, valid_inputs, valid_outputs
 
+
+
+
+LBFGSB_DEFAULTS = {
+    "maxcor": 10, "ftol": 2.220446049250313e-9, "gtol": 1e-5,
+    "eps": 1e-8, "maxfun": 15000, "maxiter": 15000, "maxls": 20,
+}
+
+
+def _json_safe(value):
+    if isinstance(value, dict):
+        return {str(k): _json_safe(v) for k, v in value.items()}
+    if isinstance(value, (list, tuple, np.ndarray)):
+        return [_json_safe(v) for v in value]
+    if isinstance(value, np.generic):
+        return _json_safe(value.item())
+    if isinstance(value, float) and not np.isfinite(value):
+        return None
+    return value
+
+
+def _array_fingerprint(value):
+    a = np.ascontiguousarray(np.asarray(value))
+    return {"shape": list(a.shape), "dtype": str(a.dtype),
+            "sha256": hashlib.sha256(a.tobytes()).hexdigest()}
+
+
 def _finalize_model(qnn, best_params, *, save=True):
-    """
-    Builds the final model at the best parameters and optionally saves it.
-    """
-    best_params = np.asarray(best_params, dtype=np.float64)
+    """Return and persist the same checkpoint in all model representations."""
+    best_params = np.asarray(best_params, dtype=np.float64).copy()
     qnn.build_QNN(best_params)
     qnn.print_qnn()
     if save:
-        qnn.save_model()
+        _save_checkpoint_files(qnn, best_params)
     return qnn
 
-# ---------------------------------------------------------------
-# SciPy training helpers (L-BFGS-B + basinhopping)
-# ---------------------------------------------------------------
+
+def _save_checkpoint_files(qnn, params):
+    qnn.build_QNN(np.asarray(params, dtype=np.float64))
+    qnn.save_model_parameters(params)
+    qnn.save_operator_matrices()
+    qnn.save_model()
+    if hasattr(qnn, "training_record"):
+        folder = quannto_results_dir() / "models" / "training_records"
+        folder.mkdir(parents=True, exist_ok=True)
+        path = folder / f"{qnn.model_name}.json"
+        temporary = path.with_suffix(".json.tmp")
+        temporary.write_text(json.dumps(_json_safe(qnn.training_record),
+                                        indent=2, allow_nan=False) + "\n")
+        temporary.replace(path)
+
+
+class _CheckpointTracker:
+    """Select over recorded iterates, never over finite-difference probes."""
+
+    def __init__(self, has_validation):
+        self.has_validation = has_validation
+        self.best_params = None
+        self.best_index = None
+        self.best_metric = np.inf
+        self.records = []
+        self.global_it = 0
+        self.local_it = 0
+        self.bh_it = 0
+        self.saved_best_index = None
+
+    def record(self, params, train_loss, validation_loss, *, phase, event,
+               basin=None, iteration=None, accepted=None):
+        params = np.asarray(params, dtype=np.float64).copy()
+        train_loss = float(train_loss)
+        validation_loss = (float(validation_loss) if self.has_validation
+                           else train_loss)
+        eligible = (np.all(np.isfinite(params)) and np.isfinite(train_loss)
+                    and np.isfinite(validation_loss))
+        metric = validation_loss if self.has_validation else train_loss
+        self.records.append({"phase": phase, "event": event, "basin": basin,
+                             "iteration": iteration, "accepted": accepted,
+                             "train_loss": train_loss,
+                             "validation_loss": validation_loss,
+                             "eligible": bool(eligible)})
+        if eligible and metric < self.best_metric:
+            self.best_metric = metric
+            self.best_index = len(self.records) - 1
+            self.best_params = params
+
+    def require_checkpoint(self):
+        if self.best_params is None:
+            raise ValueError("No finite checkpoint was obtained; check the inputs, "
+                             "initial parameters and conditional-state normalization.")
+
+    @property
+    def train_history(self):
+        return [r["train_loss"] for r in self.records]
+
+    @property
+    def valid_history(self):
+        return [r["validation_loss"] for r in self.records]
+
+    def attach(self, qnn):
+        self.require_checkpoint()
+        selected = dict(self.records[self.best_index])
+        selected.update({"history_index": self.best_index,
+                         "metric": "validation_loss" if self.has_validation else "train_loss",
+                         "value": self.best_metric})
+        qnn.training_record["selection"] = selected
+        qnn.training_record["history"] = list(self.records)
+        qnn.training_record["lbfgsb_iterations"] = self.global_it
+
+
 class _ObjectiveCache:
-    """
-    Wrapper that caches the last x -> f(x) evaluation.
-    Useful because SciPy callbacks do not receive f(x), so we would otherwise recompute it.
-    """
     def __init__(self, fn):
         self.fn = fn
         self.last_x = None
         self.last_value = None
 
     def __call__(self, x):
-        v = float(self.fn(x))
+        self.last_value = float(self.fn(x))
         self.last_x = np.asarray(x).copy()
-        self.last_value = v
-        return v
+        return self.last_value
 
     def get(self, x):
-        x = np.asarray(x)
-        if self.last_x is not None and x.shape == self.last_x.shape and np.array_equal(x, self.last_x):
+        if self.last_x is not None and np.array_equal(x, self.last_x):
             return self.last_value
-        return float(self.fn(x))
+        return self(x)
 
-class _BasinhoppingState:
-    """
-    Tracks current and best histories across basinhopping restarts.
-    """
-    def __init__(self, init_pars):
-        self.global_it = 0
-        self.local_it = 0
-        self.bh_it = 1
-
-        self.current_train = []
-        self.current_valid = []
-
-        self.best_train = [np.inf]
-        self.best_valid = [np.inf]
-        self.best_pars = np.asarray(init_pars).copy()
-
-    def _metric(self, has_validation):
-        return self.current_valid[-1] if has_validation else self.current_train[-1]
-
-    def _best_metric(self, has_validation):
-        return self.best_valid[-1] if has_validation else self.best_train[-1]
 
 def callback_opt_general(xk, *, state, cost_cache, cost_validation=None, print_every=1):
-    """
-    Prints and stores the loss value for each SciPy optimizer epoch.
-
-    :param xk: QONN tunable parameters
-    :param state: _BasinhoppingState
-    :param cost_cache: _ObjectiveCache for training objective
-    :param cost_validation: validation objective (callable) or None
-    :param print_every: print frequency
-    """
     train_loss = cost_cache.get(xk)
-    state.current_train.append(train_loss)
-
-    if cost_validation is not None:
-        val_loss = float(cost_validation(xk))
-    else:
-        val_loss = train_loss
-    state.current_valid.append(val_loss)
-
+    val_loss = float(cost_validation(xk)) if cost_validation is not None else train_loss
     state.local_it += 1
     state.global_it += 1
+    state.record(xk, train_loss, val_loss, phase="lbfgsb", event="iterate",
+                 basin=state.bh_it, iteration=state.local_it)
+    if print_every and state.local_it % print_every == 0:
+        print(f"BH {state.bh_it:3d} | Iteration {state.local_it:4d} | "
+              f"Train {train_loss:.6e} | Selection loss {val_loss:.6e}",
+              end="\r", flush=True)
 
-    if (state.local_it % print_every) == 0:
-        msg = (
-            f"BH {state.bh_it:3d} | "
-            f"Epoch {state.local_it:4d} | "
-            f"Total epochs {state.global_it:5d} | "
-            f"Train loss {train_loss:.6e} | "
-            f"Validation loss {val_loss:.6e}"
-        )
-        print(msg, end="\r", flush=True)
 
-def callback_hopping_general(x, f, accept, *, state, qnn, has_validation=False, save_best=True):
-    """
-    Basinhopping callback: compares the last local-minimization metric with the best so far.
-    If improved, stores best params and histories and optionally saves the model.
-
-    :param x: Current parameters at the end of local minimization
-    :param f: Current training loss f(x) (as reported by basinhopping)
-    :param accept: Basinhopping accept flag
-    """
-    print()
-
-    if len(state.current_train) == 0:
-        print(f"Basinhopping iteration {state.bh_it}. Loss: {float(f):.6e}\n==========")
-        state.bh_it += 1
-        state.local_it = 0
-        return
-
-    current_metric = state._metric(has_validation)
-    best_metric = state._best_metric(has_validation)
-
-    if state.bh_it > 1:
-        print(f"Best loss so far: {best_metric:.6e}")
-    print(f"Basinhopping iteration {state.bh_it}. Loss: {float(f):.6e}\n==========")
-
-    if current_metric < best_metric:
-        state.best_pars = np.asarray(x).copy()
-        state.best_train = state.current_train.copy()
-        state.best_valid = state.current_valid.copy()
-
-        if save_best:
-            qnn.build_QNN(state.best_pars)
-            qnn.save_model_parameters(state.best_pars)
-            qnn.save_operator_matrices()
-            qnn.save_model()
-
+def callback_hopping_general(x, f, accept, *, state, qnn, cost_cache,
+                             cost_validation=None, save_best=True, print_every=1):
+    # Re-evaluate at this exact endpoint, even when no local callback occurred.
+    train_loss = cost_cache.get(x)
+    val_loss = float(cost_validation(x)) if cost_validation is not None else train_loss
+    state.record(x, train_loss, val_loss, phase="lbfgsb", event="basin_end",
+                 basin=state.bh_it, iteration=state.local_it, accepted=bool(accept))
+    if state.best_params is not None:
+        state.attach(qnn)
+        if save_best and state.saved_best_index != state.best_index:
+            _save_checkpoint_files(qnn, state.best_params)
+            state.saved_best_index = state.best_index
+    if print_every:
+        print(f"\nLocal solve {state.bh_it + 1}: train={train_loss:.6e}; "
+              f"best selection loss={state.best_metric:.6e}")
     state.bh_it += 1
     state.local_it = 0
-    state.current_train = []
-    state.current_valid = []
 
-def _run_scipy_basinhopping(
-    *,
-    qnn,
-    init_pars,
-    bounds,
-    hopping_iters,
-    training_QNN,
-    validate_QNN=None,
-    save_best=True,
-    print_every=1,
-):
-    """
-    Runs SciPy basinhopping + L-BFGS-B with clean state tracking and non-verbose printing.
-    Returns (best_pars, best_train_history, best_valid_history, train_time).
-    """
-    state = _BasinhoppingState(init_pars)
-    cost_cache = _ObjectiveCache(training_QNN)
 
-    callback = partial(
-        callback_opt_general,
-        state=state,
-        cost_cache=cost_cache,
-        cost_validation=validate_QNN,
-        print_every=print_every,
+def _run_scipy_basinhopping(*, qnn, init_pars, bounds, hopping_iters,
+                           training_QNN, validate_QNN=None, save_best=True,
+                           print_every=1, state=None, rng=None,
+                           lbfgsb_options=None, bh_temperature=1.0,
+                           bh_stepsize=0.5, bh_interval=50):
+    if not isinstance(hopping_iters, (int, np.integer)) or hopping_iters < 0:
+        raise ValueError("hopping_iters must be a nonnegative integer.")
+    state = state if state is not None else _CheckpointTracker(validate_QNN is not None)
+    cache = _ObjectiveCache(training_QNN)
+    train0 = cache.get(init_pars)
+    valid0 = float(validate_QNN(init_pars)) if validate_QNN is not None else train0
+    state.record(init_pars, train0, valid0, phase="lbfgsb", event="initial",
+                 basin=0, iteration=0)
+    state.require_checkpoint()
+    options = dict(LBFGSB_DEFAULTS)
+    if lbfgsb_options is not None:
+        options.update(lbfgsb_options)
+    callback = partial(callback_opt_general, state=state, cost_cache=cache,
+                       cost_validation=validate_QNN, print_every=print_every)
+    hop_callback = partial(callback_hopping_general, state=state, qnn=qnn,
+                           cost_cache=cache, cost_validation=validate_QNN,
+                           save_best=save_best, print_every=print_every)
+    t0 = time.perf_counter()
+    result = opt.basinhopping(
+        cache, np.asarray(init_pars, dtype=np.float64), niter=int(hopping_iters),
+        T=bh_temperature, stepsize=bh_stepsize, interval=bh_interval,
+        minimizer_kwargs={"method": "L-BFGS-B", "bounds": bounds,
+                          "callback": callback, "options": options},
+        callback=hop_callback, seed=rng,
+        target_accept_rate=0.5, stepwise_factor=0.9,
     )
-    callback_hop = partial(
-        callback_hopping_general,
-        state=state,
-        qnn=qnn,
-        has_validation=(validate_QNN is not None),
-        save_best=save_best,
-    )
-
-    minimizer_kwargs = {
-        "method": "L-BFGS-B",
-        "bounds": bounds,
-        "callback": callback,
+    elapsed = time.perf_counter() - t0
+    lowest = result.lowest_optimization_result
+    qnn.training_record["scipy_result"] = {
+        "message": list(result.message), "nit": int(result.nit),
+        "minimization_failures": int(result.minimization_failures),
+        "lowest_training_local_result": {
+            key: getattr(lowest, key, None)
+            for key in ("success", "status", "message", "fun", "nit", "nfev", "njev")
+        },
     }
+    # The Metropolis accept/reject rule uses training loss. Selection is independent.
+    state.require_checkpoint()
+    state.attach(qnn)
+    return state.best_params.copy(), state.train_history, state.valid_history, elapsed
 
-    training_start = time.time()
-    _ = opt.basinhopping(
-        cost_cache,
-        np.asarray(init_pars, dtype=np.float64),
-        niter=hopping_iters,
-        minimizer_kwargs=minimizer_kwargs,
-        callback=callback_hop,
-    )
-    train_time = time.time() - training_start
-    print()
 
-    # If never improved, fall back to the last local history if available
-    if np.isinf(state.best_train[-1]):
-        state.best_pars = np.asarray(init_pars, dtype=np.float64)
-        if len(state.current_train) > 0:
-            state.best_train = state.current_train
-            state.best_valid = state.current_valid
-        else:
-            state.best_train = [np.inf]
-            state.best_valid = [np.inf]
-
-    return state.best_pars, state.best_train, state.best_valid, train_time
-
-# ---------------------------------------------------------------
-# JAX training helpers (Adam/AdamW, Optax L-BFGS, simple GD)
-# ---------------------------------------------------------------
-def _run_adam_warmup(
-    *,
-    init_pars,
-    training_QNN,
-    validate_QNN=None,
-    project=None,
-    epochs=200,
-    learning_rate=1e-2,
-    weight_decay=0.0,
-    print_every=1,
-):
-    """
-    Pure-JAX Adam/AdamW warmup. Returns (best_params_np, train_hist, valid_hist, warmup_time).
-    """
-    if epochs <= 0:
-        return np.asarray(init_pars, dtype=np.float64), [], [], 0.0
-
+def _run_adam_warmup(*, init_pars, training_QNN, validate_QNN=None,
+                    project=None, epochs=200, learning_rate=1e-2,
+                    weight_decay=0.0, print_every=1, state=None):
+    if not isinstance(epochs, (int, np.integer)) or epochs < 0:
+        raise ValueError("epochs must be a nonnegative integer.")
+    state = state if state is not None else _CheckpointTracker(validate_QNN is not None)
     params = jnp.asarray(init_pars, dtype=jnp.float64)
     if project is not None:
         params = project(params)
-
-    if weight_decay != 0.0:
-        optimizer = optax.adamw(learning_rate=learning_rate, weight_decay=weight_decay)
-    else:
-        optimizer = optax.adam(learning_rate=learning_rate)
-
+    optimizer = (optax.adamw(learning_rate, weight_decay=weight_decay)
+                 if weight_decay else optax.adam(learning_rate))
     opt_state = optimizer.init(params)
 
     def loss_fn(p):
-        if project is not None:
-            p = project(p)
-        return training_QNN(p)
-
-    loss_and_grad = jax.value_and_grad(loss_fn)
+        return training_QNN(project(p) if project is not None else p)
 
     @jax.jit
     def step(p, s):
-        v, g = loss_and_grad(p)
-        upd, s = optimizer.update(g, s, p)
-        p = optax.apply_updates(p, upd)
+        _, gradient = jax.value_and_grad(loss_fn)(p)
+        updates, s = optimizer.update(gradient, s, p)
+        p = optax.apply_updates(p, updates)
         if project is not None:
             p = project(p)
-        return p, s, v
+        return p, s
 
-    train_hist = []
-    valid_hist = []
+    def record(p, iteration):
+        # Both losses and the saved parameters belong to the post-update point.
+        train = float(loss_fn(p))
+        valid = float(validate_QNN(p)) if validate_QNN is not None else train
+        state.record(p, train, valid, phase="adam", iteration=iteration,
+                     event="initial" if iteration == 0 else "iterate")
+        return train, valid
 
-    best_params = params
-    best_train = float(loss_fn(params))
-    if validate_QNN is not None:
-        best_valid = float(validate_QNN(best_params))
-    else:
-        best_valid = best_train
+    t0 = time.perf_counter()
+    record(params, 0)
+    state.require_checkpoint()
+    for epoch in range(1, epochs + 1):
+        params, opt_state = step(params, opt_state)
+        train, valid = record(params, epoch)
+        if print_every and epoch % print_every == 0:
+            print(f"[Adam] {epoch}/{epochs} | Train {train:.6e} | "
+                  f"Selection loss {valid:.6e}", end="\r", flush=True)
+    if print_every:
+        print()
+    return (state.best_params.copy(), state.train_history, state.valid_history,
+            time.perf_counter() - t0)
 
-    train_hist.append(best_train)
-    valid_hist.append(best_valid)
 
-    print(
-        f"[Adam] Epoch {0}/{epochs} | train loss = {best_train:.6e} | val loss = {best_valid:.6e}",
-        end="\r",
-        flush=True,
+def _train_scipy_protocol(
+    model_name, task_name, N, layers, n_inputs, n_outputs,
+    ladder_modes, is_addition, observable, include_initial_squeezing,
+    include_initial_mixing, is_passive_gaussian, train_set, valid_set,
+    loss_function, hopping_iters, in_preprocs, out_prepocs, postprocs,
+    init_pars, save, print_every, save_best_each_basin, *,
+    seed, lbfgsb_options, bh_temperature, bh_stepsize, bh_interval,
+    run_metadata, adam_epochs=0, adam_learning_rate=1e-2,
+    adam_weight_decay=0.0, hybrid=False,
+):
+    if layers != len(ladder_modes):
+        raise ValueError("Provide one list of ladder modes per physical layer.")
+    for name, data in (("train", train_set), ("validation", valid_set)):
+        if data is None and name == "validation":
+            continue
+        if data is None or len(data[0]) == 0 or len(data[0]) != len(data[1]):
+            raise ValueError(f"{name} data must contain equally many, nonempty inputs and targets.")
+    if print_every < 0:
+        raise ValueError("print_every must be nonnegative (0 disables progress output).")
+    root_seed = np.random.SeedSequence(seed)
+    init_sequence, basin_sequence = root_seed.spawn(2)
+    init_rng = np.random.default_rng(init_sequence)
+    basin_rng = np.random.default_rng(basin_sequence)
+    n_pars = _compute_num_parameters(N, layers, include_initial_squeezing,
+                                    include_initial_mixing, is_passive_gaussian)
+    bounds = _build_bounds(N, layers, include_initial_squeezing,
+                           include_initial_mixing, is_passive_gaussian)
+    supplied_initial = init_pars is not None
+    init_pars = _init_parameters(n_pars, init_pars=init_pars, rng=init_rng)
+    if not np.all(np.isfinite(init_pars)):
+        raise ValueError("Initial parameters must be finite.")
+    project, _, _ = _build_projector(bounds)
+    projected = np.asarray(project(jnp.asarray(init_pars)), dtype=np.float64)
+    initial_projected = not np.array_equal(projected, init_pars)
+    init_pars = projected
+    qnn, x, y, xv, yv = _build_qnn_and_preprocess_datasets(
+        model_name=model_name, task_name=task_name, N=N, layers=layers,
+        n_inputs=n_inputs, n_outputs=n_outputs, ladder_modes=ladder_modes,
+        is_addition=is_addition, observable=observable,
+        include_initial_squeezing=include_initial_squeezing,
+        include_initial_mixing=include_initial_mixing,
+        is_passive_gaussian=is_passive_gaussian, train_set=train_set,
+        valid_set=valid_set, init_pars=init_pars,
+        in_preprocs=list(in_preprocs or []), out_prepocs=list(out_prepocs or []),
+        postprocs=list(postprocs or []),
     )
-    t0 = time.time()
+    train = partial(qnn.train_QNN, inputs_dataset=jnp.asarray(x),
+                    outputs_dataset=jnp.asarray(y), loss_function=loss_function)
+    valid = (partial(qnn.train_QNN, inputs_dataset=jnp.asarray(xv),
+                     outputs_dataset=jnp.asarray(yv), loss_function=loss_function)
+             if valid_set is not None else None)
+    options = dict(LBFGSB_DEFAULTS)
+    options.update(lbfgsb_options or {})
+    versions = {}
+    for package in ("numpy", "scipy", "jax", "jaxlib", "optax"):
+        try:
+            versions[package] = version(package)
+        except PackageNotFoundError:
+            versions[package] = "unknown"
+    qnn.training_record = {
+        "schema_version": 1,
+        "trainer": "train_hybrid_adamjax_scipy" if hybrid else "train_scipy",
+        "model_name": model_name, "task_name": task_name,
+        "architecture": {"N": N, "layers": layers, "n_inputs": n_inputs,
+                         "n_outputs": n_outputs, "ladder_modes": ladder_modes,
+                         "is_addition": is_addition, "observable": observable,
+                         "include_initial_squeezing": include_initial_squeezing,
+                         "include_initial_mixing": include_initial_mixing,
+                         "is_passive_gaussian": is_passive_gaussian},
+        "initialization": {"source": "provided" if supplied_initial else "uniform_[0,1)",
+                           "seed": seed, "seed_sequence_entropy": root_seed.entropy,
+                           "initialization_spawn_key": list(init_sequence.spawn_key),
+                           "basinhopping_spawn_key": list(basin_sequence.spawn_key),
+                           "bit_generator": type(init_rng.bit_generator).__name__,
+                           "projected_to_bounds": initial_projected,
+                           "parameters": init_pars.tolist()},
+        "bounds": bounds, "n_parameters": n_pars, "dtype": "float64",
+        "loss_function": f"{loss_function.__module__}.{loss_function.__name__}",
+        "lbfgsb": {"options": options, "jac": None,
+                   "derivative_method": "SciPy forward finite differences"},
+        "basinhopping": {"niter": hopping_iters, "T": bh_temperature,
+                         "stepsize": bh_stepsize, "interval": bh_interval,
+                         "target_accept_rate": 0.5, "stepwise_factor": 0.9,
+                         "niter_success": None},
+        "adam": {"epochs": adam_epochs, "learning_rate": adam_learning_rate,
+                 "weight_decay": adam_weight_decay, "b1": 0.9, "b2": 0.999,
+                 "eps": 1e-8, "eps_root": 0.0} if hybrid else None,
+        "software_versions": versions,
+        "data": {"train_inputs": _array_fingerprint(train_set[0]),
+                 "train_targets": _array_fingerprint(train_set[1]),
+                 "processed_train_inputs": _array_fingerprint(x),
+                 "processed_train_targets": _array_fingerprint(y)},
+        "run_metadata": dict(run_metadata or {}),
+        "history_note": "Chronological initial points, Adam/local iterates and basin endpoints; "
+                        "the selected model is at selection.history_index, not necessarily the last entry.",
+    }
+    if valid_set is not None:
+        qnn.training_record["data"].update({
+            "validation_inputs": _array_fingerprint(valid_set[0]),
+            "validation_targets": _array_fingerprint(valid_set[1]),
+            "processed_validation_inputs": _array_fingerprint(xv),
+            "processed_validation_targets": _array_fingerprint(yv),
+        })
+    state = _CheckpointTracker(valid is not None)
+    t0 = time.perf_counter()
+    if hybrid:
+        init_pars, _, _, _ = _run_adam_warmup(
+            init_pars=init_pars, training_QNN=train, validate_QNN=valid,
+            project=project, epochs=adam_epochs, learning_rate=adam_learning_rate,
+            weight_decay=adam_weight_decay, print_every=print_every, state=state,
+        )
+    best, train_history, valid_history, _ = _run_scipy_basinhopping(
+        qnn=qnn, init_pars=init_pars, bounds=bounds, hopping_iters=hopping_iters,
+        training_QNN=train, validate_QNN=valid,
+        save_best=(save and save_best_each_basin), print_every=print_every,
+        state=state, rng=basin_rng, lbfgsb_options=options,
+        bh_temperature=bh_temperature, bh_stepsize=bh_stepsize, bh_interval=bh_interval,
+    )
+    qnn.training_record["elapsed_seconds"] = time.perf_counter() - t0
+    state.attach(qnn)
+    _finalize_model(qnn, best, save=save)
+    if print_every:
+        print(f"Selected {qnn.training_record['selection']['metric']}: "
+              f"{state.best_metric:.6e}; history index {state.best_index}")
+    return qnn, train_history, valid_history
 
-    for ep in range(1, epochs + 1):
-        params, opt_state, loss_val = step(params, opt_state)
-        train_loss = float(loss_val)
 
-        if validate_QNN is not None:
-            val_loss = float(validate_QNN(params))
-        else:
-            val_loss = train_loss
+def train_scipy(
+    model_name, task_name, N, layers, n_inputs, n_outputs,
+    ladder_modes, is_addition, observable, include_initial_squeezing,
+    include_initial_mixing, is_passive_gaussian, train_set, valid_set,
+    loss_function=mse, hopping_iters=2,
+    in_preprocs=None, out_prepocs=None, postprocs=None,
+    init_pars=None, save=True, print_every=1, save_best_each_basin=True,
+    *, seed=42, lbfgsb_options=None, bh_temperature=1.0,
+    bh_stepsize=0.5, bh_interval=50, run_metadata=None,
+):
+    """L-BFGS-B/basinhopping; retain the best recorded validation checkpoint.
 
-        train_hist.append(train_loss)
-        valid_hist.append(val_loss)
+    Without validation select by training loss. ``hopping_iters=0`` still runs
+    one local minimization. ``seed`` controls independent initialization and
+    basinhopping streams. Histories cover the full run; the selected entry is
+    ``qnn.training_record['selection']['history_index']``.
+    """
+    return _train_scipy_protocol(
+        model_name, task_name, N, layers, n_inputs, n_outputs, ladder_modes,
+        is_addition, observable, include_initial_squeezing, include_initial_mixing,
+        is_passive_gaussian, train_set, valid_set, loss_function, hopping_iters,
+        in_preprocs, out_prepocs, postprocs, init_pars, save, print_every,
+        save_best_each_basin, seed=seed, lbfgsb_options=lbfgsb_options,
+        bh_temperature=bh_temperature, bh_stepsize=bh_stepsize,
+        bh_interval=bh_interval, run_metadata=run_metadata,
+    )
 
-        if (ep % print_every) == 0:
-            print(
-                f"[Adam] Epoch {ep}/{epochs} | train loss = {train_loss:.6e} | val loss = {val_loss:.6e}",
-                end="\r",
-                flush=True,
-            )
 
-        if val_loss < best_valid:
-            best_valid = val_loss
-            best_train = train_loss
-            best_params = params
+def train_hybrid_adamjax_scipy(
+    model_name, task_name, N, layers, n_inputs, n_outputs,
+    ladder_modes, is_addition, observable, include_initial_squeezing,
+    include_initial_mixing, is_passive_gaussian, train_set, valid_set,
+    loss_function=mse, hopping_iters=2,
+    in_preprocs=None, out_prepocs=None, postprocs=None,
+    init_pars=None, save=True, adam_epochs=200, adam_learning_rate=1e-2,
+    adam_weight_decay=0.0, print_every=1, save_best_each_basin=True,
+    *, seed=42, lbfgsb_options=None, bh_temperature=1.0,
+    bh_stepsize=0.5, bh_interval=50, run_metadata=None,
+):
+    """Projected Adam followed by SciPy, with one selection across both phases."""
+    return _train_scipy_protocol(
+        model_name, task_name, N, layers, n_inputs, n_outputs, ladder_modes,
+        is_addition, observable, include_initial_squeezing, include_initial_mixing,
+        is_passive_gaussian, train_set, valid_set, loss_function, hopping_iters,
+        in_preprocs, out_prepocs, postprocs, init_pars, save, print_every,
+        save_best_each_basin, seed=seed, lbfgsb_options=lbfgsb_options,
+        bh_temperature=bh_temperature, bh_stepsize=bh_stepsize,
+        bh_interval=bh_interval, run_metadata=run_metadata,
+        adam_epochs=adam_epochs, adam_learning_rate=adam_learning_rate,
+        adam_weight_decay=adam_weight_decay, hybrid=True,
+    )
 
-    warmup_time = time.time() - t0
-    print()
 
-    return np.asarray(best_params, dtype=np.float64), train_hist, valid_hist, warmup_time
-
+# Alternative trainers (not used by the supplied task scripts).
 def _run_optax_lbfgs(
     *,
     init_pars,
@@ -505,279 +661,7 @@ def _run_optax_lbfgs(
 
     return np.asarray(best_params, dtype=np.float64), train_hist, valid_hist, train_time
 
-# ---------------------------------------------------------------
-# Trainer 1 (Recommended): SciPy basinhopping (L-BFGS-B) with JAX-wrapped model evaluation
-# ---------------------------------------------------------------
-def train_scipy(
-    model_name, task_name,
-    N, layers, n_inputs, n_outputs,
-    ladder_modes, is_addition, observable,
-    include_initial_squeezing, include_initial_mixing, is_passive_gaussian,
-    train_set, valid_set,
-    loss_function=mse, hopping_iters=2,
-    in_preprocs=None, out_prepocs=None, postprocs=None,
-    init_pars=None, save=True,
-    print_every=1,
-    save_best_each_basin=True,
-):
-    """
-    Creates and trains a QNN model using SciPy L-BFGS-B + basinhopping.
-    """
 
-    # ---------------------------------------------------------------
-    # 1. Number of parameters and bounds
-    # ---------------------------------------------------------------
-    assert layers == len(ladder_modes)
-
-    n_pars = _compute_num_parameters(
-        N, layers,
-        include_initial_squeezing, include_initial_mixing, is_passive_gaussian,
-    )
-    bounds = _build_bounds(N, layers, include_initial_squeezing, include_initial_mixing, is_passive_gaussian)
-    assert len(bounds) == n_pars, f"Number of bounds {len(bounds)} does not match number of parameters {n_pars}."
-
-    init_pars = _init_parameters(n_pars, init_pars=init_pars)
-
-    # ---------------------------------------------------------------
-    # 2. Build QNN and preprocess datasets
-    # ---------------------------------------------------------------
-    qnn, train_inputs, train_outputs, valid_inputs, valid_outputs = _build_qnn_and_preprocess_datasets(
-        model_name=model_name,
-        task_name=task_name,
-        N=N,
-        layers=layers,
-        n_inputs=n_inputs,
-        n_outputs=n_outputs,
-        ladder_modes=ladder_modes,
-        is_addition=is_addition,
-        observable=observable,
-        include_initial_squeezing=include_initial_squeezing,
-        include_initial_mixing=include_initial_mixing,
-        is_passive_gaussian=is_passive_gaussian,
-        train_set=train_set,
-        valid_set=valid_set,
-        init_pars=init_pars,
-        in_preprocs=in_preprocs,
-        out_prepocs=out_prepocs,
-        postprocs=postprocs,
-    )
-
-    # ---------------------------------------------------------------
-    # 3. Define training/validation objectives
-    # ---------------------------------------------------------------
-    train_inputs_jax = jnp.asarray(train_inputs)
-    train_outputs_jax = jnp.asarray(train_outputs)
-
-    training_QNN = partial(
-        qnn.train_QNN,
-        inputs_dataset=train_inputs_jax,
-        outputs_dataset=train_outputs_jax,
-        loss_function=loss_function,
-    )
-
-    if valid_inputs is not None:
-        valid_inputs_jax = jnp.asarray(valid_inputs)
-        valid_outputs_jax = jnp.asarray(valid_outputs)
-
-        validate_QNN = partial(
-            qnn.train_QNN,
-            inputs_dataset=valid_inputs_jax,
-            outputs_dataset=valid_outputs_jax,
-            loss_function=loss_function,
-        )
-    else:
-        validate_QNN = None
-
-    # SciPy expects numpy params, but we keep dtype stable by converting inside
-    def training_cost(x):
-        return float(training_QNN(jnp.asarray(x, dtype=jnp.float64)))
-
-    if validate_QNN is not None:
-        def validation_cost(x):
-            return float(validate_QNN(jnp.asarray(x, dtype=jnp.float64)))
-    else:
-        validation_cost = None
-
-    # ---------------------------------------------------------------
-    # 4. Basinhopping training
-    # ---------------------------------------------------------------
-    best_pars, best_train, best_valid, train_time = _run_scipy_basinhopping(
-        qnn=qnn,
-        init_pars=init_pars,
-        bounds=bounds,
-        hopping_iters=hopping_iters,
-        training_QNN=training_cost,
-        validate_QNN=validation_cost,
-        save_best=(save and save_best_each_basin),
-        print_every=print_every,
-    )
-
-    n_epochs = max(1, len(best_train))
-    print(f"Total training time: {train_time:.3f} seconds")
-    print(f"Time per epoch: {train_time / n_epochs:.6f} seconds")
-
-    print(
-        f"\nOPTIMIZATION ERROR FOR N={N}, L={layers}, "
-        f"{_nongauss_symbol(is_addition)} modes={np.array(ladder_modes[0]) + 1}\n"
-        f"{best_valid[-1] if valid_set is not None else best_train[-1]}"
-    )
-
-    # ---------------------------------------------------------------
-    # 5. Build final QNN with best parameters
-    # ---------------------------------------------------------------
-    _finalize_model(qnn, best_pars, save=save)
-
-    return qnn, best_train, best_valid
-
-# ---------------------------------------------------------------
-# Trainer 2 (Recommended): Hybrid (Pure JAX Adam warmup + SciPy basinhopping with JAX-wrapped model evaluation)
-# ---------------------------------------------------------------
-def train_hybrid_adamjax_scipy(
-    model_name, task_name,
-    N, layers, n_inputs, n_outputs,
-    ladder_modes, is_addition, observable,
-    include_initial_squeezing, include_initial_mixing, is_passive_gaussian,
-    train_set, valid_set,
-    loss_function=mse, hopping_iters=2,
-    in_preprocs=None, out_prepocs=None, postprocs=None,
-    init_pars=None, save=True,
-    adam_epochs=200, adam_learning_rate=1e-2, adam_weight_decay=0.0,
-    print_every=1,
-    save_best_each_basin=True,
-):
-    """
-    Hybrid training: Adam/AdamW warmup (pure JAX) then SciPy L-BFGS-B + basinhopping.
-    """
-
-    # ---------------------------------------------------------------
-    # 1. Number of parameters and bounds
-    # ---------------------------------------------------------------
-    assert layers == len(ladder_modes)
-
-    n_pars = _compute_num_parameters(
-        N, layers,
-        include_initial_squeezing, include_initial_mixing, is_passive_gaussian,
-    )
-    bounds = _build_bounds(N, layers, include_initial_squeezing, include_initial_mixing, is_passive_gaussian)
-    assert len(bounds) == n_pars, f"Number of bounds {len(bounds)} does not match number of parameters {n_pars}."
-
-    init_pars = _init_parameters(n_pars, init_pars=init_pars)
-
-    project, _, _ = _build_projector(bounds, dtype=jnp.float64)
-
-    # ---------------------------------------------------------------
-    # 2. Build QNN and preprocess datasets
-    # ---------------------------------------------------------------
-    qnn, train_inputs, train_outputs, valid_inputs, valid_outputs = _build_qnn_and_preprocess_datasets(
-        model_name=model_name,
-        task_name=task_name,
-        N=N,
-        layers=layers,
-        n_inputs=n_inputs,
-        n_outputs=n_outputs,
-        ladder_modes=ladder_modes,
-        is_addition=is_addition,
-        observable=observable,
-        include_initial_squeezing=include_initial_squeezing,
-        include_initial_mixing=include_initial_mixing,
-        is_passive_gaussian=is_passive_gaussian,
-        train_set=train_set,
-        valid_set=valid_set,
-        init_pars=init_pars,
-        in_preprocs=in_preprocs,
-        out_prepocs=out_prepocs,
-        postprocs=postprocs,
-    )
-
-    # ---------------------------------------------------------------
-    # 3. Define training/validation objectives (JAX)
-    # ---------------------------------------------------------------
-    train_inputs_jax = jnp.asarray(train_inputs)
-    train_outputs_jax = jnp.asarray(train_outputs)
-
-    training_QNN = partial(
-        qnn.train_QNN,
-        inputs_dataset=train_inputs_jax,
-        outputs_dataset=train_outputs_jax,
-        loss_function=loss_function,
-    )
-
-    if valid_inputs is not None:
-        valid_inputs_jax = jnp.asarray(valid_inputs)
-        valid_outputs_jax = jnp.asarray(valid_outputs)
-
-        validate_QNN = partial(
-            qnn.train_QNN,
-            inputs_dataset=valid_inputs_jax,
-            outputs_dataset=valid_outputs_jax,
-            loss_function=loss_function,
-        )
-    else:
-        validate_QNN = None
-
-    # ---------------------------------------------------------------
-    # 4. Phase 1: Adam/AdamW warmup
-    # ---------------------------------------------------------------
-    if adam_epochs > 0:
-        print("\n=== Phase 1: Adam/AdamW warmup (JAX) ===")
-        init_pars, _, _, adam_time = _run_adam_warmup(
-            init_pars=init_pars,
-            training_QNN=training_QNN,
-            validate_QNN=validate_QNN,
-            project=project,
-            epochs=adam_epochs,
-            learning_rate=adam_learning_rate,
-            weight_decay=adam_weight_decay,
-            print_every=max(1, print_every),
-        )
-        print(f"Adam warmup total time: {adam_time:.3f} s")
-    else:
-        print("\n[INFO] Skipping Adam warmup (adam_epochs <= 0)")
-
-    # ---------------------------------------------------------------
-    # 5. Phase 2: SciPy basinhopping + L-BFGS-B
-    # ---------------------------------------------------------------
-    def training_cost(x):
-        return float(training_QNN(project(jnp.asarray(x, dtype=jnp.float64))))
-
-    if validate_QNN is not None:
-        def validation_cost(x):
-            return float(validate_QNN(project(jnp.asarray(x, dtype=jnp.float64))))
-    else:
-        validation_cost = None
-
-    print("\n=== Phase 2: Basinhopping with L-BFGS-B (SciPy) ===")
-    best_pars, best_train, best_valid, train_time = _run_scipy_basinhopping(
-        qnn=qnn,
-        init_pars=init_pars,
-        bounds=bounds,
-        hopping_iters=hopping_iters,
-        training_QNN=training_cost,
-        validate_QNN=validation_cost,
-        save_best=(save and save_best_each_basin),
-        print_every=print_every,
-    )
-
-    n_epochs = max(1, len(best_train))
-    print(f"Total training time: {train_time:.3f} seconds")
-    print(f"Time per epoch: {train_time / n_epochs:.6f} seconds")
-
-    print(
-        f"\nOPTIMIZATION ERROR FOR N={N}, L={layers}, "
-        f"{_nongauss_symbol(is_addition)} modes={np.array(ladder_modes[0]) + 1}\n"
-        f"{best_valid[-1] if valid_set is not None else best_train[-1]}"
-    )
-
-    # ---------------------------------------------------------------
-    # 6. Build final QNN with best parameters
-    # ---------------------------------------------------------------
-    _finalize_model(qnn, best_pars, save=save)
-
-    return qnn, best_train, best_valid
-
-# ---------------------------------------------------------------
-# Trainer 3: Pure JAX (gradient descent)
-# ---------------------------------------------------------------
 def train_gdjax(
     model_name, task_name,
     N, layers, n_inputs, n_outputs,
@@ -906,9 +790,7 @@ def train_gdjax(
 
     return qnn, train_hist, valid_hist
 
-# ---------------------------------------------------------------
-# Trainer 4: Optax L-BFGS (pure JAX) - TODO: Fix excessive slow optimization
-# ---------------------------------------------------------------
+
 def train_optax_lbfgs(
     model_name, task_name,
     N, layers, n_inputs, n_outputs,
@@ -1028,9 +910,7 @@ def train_optax_lbfgs(
 
     return qnn, train_hist, valid_hist
 
-# ---------------------------------------------------------------
-# Trainer 5: Adam/AdamW (pure JAX) - TODO: Check loss jumps and final performance, maybe add learning rate decay or early stopping
-# ---------------------------------------------------------------
+
 def train_adamjax(
     model_name, task_name,
     N, layers, n_inputs, n_outputs,
@@ -1138,3 +1018,4 @@ def train_adamjax(
     _finalize_model(qnn, best_params, save=save)
 
     return qnn, train_hist, valid_hist
+

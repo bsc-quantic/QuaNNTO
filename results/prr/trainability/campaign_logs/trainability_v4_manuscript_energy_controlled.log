@@ -1,0 +1,43 @@
+
+[configuration 1/20] N2_L1_K0_es1
+
+[configuration 2/20] N3_L1_K0_es1
+
+[configuration 3/20] N4_L1_K0_es1
+
+[configuration 4/20] N5_L1_K0_es1
+
+[configuration 5/20] N2_L1_K1_es1
+
+[configuration 6/20] N3_L1_K1_es1
+
+[configuration 7/20] N4_L1_K1_es1
+
+[configuration 8/20] N5_L1_K1_es1
+
+[configuration 9/20] N2_L2_K0_es1
+
+[configuration 10/20] N2_L3_K0_es1
+
+[configuration 11/20] N2_L2_K1_es1
+
+[configuration 12/20] N2_L3_K1_es1
+
+[configuration 13/20] N4_L1_K2_es1
+
+[configuration 14/20] N4_L1_K3_es1
+
+[configuration 15/20] N4_L1_K4_es1
+
+[configuration 16/20] N3_L1_K1_es0p25
+
+[configuration 17/20] N3_L1_K1_es0p5
+
+[configuration 18/20] N3_L1_K1_es2
+
+[configuration 19/20] N3_L1_K1_es4
+
+[configuration 20/20] N3_L1_K1_es8
+
+Saved complete trainability results to /home/tkrasimi/QuanticGit/Quannto/revision_trainability_final/barren_plateaus/bp_scalar_identity_energy_controlled_T64_v4_manuscript_c0739531ce
+Completed 20/20 designed configurations; requested failures: 0.

@@ -30,7 +30,7 @@ def plot_noisy_dataset(task_name, train_dataset, real_function,
     plt.close(fig)
 
 def plot_qnns_testing(inputs, expected_outputs, qnns_outputs, legend_labels, filename,
-                      top_ylim=None, title=None, figsize=(5.5, 4.2), fontsize=14, title_fontsize=14, legend_fontsize=13):
+                      top_ylim=None, title=None, figsize=(5.5, 4.2), fontsize=14, title_fontsize=14, legend_fontsize=13, hide_ylabel=False, hide_xlabel=False):
     fig, ax = plt.subplots(figsize=figsize)
     ax.plot(inputs, expected_outputs, c='black', linewidth=7.0, alpha=0.25, label='Expected results')
     c = 0
@@ -40,8 +40,10 @@ def plot_qnns_testing(inputs, expected_outputs, qnns_outputs, legend_labels, fil
     if title is not None:
         ax.set_title(f'{title}', fontsize=title_fontsize)
 
-    ax.set_xlabel('Input', fontsize=fontsize)
-    ax.set_ylabel('Output', fontsize=fontsize)
+    if not hide_xlabel:
+        ax.set_xlabel('Input', fontsize=fontsize)
+    if not hide_ylabel:
+        ax.set_ylabel('Output', fontsize=fontsize)
     if top_ylim is not None:
         plt.ylim(top=top_ylim)
     ax.tick_params(axis='both', labelsize=fontsize)
@@ -77,10 +79,9 @@ def plot_qnns_loglosses(train_losses, valid_losses, legend_labels, filename,
             ax.plot(log_valid_losses[i],
                     c=colors[i], linestyle='dotted')
 
-    double_max = 3 * np.max(np.array([np.min(loss) for loss in log_train_losses]))
-    ax.set_ylim(bottom=0.0, top=double_max)
+    ax.set_ylim(bottom=0.0)
     ax.set_xlabel('Epochs', fontsize=fontsize)
-    ax.set_ylabel('Loss value', fontsize=fontsize)
+    ax.set_ylabel('Logarithmic loss', fontsize=fontsize)
     ax.set_title(title, fontsize=title_fontsize)
 
     ax.tick_params(axis='both', labelsize=fontsize)
@@ -92,9 +93,19 @@ def plot_qnns_loglosses(train_losses, valid_losses, legend_labels, filename,
     plt.show()
     plt.close(fig)
 
-    print('=== ACHIEVED TRAINING LOSSES ===')
+    print('=== SELECTED CHECKPOINT LOSSES ===')
     for i in range(len(legend_labels)):
-        print(f'{legend_labels[i]}: {train_losses[i][-1]}')
+        train = np.asarray(train_losses[i], dtype=float)
+        has_validation = valid_losses is not None and len(valid_losses[i]) == len(train)
+        metric = np.asarray(valid_losses[i], dtype=float) if has_validation else train
+        eligible = np.isfinite(train) & np.isfinite(metric)
+        if not np.any(eligible):
+            print(f'{legend_labels[i]}: no finite checkpoint')
+            continue
+        selected = np.argmin(np.where(eligible, metric, np.inf))
+        label = 'validation' if has_validation else 'training'
+        print(f'{legend_labels[i]}: checkpoint {selected}, training={train[selected]}, '
+              f'{label} selection loss={metric[selected]}')
         
 def plot_confusion_matrix(model_name, expected_cats, qnn_pred_cats):
     from sklearn.metrics import confusion_matrix
@@ -140,7 +151,7 @@ def plot_qnn_decision(X, y, qonn_outputs, model_name, title="QONN decision bound
     plt.xticks(color='black', fontsize=14)
     plt.yticks(color='black', fontsize=14)
     plt.xlabel("$x_1$", color='black', fontsize=16)
-    plt.ylabel("$x_2$", color='black', fontsize=16)
+    #plt.ylabel("$x_2$", color='black', fontsize=16)
     plt.xlim(x_min, x_max)
     plt.ylim(y_min, y_max)
     plt.savefig(figures_dir() / f"{model_name}.pdf", bbox_inches="tight")
@@ -278,7 +289,7 @@ def plot_per_class_accuracy_markers(
     markers=None,              # e.g. ['^','o','s']
     linestyles=None,           # e.g. ['-','--',':','-.']
     cmap_name="tab10",
-    figsize=(10, 5),
+    figsize=(6.5, 4.6),
     title="Per-class accuracy (markers & lines)",
     annotate=False,
     x_jitter=0.0,
@@ -352,7 +363,7 @@ def plot_per_class_accuracy_markers(
                     continue
                 ax.text(xx, yy + 0.01, f"{yy*100:.1f}%", ha="center", va="bottom", fontsize=9)
 
-    ylim = (np.min(acc_matrix)-0.03, 1.07)
+    ylim = (np.min(acc_matrix)-0.03, 1.0)
     ax.set_xticks(x)
     ax.set_xticklabels([str(c) for c in classes])
     ax.set_xlabel("Classes")

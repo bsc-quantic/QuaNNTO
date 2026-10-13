@@ -1,0 +1,7305 @@
+{
+  "schema_version": 1,
+  "trainer": "train_scipy",
+  "model_name": "fock_cubicphase_gamma0.2_trainsize50_rng-2.0to2.0_N2_L1_sub[[1, 1]]_inNone",
+  "task_name": "fock_cubicphase_gamma0.2_trainsize50_rng-2.0to2.0",
+  "architecture": {
+    "N": 2,
+    "layers": 1,
+    "n_inputs": 1,
+    "n_outputs": 1,
+    "ladder_modes": [
+      [
+        1,
+        1
+      ]
+    ],
+    "is_addition": false,
+    "observable": "cubicphase",
+    "include_initial_squeezing": false,
+    "include_initial_mixing": false,
+    "is_passive_gaussian": false
+  },
+  "initialization": {
+    "source": "uniform_[0,1)",
+    "seed": 42,
+    "seed_sequence_entropy": 42,
+    "initialization_spawn_key": [
+      0
+    ],
+    "basinhopping_spawn_key": [
+      1
+    ],
+    "bit_generator": "PCG64",
+    "projected_to_bounds": false,
+    "parameters": [
+      0.9167441575549085,
+      0.9109866676343232,
+      0.8765925046098457,
+      0.3093184096141446,
+      0.9546560744177962,
+      0.1750945795537513,
+      0.996628139385393,
+      0.7520334780228151,
+      0.15038118437507397,
+      0.3833420481554085,
+      0.5792975461080213,
+      0.1754584087032055,
+      0.24936317204434189,
+      0.9278961759836157
+    ]
+  },
+  "bounds": [
+    [
+      null,
+      null
+    ],
+    [
+      null,
+      null
+    ],
+    [
+      null,
+      null
+    ],
+    [
+      null,
+      null
+    ],
+    [
+      null,
+      null
+    ],
+    [
+      null,
+      null
+    ],
+    [
+      null,
+      null
+    ],
+    [
+      null,
+      null
+    ],
+    [
+      -1.7047480922384253,
+      1.7047480922384253
+    ],
+    [
+      -1.7047480922384253,
+      1.7047480922384253
+    ],
+    [
+      null,
+      null
+    ],
+    [
+      null,
+      null
+    ],
+    [
+      null,
+      null
+    ],
+    [
+      null,
+      null
+    ]
+  ],
+  "n_parameters": 14,
+  "dtype": "float64",
+  "loss_function": "quannto.core.loss_functions.mse",
+  "lbfgsb": {
+    "options": {
+      "maxcor": 10,
+      "ftol": 2.220446049250313e-09,
+      "gtol": 1e-05,
+      "eps": 1e-08,
+      "maxfun": 15000,
+      "maxiter": 15000,
+      "maxls": 20
+    },
+    "jac": null,
+    "derivative_method": "SciPy forward finite differences"
+  },
+  "basinhopping": {
+    "niter": 4,
+    "T": 1.0,
+    "stepsize": 0.5,
+    "interval": 50,
+    "target_accept_rate": 0.5,
+    "stepwise_factor": 0.9,
+    "niter_success": null
+  },
+  "adam": null,
+  "software_versions": {
+    "numpy": "1.26.4",
+    "scipy": "1.13.1",
+    "jax": "0.6.2",
+    "jaxlib": "0.6.2",
+    "optax": "0.2.6"
+  },
+  "data": {
+    "train_inputs": {
+      "shape": [
+        50,
+        1
+      ],
+      "dtype": "float64",
+      "sha256": "276d2c00fa0dbac07e6ec77f0d4177b911abc3a1592fc614793479da135754cb"
+    },
+    "train_targets": {
+      "shape": [
+        50,
+        6
+      ],
+      "dtype": "complex128",
+      "sha256": "d396c0a6c639588cfdc54fc5a4c5a25acce08a08ca6f5c1c2924a2336719bee6"
+    },
+    "processed_train_inputs": {
+      "shape": [
+        50,
+        4
+      ],
+      "dtype": "float64",
+      "sha256": "0858bff9a8086408d86a4aef0e2b2320e698596b0918ffef11c8d1417325095c"
+    },
+    "processed_train_targets": {
+      "shape": [
+        50,
+        6
+      ],
+      "dtype": "complex128",
+      "sha256": "d396c0a6c639588cfdc54fc5a4c5a25acce08a08ca6f5c1c2924a2336719bee6"
+    }
+  },
+  "run_metadata": {
+    "entrypoint": "__main__",
+    "data_seed": 42
+  },
+  "history_note": "Chronological initial points, Adam/local iterates and basin endpoints; the selected model is at selection.history_index, not necessarily the last entry.",
+  "selection": {
+    "phase": "lbfgsb",
+    "event": "iterate",
+    "basin": 0,
+    "iteration": 119,
+    "accepted": null,
+    "train_loss": 154.7545680317763,
+    "validation_loss": 154.7545680317763,
+    "eligible": true,
+    "history_index": 119,
+    "metric": "train_loss",
+    "value": 154.7545680317763
+  },
+  "history": [
+    {
+      "phase": "lbfgsb",
+      "event": "initial",
+      "basin": 0,
+      "iteration": 0,
+      "accepted": null,
+      "train_loss": 1052.7992764666785,
+      "validation_loss": 1052.7992764666785,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 0,
+      "iteration": 1,
+      "accepted": null,
+      "train_loss": 711.4759886197039,
+      "validation_loss": 711.4759886197039,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 0,
+      "iteration": 2,
+      "accepted": null,
+      "train_loss": 645.620594539673,
+      "validation_loss": 645.620594539673,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 0,
+      "iteration": 3,
+      "accepted": null,
+      "train_loss": 592.9690571822438,
+      "validation_loss": 592.9690571822438,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 0,
+      "iteration": 4,
+      "accepted": null,
+      "train_loss": 563.2178629203291,
+      "validation_loss": 563.2178629203291,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 0,
+      "iteration": 5,
+      "accepted": null,
+      "train_loss": 562.9013222393984,
+      "validation_loss": 562.9013222393984,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 0,
+      "iteration": 6,
+      "accepted": null,
+      "train_loss": 560.2377495697956,
+      "validation_loss": 560.2377495697956,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 0,
+      "iteration": 7,
+      "accepted": null,
+      "train_loss": 558.9069074763228,
+      "validation_loss": 558.9069074763228,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 0,
+      "iteration": 8,
+      "accepted": null,
+      "train_loss": 556.2776241798449,
+      "validation_loss": 556.2776241798449,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 0,
+      "iteration": 9,
+      "accepted": null,
+      "train_loss": 551.0088285768422,
+      "validation_loss": 551.0088285768422,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 0,
+      "iteration": 10,
+      "accepted": null,
+      "train_loss": 547.914583425072,
+      "validation_loss": 547.914583425072,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 0,
+      "iteration": 11,
+      "accepted": null,
+      "train_loss": 539.3590502150051,
+      "validation_loss": 539.3590502150051,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 0,
+      "iteration": 12,
+      "accepted": null,
+      "train_loss": 476.99438759171966,
+      "validation_loss": 476.99438759171966,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 0,
+      "iteration": 13,
+      "accepted": null,
+      "train_loss": 474.32090912837697,
+      "validation_loss": 474.32090912837697,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 0,
+      "iteration": 14,
+      "accepted": null,
+      "train_loss": 443.74859283001774,
+      "validation_loss": 443.74859283001774,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 0,
+      "iteration": 15,
+      "accepted": null,
+      "train_loss": 443.0197886927408,
+      "validation_loss": 443.0197886927408,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 0,
+      "iteration": 16,
+      "accepted": null,
+      "train_loss": 437.75137800197353,
+      "validation_loss": 437.75137800197353,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 0,
+      "iteration": 17,
+      "accepted": null,
+      "train_loss": 434.18519666295026,
+      "validation_loss": 434.18519666295026,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 0,
+      "iteration": 18,
+      "accepted": null,
+      "train_loss": 433.2913417025544,
+      "validation_loss": 433.2913417025544,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 0,
+      "iteration": 19,
+      "accepted": null,
+      "train_loss": 431.2400794373775,
+      "validation_loss": 431.2400794373775,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 0,
+      "iteration": 20,
+      "accepted": null,
+      "train_loss": 361.06112659546636,
+      "validation_loss": 361.06112659546636,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 0,
+      "iteration": 21,
+      "accepted": null,
+      "train_loss": 361.0131458895481,
+      "validation_loss": 361.0131458895481,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 0,
+      "iteration": 22,
+      "accepted": null,
+      "train_loss": 342.5991913754389,
+      "validation_loss": 342.5991913754389,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 0,
+      "iteration": 23,
+      "accepted": null,
+      "train_loss": 310.08889956911383,
+      "validation_loss": 310.08889956911383,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 0,
+      "iteration": 24,
+      "accepted": null,
+      "train_loss": 254.08776367843276,
+      "validation_loss": 254.08776367843276,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 0,
+      "iteration": 25,
+      "accepted": null,
+      "train_loss": 241.06691800943764,
+      "validation_loss": 241.06691800943764,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 0,
+      "iteration": 26,
+      "accepted": null,
+      "train_loss": 231.03910304167644,
+      "validation_loss": 231.03910304167644,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 0,
+      "iteration": 27,
+      "accepted": null,
+      "train_loss": 216.63235689463363,
+      "validation_loss": 216.63235689463363,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 0,
+      "iteration": 28,
+      "accepted": null,
+      "train_loss": 209.45402711146352,
+      "validation_loss": 209.45402711146352,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 0,
+      "iteration": 29,
+      "accepted": null,
+      "train_loss": 199.30860913961493,
+      "validation_loss": 199.30860913961493,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 0,
+      "iteration": 30,
+      "accepted": null,
+      "train_loss": 194.73837331678516,
+      "validation_loss": 194.73837331678516,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 0,
+      "iteration": 31,
+      "accepted": null,
+      "train_loss": 188.85654698570852,
+      "validation_loss": 188.85654698570852,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 0,
+      "iteration": 32,
+      "accepted": null,
+      "train_loss": 180.25804615434419,
+      "validation_loss": 180.25804615434419,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 0,
+      "iteration": 33,
+      "accepted": null,
+      "train_loss": 176.2294217756524,
+      "validation_loss": 176.2294217756524,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 0,
+      "iteration": 34,
+      "accepted": null,
+      "train_loss": 174.75158234690002,
+      "validation_loss": 174.75158234690002,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 0,
+      "iteration": 35,
+      "accepted": null,
+      "train_loss": 173.4587203097925,
+      "validation_loss": 173.4587203097925,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 0,
+      "iteration": 36,
+      "accepted": null,
+      "train_loss": 173.01000201075036,
+      "validation_loss": 173.01000201075036,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 0,
+      "iteration": 37,
+      "accepted": null,
+      "train_loss": 172.76603969295292,
+      "validation_loss": 172.76603969295292,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 0,
+      "iteration": 38,
+      "accepted": null,
+      "train_loss": 172.67463036279136,
+      "validation_loss": 172.67463036279136,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 0,
+      "iteration": 39,
+      "accepted": null,
+      "train_loss": 172.53919907108445,
+      "validation_loss": 172.53919907108445,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 0,
+      "iteration": 40,
+      "accepted": null,
+      "train_loss": 172.33593836549724,
+      "validation_loss": 172.33593836549724,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 0,
+      "iteration": 41,
+      "accepted": null,
+      "train_loss": 171.83721623807529,
+      "validation_loss": 171.83721623807529,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 0,
+      "iteration": 42,
+      "accepted": null,
+      "train_loss": 170.73909193132698,
+      "validation_loss": 170.73909193132698,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 0,
+      "iteration": 43,
+      "accepted": null,
+      "train_loss": 169.95820044164014,
+      "validation_loss": 169.95820044164014,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 0,
+      "iteration": 44,
+      "accepted": null,
+      "train_loss": 168.270186441828,
+      "validation_loss": 168.270186441828,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 0,
+      "iteration": 45,
+      "accepted": null,
+      "train_loss": 164.91104599935483,
+      "validation_loss": 164.91104599935483,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 0,
+      "iteration": 46,
+      "accepted": null,
+      "train_loss": 163.92740329129356,
+      "validation_loss": 163.92740329129356,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 0,
+      "iteration": 47,
+      "accepted": null,
+      "train_loss": 162.4119887111848,
+      "validation_loss": 162.4119887111848,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 0,
+      "iteration": 48,
+      "accepted": null,
+      "train_loss": 161.61580220997672,
+      "validation_loss": 161.61580220997672,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 0,
+      "iteration": 49,
+      "accepted": null,
+      "train_loss": 160.2868490689406,
+      "validation_loss": 160.2868490689406,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 0,
+      "iteration": 50,
+      "accepted": null,
+      "train_loss": 160.04668432597742,
+      "validation_loss": 160.04668432597742,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 0,
+      "iteration": 51,
+      "accepted": null,
+      "train_loss": 159.4573173954363,
+      "validation_loss": 159.4573173954363,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 0,
+      "iteration": 52,
+      "accepted": null,
+      "train_loss": 159.03090355770695,
+      "validation_loss": 159.03090355770695,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 0,
+      "iteration": 53,
+      "accepted": null,
+      "train_loss": 158.79369843100343,
+      "validation_loss": 158.79369843100343,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 0,
+      "iteration": 54,
+      "accepted": null,
+      "train_loss": 158.53689988284574,
+      "validation_loss": 158.53689988284574,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 0,
+      "iteration": 55,
+      "accepted": null,
+      "train_loss": 158.37604394140453,
+      "validation_loss": 158.37604394140453,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 0,
+      "iteration": 56,
+      "accepted": null,
+      "train_loss": 158.25911575917678,
+      "validation_loss": 158.25911575917678,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 0,
+      "iteration": 57,
+      "accepted": null,
+      "train_loss": 158.1761228339778,
+      "validation_loss": 158.1761228339778,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 0,
+      "iteration": 58,
+      "accepted": null,
+      "train_loss": 158.0513828867377,
+      "validation_loss": 158.0513828867377,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 0,
+      "iteration": 59,
+      "accepted": null,
+      "train_loss": 157.6978848439793,
+      "validation_loss": 157.6978848439793,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 0,
+      "iteration": 60,
+      "accepted": null,
+      "train_loss": 157.39886405382984,
+      "validation_loss": 157.39886405382984,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 0,
+      "iteration": 61,
+      "accepted": null,
+      "train_loss": 157.21410601876994,
+      "validation_loss": 157.21410601876994,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 0,
+      "iteration": 62,
+      "accepted": null,
+      "train_loss": 156.80615768106603,
+      "validation_loss": 156.80615768106603,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 0,
+      "iteration": 63,
+      "accepted": null,
+      "train_loss": 156.71388590282882,
+      "validation_loss": 156.71388590282882,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 0,
+      "iteration": 64,
+      "accepted": null,
+      "train_loss": 156.6638652186418,
+      "validation_loss": 156.6638652186418,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 0,
+      "iteration": 65,
+      "accepted": null,
+      "train_loss": 156.59265687490625,
+      "validation_loss": 156.59265687490625,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 0,
+      "iteration": 66,
+      "accepted": null,
+      "train_loss": 156.5376803668086,
+      "validation_loss": 156.5376803668086,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 0,
+      "iteration": 67,
+      "accepted": null,
+      "train_loss": 156.47761316393346,
+      "validation_loss": 156.47761316393346,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 0,
+      "iteration": 68,
+      "accepted": null,
+      "train_loss": 156.42577614765415,
+      "validation_loss": 156.42577614765415,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 0,
+      "iteration": 69,
+      "accepted": null,
+      "train_loss": 156.3944501850656,
+      "validation_loss": 156.3944501850656,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 0,
+      "iteration": 70,
+      "accepted": null,
+      "train_loss": 156.34583397171193,
+      "validation_loss": 156.34583397171193,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 0,
+      "iteration": 71,
+      "accepted": null,
+      "train_loss": 156.30022971620647,
+      "validation_loss": 156.30022971620647,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 0,
+      "iteration": 72,
+      "accepted": null,
+      "train_loss": 156.26817949820398,
+      "validation_loss": 156.26817949820398,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 0,
+      "iteration": 73,
+      "accepted": null,
+      "train_loss": 156.25401519409738,
+      "validation_loss": 156.25401519409738,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 0,
+      "iteration": 74,
+      "accepted": null,
+      "train_loss": 156.20526746274524,
+      "validation_loss": 156.20526746274524,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 0,
+      "iteration": 75,
+      "accepted": null,
+      "train_loss": 156.14237682646214,
+      "validation_loss": 156.14237682646214,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 0,
+      "iteration": 76,
+      "accepted": null,
+      "train_loss": 156.04363608750617,
+      "validation_loss": 156.04363608750617,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 0,
+      "iteration": 77,
+      "accepted": null,
+      "train_loss": 155.97981284702254,
+      "validation_loss": 155.97981284702254,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 0,
+      "iteration": 78,
+      "accepted": null,
+      "train_loss": 155.92886770063132,
+      "validation_loss": 155.92886770063132,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 0,
+      "iteration": 79,
+      "accepted": null,
+      "train_loss": 155.92225106674329,
+      "validation_loss": 155.92225106674329,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 0,
+      "iteration": 80,
+      "accepted": null,
+      "train_loss": 155.89261450805714,
+      "validation_loss": 155.89261450805714,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 0,
+      "iteration": 81,
+      "accepted": null,
+      "train_loss": 155.87081451705563,
+      "validation_loss": 155.87081451705563,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 0,
+      "iteration": 82,
+      "accepted": null,
+      "train_loss": 155.80194170849222,
+      "validation_loss": 155.80194170849222,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 0,
+      "iteration": 83,
+      "accepted": null,
+      "train_loss": 155.62229271927887,
+      "validation_loss": 155.62229271927887,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 0,
+      "iteration": 84,
+      "accepted": null,
+      "train_loss": 155.24922287203015,
+      "validation_loss": 155.24922287203015,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 0,
+      "iteration": 85,
+      "accepted": null,
+      "train_loss": 155.20652860328642,
+      "validation_loss": 155.20652860328642,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 0,
+      "iteration": 86,
+      "accepted": null,
+      "train_loss": 155.15814797349432,
+      "validation_loss": 155.15814797349432,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 0,
+      "iteration": 87,
+      "accepted": null,
+      "train_loss": 155.1009567662561,
+      "validation_loss": 155.1009567662561,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 0,
+      "iteration": 88,
+      "accepted": null,
+      "train_loss": 155.09878811897337,
+      "validation_loss": 155.09878811897337,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 0,
+      "iteration": 89,
+      "accepted": null,
+      "train_loss": 155.02654138903108,
+      "validation_loss": 155.02654138903108,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 0,
+      "iteration": 90,
+      "accepted": null,
+      "train_loss": 154.99428131765978,
+      "validation_loss": 154.99428131765978,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 0,
+      "iteration": 91,
+      "accepted": null,
+      "train_loss": 154.96283260659047,
+      "validation_loss": 154.96283260659047,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 0,
+      "iteration": 92,
+      "accepted": null,
+      "train_loss": 154.87582205983858,
+      "validation_loss": 154.87582205983858,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 0,
+      "iteration": 93,
+      "accepted": null,
+      "train_loss": 154.82862924960108,
+      "validation_loss": 154.82862924960108,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 0,
+      "iteration": 94,
+      "accepted": null,
+      "train_loss": 154.7964268296789,
+      "validation_loss": 154.7964268296789,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 0,
+      "iteration": 95,
+      "accepted": null,
+      "train_loss": 154.7919375815695,
+      "validation_loss": 154.7919375815695,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 0,
+      "iteration": 96,
+      "accepted": null,
+      "train_loss": 154.77677606804968,
+      "validation_loss": 154.77677606804968,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 0,
+      "iteration": 97,
+      "accepted": null,
+      "train_loss": 154.7731655152348,
+      "validation_loss": 154.7731655152348,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 0,
+      "iteration": 98,
+      "accepted": null,
+      "train_loss": 154.76584760892945,
+      "validation_loss": 154.76584760892945,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 0,
+      "iteration": 99,
+      "accepted": null,
+      "train_loss": 154.76546728837408,
+      "validation_loss": 154.76546728837408,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 0,
+      "iteration": 100,
+      "accepted": null,
+      "train_loss": 154.76095431418395,
+      "validation_loss": 154.76095431418395,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 0,
+      "iteration": 101,
+      "accepted": null,
+      "train_loss": 154.75922074319934,
+      "validation_loss": 154.75922074319934,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 0,
+      "iteration": 102,
+      "accepted": null,
+      "train_loss": 154.7585016533063,
+      "validation_loss": 154.7585016533063,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 0,
+      "iteration": 103,
+      "accepted": null,
+      "train_loss": 154.75843310461008,
+      "validation_loss": 154.75843310461008,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 0,
+      "iteration": 104,
+      "accepted": null,
+      "train_loss": 154.7581896217864,
+      "validation_loss": 154.7581896217864,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 0,
+      "iteration": 105,
+      "accepted": null,
+      "train_loss": 154.7569278655666,
+      "validation_loss": 154.7569278655666,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 0,
+      "iteration": 106,
+      "accepted": null,
+      "train_loss": 154.7563060306804,
+      "validation_loss": 154.7563060306804,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 0,
+      "iteration": 107,
+      "accepted": null,
+      "train_loss": 154.75504986623153,
+      "validation_loss": 154.75504986623153,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 0,
+      "iteration": 108,
+      "accepted": null,
+      "train_loss": 154.75488147607265,
+      "validation_loss": 154.75488147607265,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 0,
+      "iteration": 109,
+      "accepted": null,
+      "train_loss": 154.7548413405415,
+      "validation_loss": 154.7548413405415,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 0,
+      "iteration": 110,
+      "accepted": null,
+      "train_loss": 154.7546874401655,
+      "validation_loss": 154.7546874401655,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 0,
+      "iteration": 111,
+      "accepted": null,
+      "train_loss": 154.7546498986947,
+      "validation_loss": 154.7546498986947,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 0,
+      "iteration": 112,
+      "accepted": null,
+      "train_loss": 154.75463410371452,
+      "validation_loss": 154.75463410371452,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 0,
+      "iteration": 113,
+      "accepted": null,
+      "train_loss": 154.75461637785259,
+      "validation_loss": 154.75461637785259,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 0,
+      "iteration": 114,
+      "accepted": null,
+      "train_loss": 154.75458182852304,
+      "validation_loss": 154.75458182852304,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 0,
+      "iteration": 115,
+      "accepted": null,
+      "train_loss": 154.7545709911765,
+      "validation_loss": 154.7545709911765,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 0,
+      "iteration": 116,
+      "accepted": null,
+      "train_loss": 154.75456967612928,
+      "validation_loss": 154.75456967612928,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 0,
+      "iteration": 117,
+      "accepted": null,
+      "train_loss": 154.75456868245237,
+      "validation_loss": 154.75456868245237,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 0,
+      "iteration": 118,
+      "accepted": null,
+      "train_loss": 154.75456806814216,
+      "validation_loss": 154.75456806814216,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 0,
+      "iteration": 119,
+      "accepted": null,
+      "train_loss": 154.7545680317763,
+      "validation_loss": 154.7545680317763,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "basin_end",
+      "basin": 0,
+      "iteration": 119,
+      "accepted": true,
+      "train_loss": 154.7545680317763,
+      "validation_loss": 154.7545680317763,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 1,
+      "iteration": 1,
+      "accepted": null,
+      "train_loss": 937.4115201240446,
+      "validation_loss": 937.4115201240446,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 1,
+      "iteration": 2,
+      "accepted": null,
+      "train_loss": 660.3823942695614,
+      "validation_loss": 660.3823942695614,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 1,
+      "iteration": 3,
+      "accepted": null,
+      "train_loss": 556.184930752004,
+      "validation_loss": 556.184930752004,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 1,
+      "iteration": 4,
+      "accepted": null,
+      "train_loss": 524.9054985335648,
+      "validation_loss": 524.9054985335648,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 1,
+      "iteration": 5,
+      "accepted": null,
+      "train_loss": 497.98546238709895,
+      "validation_loss": 497.98546238709895,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 1,
+      "iteration": 6,
+      "accepted": null,
+      "train_loss": 494.5953306475694,
+      "validation_loss": 494.5953306475694,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 1,
+      "iteration": 7,
+      "accepted": null,
+      "train_loss": 493.2882042130939,
+      "validation_loss": 493.2882042130939,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 1,
+      "iteration": 8,
+      "accepted": null,
+      "train_loss": 489.1250801643314,
+      "validation_loss": 489.1250801643314,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 1,
+      "iteration": 9,
+      "accepted": null,
+      "train_loss": 477.4743821986129,
+      "validation_loss": 477.4743821986129,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 1,
+      "iteration": 10,
+      "accepted": null,
+      "train_loss": 462.9788397449964,
+      "validation_loss": 462.9788397449964,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 1,
+      "iteration": 11,
+      "accepted": null,
+      "train_loss": 441.48631875951185,
+      "validation_loss": 441.48631875951185,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 1,
+      "iteration": 12,
+      "accepted": null,
+      "train_loss": 421.05981236944734,
+      "validation_loss": 421.05981236944734,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 1,
+      "iteration": 13,
+      "accepted": null,
+      "train_loss": 415.9868300933812,
+      "validation_loss": 415.9868300933812,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 1,
+      "iteration": 14,
+      "accepted": null,
+      "train_loss": 414.2252959187412,
+      "validation_loss": 414.2252959187412,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 1,
+      "iteration": 15,
+      "accepted": null,
+      "train_loss": 410.0884235221647,
+      "validation_loss": 410.0884235221647,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 1,
+      "iteration": 16,
+      "accepted": null,
+      "train_loss": 407.3887306119566,
+      "validation_loss": 407.3887306119566,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 1,
+      "iteration": 17,
+      "accepted": null,
+      "train_loss": 406.485711439593,
+      "validation_loss": 406.485711439593,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 1,
+      "iteration": 18,
+      "accepted": null,
+      "train_loss": 404.90949788045134,
+      "validation_loss": 404.90949788045134,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 1,
+      "iteration": 19,
+      "accepted": null,
+      "train_loss": 404.66861007763447,
+      "validation_loss": 404.66861007763447,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 1,
+      "iteration": 20,
+      "accepted": null,
+      "train_loss": 404.43528802266377,
+      "validation_loss": 404.43528802266377,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 1,
+      "iteration": 21,
+      "accepted": null,
+      "train_loss": 404.05623070752097,
+      "validation_loss": 404.05623070752097,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 1,
+      "iteration": 22,
+      "accepted": null,
+      "train_loss": 403.04694987517314,
+      "validation_loss": 403.04694987517314,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 1,
+      "iteration": 23,
+      "accepted": null,
+      "train_loss": 401.62187265940344,
+      "validation_loss": 401.62187265940344,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 1,
+      "iteration": 24,
+      "accepted": null,
+      "train_loss": 400.5197642907335,
+      "validation_loss": 400.5197642907335,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 1,
+      "iteration": 25,
+      "accepted": null,
+      "train_loss": 400.37179602094926,
+      "validation_loss": 400.37179602094926,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 1,
+      "iteration": 26,
+      "accepted": null,
+      "train_loss": 400.126973143921,
+      "validation_loss": 400.126973143921,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 1,
+      "iteration": 27,
+      "accepted": null,
+      "train_loss": 400.06708663891624,
+      "validation_loss": 400.06708663891624,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 1,
+      "iteration": 28,
+      "accepted": null,
+      "train_loss": 399.97500359680055,
+      "validation_loss": 399.97500359680055,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 1,
+      "iteration": 29,
+      "accepted": null,
+      "train_loss": 399.751307362657,
+      "validation_loss": 399.751307362657,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 1,
+      "iteration": 30,
+      "accepted": null,
+      "train_loss": 399.4887015064918,
+      "validation_loss": 399.4887015064918,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 1,
+      "iteration": 31,
+      "accepted": null,
+      "train_loss": 399.17877872201007,
+      "validation_loss": 399.17877872201007,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 1,
+      "iteration": 32,
+      "accepted": null,
+      "train_loss": 399.1728394403913,
+      "validation_loss": 399.1728394403913,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 1,
+      "iteration": 33,
+      "accepted": null,
+      "train_loss": 398.57067427470867,
+      "validation_loss": 398.57067427470867,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 1,
+      "iteration": 34,
+      "accepted": null,
+      "train_loss": 394.7231058755449,
+      "validation_loss": 394.7231058755449,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 1,
+      "iteration": 35,
+      "accepted": null,
+      "train_loss": 394.3826543433523,
+      "validation_loss": 394.3826543433523,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 1,
+      "iteration": 36,
+      "accepted": null,
+      "train_loss": 390.64844463933935,
+      "validation_loss": 390.64844463933935,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 1,
+      "iteration": 37,
+      "accepted": null,
+      "train_loss": 386.9849937305383,
+      "validation_loss": 386.9849937305383,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 1,
+      "iteration": 38,
+      "accepted": null,
+      "train_loss": 378.68306612159853,
+      "validation_loss": 378.68306612159853,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 1,
+      "iteration": 39,
+      "accepted": null,
+      "train_loss": 375.0315798259281,
+      "validation_loss": 375.0315798259281,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 1,
+      "iteration": 40,
+      "accepted": null,
+      "train_loss": 372.09344030695036,
+      "validation_loss": 372.09344030695036,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 1,
+      "iteration": 41,
+      "accepted": null,
+      "train_loss": 371.2937010738504,
+      "validation_loss": 371.2937010738504,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 1,
+      "iteration": 42,
+      "accepted": null,
+      "train_loss": 370.7325478250225,
+      "validation_loss": 370.7325478250225,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 1,
+      "iteration": 43,
+      "accepted": null,
+      "train_loss": 370.09902253888856,
+      "validation_loss": 370.09902253888856,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 1,
+      "iteration": 44,
+      "accepted": null,
+      "train_loss": 369.60859045689506,
+      "validation_loss": 369.60859045689506,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 1,
+      "iteration": 45,
+      "accepted": null,
+      "train_loss": 368.9208072149192,
+      "validation_loss": 368.9208072149192,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 1,
+      "iteration": 46,
+      "accepted": null,
+      "train_loss": 368.58801941899657,
+      "validation_loss": 368.58801941899657,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 1,
+      "iteration": 47,
+      "accepted": null,
+      "train_loss": 368.5358645598212,
+      "validation_loss": 368.5358645598212,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 1,
+      "iteration": 48,
+      "accepted": null,
+      "train_loss": 368.2913640926003,
+      "validation_loss": 368.2913640926003,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 1,
+      "iteration": 49,
+      "accepted": null,
+      "train_loss": 368.16754738322095,
+      "validation_loss": 368.16754738322095,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 1,
+      "iteration": 50,
+      "accepted": null,
+      "train_loss": 368.1620495062058,
+      "validation_loss": 368.1620495062058,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 1,
+      "iteration": 51,
+      "accepted": null,
+      "train_loss": 368.0993241061727,
+      "validation_loss": 368.0993241061727,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 1,
+      "iteration": 52,
+      "accepted": null,
+      "train_loss": 368.0384510617818,
+      "validation_loss": 368.0384510617818,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 1,
+      "iteration": 53,
+      "accepted": null,
+      "train_loss": 367.98075233769634,
+      "validation_loss": 367.98075233769634,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 1,
+      "iteration": 54,
+      "accepted": null,
+      "train_loss": 367.907959660433,
+      "validation_loss": 367.907959660433,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 1,
+      "iteration": 55,
+      "accepted": null,
+      "train_loss": 367.82806949972553,
+      "validation_loss": 367.82806949972553,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 1,
+      "iteration": 56,
+      "accepted": null,
+      "train_loss": 367.683674331798,
+      "validation_loss": 367.683674331798,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 1,
+      "iteration": 57,
+      "accepted": null,
+      "train_loss": 367.39069946592406,
+      "validation_loss": 367.39069946592406,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 1,
+      "iteration": 58,
+      "accepted": null,
+      "train_loss": 367.141679394491,
+      "validation_loss": 367.141679394491,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 1,
+      "iteration": 59,
+      "accepted": null,
+      "train_loss": 366.90500428329455,
+      "validation_loss": 366.90500428329455,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 1,
+      "iteration": 60,
+      "accepted": null,
+      "train_loss": 366.81931038548623,
+      "validation_loss": 366.81931038548623,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 1,
+      "iteration": 61,
+      "accepted": null,
+      "train_loss": 366.6952392293578,
+      "validation_loss": 366.6952392293578,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 1,
+      "iteration": 62,
+      "accepted": null,
+      "train_loss": 366.6091333536878,
+      "validation_loss": 366.6091333536878,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 1,
+      "iteration": 63,
+      "accepted": null,
+      "train_loss": 366.0921803739731,
+      "validation_loss": 366.0921803739731,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 1,
+      "iteration": 64,
+      "accepted": null,
+      "train_loss": 365.83982219168064,
+      "validation_loss": 365.83982219168064,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 1,
+      "iteration": 65,
+      "accepted": null,
+      "train_loss": 365.6508161859053,
+      "validation_loss": 365.6508161859053,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 1,
+      "iteration": 66,
+      "accepted": null,
+      "train_loss": 365.42712262459673,
+      "validation_loss": 365.42712262459673,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 1,
+      "iteration": 67,
+      "accepted": null,
+      "train_loss": 365.20611640189617,
+      "validation_loss": 365.20611640189617,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 1,
+      "iteration": 68,
+      "accepted": null,
+      "train_loss": 364.65446318725304,
+      "validation_loss": 364.65446318725304,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 1,
+      "iteration": 69,
+      "accepted": null,
+      "train_loss": 363.4998377524446,
+      "validation_loss": 363.4998377524446,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 1,
+      "iteration": 70,
+      "accepted": null,
+      "train_loss": 362.4573367960703,
+      "validation_loss": 362.4573367960703,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 1,
+      "iteration": 71,
+      "accepted": null,
+      "train_loss": 360.7592653728789,
+      "validation_loss": 360.7592653728789,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 1,
+      "iteration": 72,
+      "accepted": null,
+      "train_loss": 358.64512389040095,
+      "validation_loss": 358.64512389040095,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 1,
+      "iteration": 73,
+      "accepted": null,
+      "train_loss": 357.51095320846093,
+      "validation_loss": 357.51095320846093,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 1,
+      "iteration": 74,
+      "accepted": null,
+      "train_loss": 356.59594878733014,
+      "validation_loss": 356.59594878733014,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 1,
+      "iteration": 75,
+      "accepted": null,
+      "train_loss": 356.3552908504686,
+      "validation_loss": 356.3552908504686,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 1,
+      "iteration": 76,
+      "accepted": null,
+      "train_loss": 356.2283874172051,
+      "validation_loss": 356.2283874172051,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 1,
+      "iteration": 77,
+      "accepted": null,
+      "train_loss": 355.926003630261,
+      "validation_loss": 355.926003630261,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 1,
+      "iteration": 78,
+      "accepted": null,
+      "train_loss": 354.83043475782324,
+      "validation_loss": 354.83043475782324,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 1,
+      "iteration": 79,
+      "accepted": null,
+      "train_loss": 354.0802570427653,
+      "validation_loss": 354.0802570427653,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 1,
+      "iteration": 80,
+      "accepted": null,
+      "train_loss": 353.5900126730734,
+      "validation_loss": 353.5900126730734,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 1,
+      "iteration": 81,
+      "accepted": null,
+      "train_loss": 353.24477516301306,
+      "validation_loss": 353.24477516301306,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 1,
+      "iteration": 82,
+      "accepted": null,
+      "train_loss": 352.717347127591,
+      "validation_loss": 352.717347127591,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 1,
+      "iteration": 83,
+      "accepted": null,
+      "train_loss": 352.5966320345861,
+      "validation_loss": 352.5966320345861,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 1,
+      "iteration": 84,
+      "accepted": null,
+      "train_loss": 352.4985436514556,
+      "validation_loss": 352.4985436514556,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 1,
+      "iteration": 85,
+      "accepted": null,
+      "train_loss": 352.3982390519578,
+      "validation_loss": 352.3982390519578,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 1,
+      "iteration": 86,
+      "accepted": null,
+      "train_loss": 352.32731853286765,
+      "validation_loss": 352.32731853286765,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 1,
+      "iteration": 87,
+      "accepted": null,
+      "train_loss": 352.28543048063904,
+      "validation_loss": 352.28543048063904,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 1,
+      "iteration": 88,
+      "accepted": null,
+      "train_loss": 352.1743938470728,
+      "validation_loss": 352.1743938470728,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 1,
+      "iteration": 89,
+      "accepted": null,
+      "train_loss": 352.0339465932008,
+      "validation_loss": 352.0339465932008,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 1,
+      "iteration": 90,
+      "accepted": null,
+      "train_loss": 351.62752020881675,
+      "validation_loss": 351.62752020881675,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 1,
+      "iteration": 91,
+      "accepted": null,
+      "train_loss": 350.9257924163856,
+      "validation_loss": 350.9257924163856,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 1,
+      "iteration": 92,
+      "accepted": null,
+      "train_loss": 350.08259130847586,
+      "validation_loss": 350.08259130847586,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 1,
+      "iteration": 93,
+      "accepted": null,
+      "train_loss": 349.2078385705226,
+      "validation_loss": 349.2078385705226,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 1,
+      "iteration": 94,
+      "accepted": null,
+      "train_loss": 348.6648705639754,
+      "validation_loss": 348.6648705639754,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 1,
+      "iteration": 95,
+      "accepted": null,
+      "train_loss": 347.9454699364316,
+      "validation_loss": 347.9454699364316,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 1,
+      "iteration": 96,
+      "accepted": null,
+      "train_loss": 347.18508858885923,
+      "validation_loss": 347.18508858885923,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 1,
+      "iteration": 97,
+      "accepted": null,
+      "train_loss": 346.51714704500506,
+      "validation_loss": 346.51714704500506,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 1,
+      "iteration": 98,
+      "accepted": null,
+      "train_loss": 344.4545489409033,
+      "validation_loss": 344.4545489409033,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 1,
+      "iteration": 99,
+      "accepted": null,
+      "train_loss": 343.9147054413921,
+      "validation_loss": 343.9147054413921,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 1,
+      "iteration": 100,
+      "accepted": null,
+      "train_loss": 342.75783656089584,
+      "validation_loss": 342.75783656089584,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 1,
+      "iteration": 101,
+      "accepted": null,
+      "train_loss": 341.44942473281327,
+      "validation_loss": 341.44942473281327,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 1,
+      "iteration": 102,
+      "accepted": null,
+      "train_loss": 340.36445396433277,
+      "validation_loss": 340.36445396433277,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 1,
+      "iteration": 103,
+      "accepted": null,
+      "train_loss": 339.3318541612802,
+      "validation_loss": 339.3318541612802,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 1,
+      "iteration": 104,
+      "accepted": null,
+      "train_loss": 338.3874338720918,
+      "validation_loss": 338.3874338720918,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 1,
+      "iteration": 105,
+      "accepted": null,
+      "train_loss": 337.36668140995147,
+      "validation_loss": 337.36668140995147,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 1,
+      "iteration": 106,
+      "accepted": null,
+      "train_loss": 336.6680821705238,
+      "validation_loss": 336.6680821705238,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 1,
+      "iteration": 107,
+      "accepted": null,
+      "train_loss": 336.2882771294197,
+      "validation_loss": 336.2882771294197,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 1,
+      "iteration": 108,
+      "accepted": null,
+      "train_loss": 335.878036232687,
+      "validation_loss": 335.878036232687,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 1,
+      "iteration": 109,
+      "accepted": null,
+      "train_loss": 335.5539455743785,
+      "validation_loss": 335.5539455743785,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 1,
+      "iteration": 110,
+      "accepted": null,
+      "train_loss": 335.27865505854317,
+      "validation_loss": 335.27865505854317,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 1,
+      "iteration": 111,
+      "accepted": null,
+      "train_loss": 334.9738502115407,
+      "validation_loss": 334.9738502115407,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 1,
+      "iteration": 112,
+      "accepted": null,
+      "train_loss": 334.4360019476319,
+      "validation_loss": 334.4360019476319,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 1,
+      "iteration": 113,
+      "accepted": null,
+      "train_loss": 334.2555948465978,
+      "validation_loss": 334.2555948465978,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 1,
+      "iteration": 114,
+      "accepted": null,
+      "train_loss": 334.16801269698,
+      "validation_loss": 334.16801269698,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 1,
+      "iteration": 115,
+      "accepted": null,
+      "train_loss": 334.05728168619123,
+      "validation_loss": 334.05728168619123,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 1,
+      "iteration": 116,
+      "accepted": null,
+      "train_loss": 333.9673021653983,
+      "validation_loss": 333.9673021653983,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 1,
+      "iteration": 117,
+      "accepted": null,
+      "train_loss": 333.9224479700352,
+      "validation_loss": 333.9224479700352,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 1,
+      "iteration": 118,
+      "accepted": null,
+      "train_loss": 333.9046308287611,
+      "validation_loss": 333.9046308287611,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 1,
+      "iteration": 119,
+      "accepted": null,
+      "train_loss": 333.90071572042064,
+      "validation_loss": 333.90071572042064,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 1,
+      "iteration": 120,
+      "accepted": null,
+      "train_loss": 333.8961665068093,
+      "validation_loss": 333.8961665068093,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 1,
+      "iteration": 121,
+      "accepted": null,
+      "train_loss": 333.8885404561793,
+      "validation_loss": 333.8885404561793,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 1,
+      "iteration": 122,
+      "accepted": null,
+      "train_loss": 333.8717834271694,
+      "validation_loss": 333.8717834271694,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 1,
+      "iteration": 123,
+      "accepted": null,
+      "train_loss": 333.8434721486141,
+      "validation_loss": 333.8434721486141,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 1,
+      "iteration": 124,
+      "accepted": null,
+      "train_loss": 333.8116300187901,
+      "validation_loss": 333.8116300187901,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 1,
+      "iteration": 125,
+      "accepted": null,
+      "train_loss": 333.80316753819693,
+      "validation_loss": 333.80316753819693,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 1,
+      "iteration": 126,
+      "accepted": null,
+      "train_loss": 333.767579334247,
+      "validation_loss": 333.767579334247,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 1,
+      "iteration": 127,
+      "accepted": null,
+      "train_loss": 333.75667914069413,
+      "validation_loss": 333.75667914069413,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 1,
+      "iteration": 128,
+      "accepted": null,
+      "train_loss": 333.75190452946873,
+      "validation_loss": 333.75190452946873,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 1,
+      "iteration": 129,
+      "accepted": null,
+      "train_loss": 333.7497986885643,
+      "validation_loss": 333.7497986885643,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 1,
+      "iteration": 130,
+      "accepted": null,
+      "train_loss": 333.7469565021178,
+      "validation_loss": 333.7469565021178,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 1,
+      "iteration": 131,
+      "accepted": null,
+      "train_loss": 333.7408667110796,
+      "validation_loss": 333.7408667110796,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 1,
+      "iteration": 132,
+      "accepted": null,
+      "train_loss": 333.7305887411421,
+      "validation_loss": 333.7305887411421,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 1,
+      "iteration": 133,
+      "accepted": null,
+      "train_loss": 333.71998205170894,
+      "validation_loss": 333.71998205170894,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 1,
+      "iteration": 134,
+      "accepted": null,
+      "train_loss": 333.708905579433,
+      "validation_loss": 333.708905579433,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 1,
+      "iteration": 135,
+      "accepted": null,
+      "train_loss": 333.67289166803357,
+      "validation_loss": 333.67289166803357,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 1,
+      "iteration": 136,
+      "accepted": null,
+      "train_loss": 333.59047289755466,
+      "validation_loss": 333.59047289755466,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 1,
+      "iteration": 137,
+      "accepted": null,
+      "train_loss": 333.4850852318712,
+      "validation_loss": 333.4850852318712,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 1,
+      "iteration": 138,
+      "accepted": null,
+      "train_loss": 333.2313202621769,
+      "validation_loss": 333.2313202621769,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 1,
+      "iteration": 139,
+      "accepted": null,
+      "train_loss": 332.8037644188451,
+      "validation_loss": 332.8037644188451,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 1,
+      "iteration": 140,
+      "accepted": null,
+      "train_loss": 332.2762673967788,
+      "validation_loss": 332.2762673967788,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 1,
+      "iteration": 141,
+      "accepted": null,
+      "train_loss": 331.38688066374135,
+      "validation_loss": 331.38688066374135,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 1,
+      "iteration": 142,
+      "accepted": null,
+      "train_loss": 330.67994312234197,
+      "validation_loss": 330.67994312234197,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 1,
+      "iteration": 143,
+      "accepted": null,
+      "train_loss": 323.43025443970214,
+      "validation_loss": 323.43025443970214,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 1,
+      "iteration": 144,
+      "accepted": null,
+      "train_loss": 320.3435910449355,
+      "validation_loss": 320.3435910449355,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 1,
+      "iteration": 145,
+      "accepted": null,
+      "train_loss": 317.42881360039536,
+      "validation_loss": 317.42881360039536,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 1,
+      "iteration": 146,
+      "accepted": null,
+      "train_loss": 316.8326772101274,
+      "validation_loss": 316.8326772101274,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 1,
+      "iteration": 147,
+      "accepted": null,
+      "train_loss": 315.9912786343453,
+      "validation_loss": 315.9912786343453,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 1,
+      "iteration": 148,
+      "accepted": null,
+      "train_loss": 315.4931206297942,
+      "validation_loss": 315.4931206297942,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 1,
+      "iteration": 149,
+      "accepted": null,
+      "train_loss": 313.0538824923311,
+      "validation_loss": 313.0538824923311,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 1,
+      "iteration": 150,
+      "accepted": null,
+      "train_loss": 310.08219816743656,
+      "validation_loss": 310.08219816743656,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 1,
+      "iteration": 151,
+      "accepted": null,
+      "train_loss": 308.63691067915147,
+      "validation_loss": 308.63691067915147,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 1,
+      "iteration": 152,
+      "accepted": null,
+      "train_loss": 307.0465056706558,
+      "validation_loss": 307.0465056706558,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 1,
+      "iteration": 153,
+      "accepted": null,
+      "train_loss": 305.80227825280775,
+      "validation_loss": 305.80227825280775,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 1,
+      "iteration": 154,
+      "accepted": null,
+      "train_loss": 304.93933795703316,
+      "validation_loss": 304.93933795703316,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 1,
+      "iteration": 155,
+      "accepted": null,
+      "train_loss": 304.52859677465693,
+      "validation_loss": 304.52859677465693,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 1,
+      "iteration": 156,
+      "accepted": null,
+      "train_loss": 304.09078513517517,
+      "validation_loss": 304.09078513517517,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 1,
+      "iteration": 157,
+      "accepted": null,
+      "train_loss": 303.68079763444575,
+      "validation_loss": 303.68079763444575,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 1,
+      "iteration": 158,
+      "accepted": null,
+      "train_loss": 303.18380289818776,
+      "validation_loss": 303.18380289818776,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 1,
+      "iteration": 159,
+      "accepted": null,
+      "train_loss": 302.9095667734982,
+      "validation_loss": 302.9095667734982,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 1,
+      "iteration": 160,
+      "accepted": null,
+      "train_loss": 302.3595105956101,
+      "validation_loss": 302.3595105956101,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 1,
+      "iteration": 161,
+      "accepted": null,
+      "train_loss": 301.9369561043568,
+      "validation_loss": 301.9369561043568,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 1,
+      "iteration": 162,
+      "accepted": null,
+      "train_loss": 301.3322809860817,
+      "validation_loss": 301.3322809860817,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 1,
+      "iteration": 163,
+      "accepted": null,
+      "train_loss": 300.9614060463697,
+      "validation_loss": 300.9614060463697,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 1,
+      "iteration": 164,
+      "accepted": null,
+      "train_loss": 300.9195596850213,
+      "validation_loss": 300.9195596850213,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 1,
+      "iteration": 165,
+      "accepted": null,
+      "train_loss": 300.89764373042703,
+      "validation_loss": 300.89764373042703,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 1,
+      "iteration": 166,
+      "accepted": null,
+      "train_loss": 300.8738509001942,
+      "validation_loss": 300.8738509001942,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 1,
+      "iteration": 167,
+      "accepted": null,
+      "train_loss": 300.8499111009273,
+      "validation_loss": 300.8499111009273,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 1,
+      "iteration": 168,
+      "accepted": null,
+      "train_loss": 300.8027181584785,
+      "validation_loss": 300.8027181584785,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 1,
+      "iteration": 169,
+      "accepted": null,
+      "train_loss": 300.7488088053658,
+      "validation_loss": 300.7488088053658,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 1,
+      "iteration": 170,
+      "accepted": null,
+      "train_loss": 300.62538873974154,
+      "validation_loss": 300.62538873974154,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 1,
+      "iteration": 171,
+      "accepted": null,
+      "train_loss": 300.5862225270773,
+      "validation_loss": 300.5862225270773,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 1,
+      "iteration": 172,
+      "accepted": null,
+      "train_loss": 300.5577922332122,
+      "validation_loss": 300.5577922332122,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 1,
+      "iteration": 173,
+      "accepted": null,
+      "train_loss": 300.53128872009785,
+      "validation_loss": 300.53128872009785,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 1,
+      "iteration": 174,
+      "accepted": null,
+      "train_loss": 300.4883112346143,
+      "validation_loss": 300.4883112346143,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 1,
+      "iteration": 175,
+      "accepted": null,
+      "train_loss": 300.46966431029387,
+      "validation_loss": 300.46966431029387,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 1,
+      "iteration": 176,
+      "accepted": null,
+      "train_loss": 300.413233304879,
+      "validation_loss": 300.413233304879,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 1,
+      "iteration": 177,
+      "accepted": null,
+      "train_loss": 300.38239279212803,
+      "validation_loss": 300.38239279212803,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 1,
+      "iteration": 178,
+      "accepted": null,
+      "train_loss": 300.35372523632054,
+      "validation_loss": 300.35372523632054,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 1,
+      "iteration": 179,
+      "accepted": null,
+      "train_loss": 300.323292261065,
+      "validation_loss": 300.323292261065,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 1,
+      "iteration": 180,
+      "accepted": null,
+      "train_loss": 300.22555865981036,
+      "validation_loss": 300.22555865981036,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 1,
+      "iteration": 181,
+      "accepted": null,
+      "train_loss": 299.97050651892033,
+      "validation_loss": 299.97050651892033,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 1,
+      "iteration": 182,
+      "accepted": null,
+      "train_loss": 299.6971494067233,
+      "validation_loss": 299.6971494067233,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 1,
+      "iteration": 183,
+      "accepted": null,
+      "train_loss": 298.9618413336341,
+      "validation_loss": 298.9618413336341,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 1,
+      "iteration": 184,
+      "accepted": null,
+      "train_loss": 298.48798444168955,
+      "validation_loss": 298.48798444168955,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 1,
+      "iteration": 185,
+      "accepted": null,
+      "train_loss": 298.2102593590602,
+      "validation_loss": 298.2102593590602,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 1,
+      "iteration": 186,
+      "accepted": null,
+      "train_loss": 298.0844580174648,
+      "validation_loss": 298.0844580174648,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 1,
+      "iteration": 187,
+      "accepted": null,
+      "train_loss": 297.94194270030397,
+      "validation_loss": 297.94194270030397,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 1,
+      "iteration": 188,
+      "accepted": null,
+      "train_loss": 297.7168097852809,
+      "validation_loss": 297.7168097852809,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 1,
+      "iteration": 189,
+      "accepted": null,
+      "train_loss": 296.9995209413783,
+      "validation_loss": 296.9995209413783,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 1,
+      "iteration": 190,
+      "accepted": null,
+      "train_loss": 295.9938284571562,
+      "validation_loss": 295.9938284571562,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 1,
+      "iteration": 191,
+      "accepted": null,
+      "train_loss": 295.37374893020046,
+      "validation_loss": 295.37374893020046,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 1,
+      "iteration": 192,
+      "accepted": null,
+      "train_loss": 294.46206670604613,
+      "validation_loss": 294.46206670604613,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 1,
+      "iteration": 193,
+      "accepted": null,
+      "train_loss": 294.05467580841764,
+      "validation_loss": 294.05467580841764,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 1,
+      "iteration": 194,
+      "accepted": null,
+      "train_loss": 293.65021850402934,
+      "validation_loss": 293.65021850402934,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 1,
+      "iteration": 195,
+      "accepted": null,
+      "train_loss": 293.4465361344868,
+      "validation_loss": 293.4465361344868,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 1,
+      "iteration": 196,
+      "accepted": null,
+      "train_loss": 293.31626613041465,
+      "validation_loss": 293.31626613041465,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 1,
+      "iteration": 197,
+      "accepted": null,
+      "train_loss": 293.1500762238595,
+      "validation_loss": 293.1500762238595,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 1,
+      "iteration": 198,
+      "accepted": null,
+      "train_loss": 292.9703759550795,
+      "validation_loss": 292.9703759550795,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 1,
+      "iteration": 199,
+      "accepted": null,
+      "train_loss": 292.2230435971004,
+      "validation_loss": 292.2230435971004,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 1,
+      "iteration": 200,
+      "accepted": null,
+      "train_loss": 291.51848985360857,
+      "validation_loss": 291.51848985360857,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 1,
+      "iteration": 201,
+      "accepted": null,
+      "train_loss": 291.22678469496833,
+      "validation_loss": 291.22678469496833,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 1,
+      "iteration": 202,
+      "accepted": null,
+      "train_loss": 291.11409462876514,
+      "validation_loss": 291.11409462876514,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 1,
+      "iteration": 203,
+      "accepted": null,
+      "train_loss": 291.05124141095774,
+      "validation_loss": 291.05124141095774,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 1,
+      "iteration": 204,
+      "accepted": null,
+      "train_loss": 290.90420428958487,
+      "validation_loss": 290.90420428958487,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 1,
+      "iteration": 205,
+      "accepted": null,
+      "train_loss": 290.5411838921381,
+      "validation_loss": 290.5411838921381,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 1,
+      "iteration": 206,
+      "accepted": null,
+      "train_loss": 290.28252221559956,
+      "validation_loss": 290.28252221559956,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 1,
+      "iteration": 207,
+      "accepted": null,
+      "train_loss": 289.88225324700767,
+      "validation_loss": 289.88225324700767,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 1,
+      "iteration": 208,
+      "accepted": null,
+      "train_loss": 289.83084475226764,
+      "validation_loss": 289.83084475226764,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 1,
+      "iteration": 209,
+      "accepted": null,
+      "train_loss": 289.50318258491734,
+      "validation_loss": 289.50318258491734,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 1,
+      "iteration": 210,
+      "accepted": null,
+      "train_loss": 288.84419273046075,
+      "validation_loss": 288.84419273046075,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 1,
+      "iteration": 211,
+      "accepted": null,
+      "train_loss": 288.6722157879663,
+      "validation_loss": 288.6722157879663,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 1,
+      "iteration": 212,
+      "accepted": null,
+      "train_loss": 287.50796530681055,
+      "validation_loss": 287.50796530681055,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 1,
+      "iteration": 213,
+      "accepted": null,
+      "train_loss": 286.3102747809186,
+      "validation_loss": 286.3102747809186,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 1,
+      "iteration": 214,
+      "accepted": null,
+      "train_loss": 285.6282650080591,
+      "validation_loss": 285.6282650080591,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 1,
+      "iteration": 215,
+      "accepted": null,
+      "train_loss": 285.30361390077286,
+      "validation_loss": 285.30361390077286,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 1,
+      "iteration": 216,
+      "accepted": null,
+      "train_loss": 285.1514348454752,
+      "validation_loss": 285.1514348454752,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 1,
+      "iteration": 217,
+      "accepted": null,
+      "train_loss": 284.8152398951672,
+      "validation_loss": 284.8152398951672,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 1,
+      "iteration": 218,
+      "accepted": null,
+      "train_loss": 284.31723502454014,
+      "validation_loss": 284.31723502454014,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 1,
+      "iteration": 219,
+      "accepted": null,
+      "train_loss": 284.30713033075176,
+      "validation_loss": 284.30713033075176,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 1,
+      "iteration": 220,
+      "accepted": null,
+      "train_loss": 284.1333406200455,
+      "validation_loss": 284.1333406200455,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 1,
+      "iteration": 221,
+      "accepted": null,
+      "train_loss": 283.968086385054,
+      "validation_loss": 283.968086385054,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 1,
+      "iteration": 222,
+      "accepted": null,
+      "train_loss": 283.8505164390215,
+      "validation_loss": 283.8505164390215,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 1,
+      "iteration": 223,
+      "accepted": null,
+      "train_loss": 283.73811109678775,
+      "validation_loss": 283.73811109678775,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 1,
+      "iteration": 224,
+      "accepted": null,
+      "train_loss": 283.6558788518764,
+      "validation_loss": 283.6558788518764,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 1,
+      "iteration": 225,
+      "accepted": null,
+      "train_loss": 283.6172683837663,
+      "validation_loss": 283.6172683837663,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 1,
+      "iteration": 226,
+      "accepted": null,
+      "train_loss": 283.58556151817174,
+      "validation_loss": 283.58556151817174,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 1,
+      "iteration": 227,
+      "accepted": null,
+      "train_loss": 283.5684769396145,
+      "validation_loss": 283.5684769396145,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 1,
+      "iteration": 228,
+      "accepted": null,
+      "train_loss": 283.55625129905843,
+      "validation_loss": 283.55625129905843,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 1,
+      "iteration": 229,
+      "accepted": null,
+      "train_loss": 283.5453530438376,
+      "validation_loss": 283.5453530438376,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 1,
+      "iteration": 230,
+      "accepted": null,
+      "train_loss": 283.54333630817735,
+      "validation_loss": 283.54333630817735,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 1,
+      "iteration": 231,
+      "accepted": null,
+      "train_loss": 283.5359138902305,
+      "validation_loss": 283.5359138902305,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 1,
+      "iteration": 232,
+      "accepted": null,
+      "train_loss": 283.5164465593087,
+      "validation_loss": 283.5164465593087,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 1,
+      "iteration": 233,
+      "accepted": null,
+      "train_loss": 283.498715615436,
+      "validation_loss": 283.498715615436,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 1,
+      "iteration": 234,
+      "accepted": null,
+      "train_loss": 283.443773605164,
+      "validation_loss": 283.443773605164,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 1,
+      "iteration": 235,
+      "accepted": null,
+      "train_loss": 283.40481817287207,
+      "validation_loss": 283.40481817287207,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 1,
+      "iteration": 236,
+      "accepted": null,
+      "train_loss": 283.36073483214886,
+      "validation_loss": 283.36073483214886,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 1,
+      "iteration": 237,
+      "accepted": null,
+      "train_loss": 283.3329286149631,
+      "validation_loss": 283.3329286149631,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 1,
+      "iteration": 238,
+      "accepted": null,
+      "train_loss": 283.2957987423909,
+      "validation_loss": 283.2957987423909,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 1,
+      "iteration": 239,
+      "accepted": null,
+      "train_loss": 283.26241840260906,
+      "validation_loss": 283.26241840260906,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 1,
+      "iteration": 240,
+      "accepted": null,
+      "train_loss": 283.188320894946,
+      "validation_loss": 283.188320894946,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 1,
+      "iteration": 241,
+      "accepted": null,
+      "train_loss": 283.1498178491581,
+      "validation_loss": 283.1498178491581,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 1,
+      "iteration": 242,
+      "accepted": null,
+      "train_loss": 283.08531215430696,
+      "validation_loss": 283.08531215430696,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 1,
+      "iteration": 243,
+      "accepted": null,
+      "train_loss": 283.0517645478443,
+      "validation_loss": 283.0517645478443,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 1,
+      "iteration": 244,
+      "accepted": null,
+      "train_loss": 283.0295849112556,
+      "validation_loss": 283.0295849112556,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 1,
+      "iteration": 245,
+      "accepted": null,
+      "train_loss": 283.019043321067,
+      "validation_loss": 283.019043321067,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 1,
+      "iteration": 246,
+      "accepted": null,
+      "train_loss": 283.0011866367604,
+      "validation_loss": 283.0011866367604,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 1,
+      "iteration": 247,
+      "accepted": null,
+      "train_loss": 282.9789374889816,
+      "validation_loss": 282.9789374889816,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 1,
+      "iteration": 248,
+      "accepted": null,
+      "train_loss": 282.9513838141781,
+      "validation_loss": 282.9513838141781,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 1,
+      "iteration": 249,
+      "accepted": null,
+      "train_loss": 282.9419936350843,
+      "validation_loss": 282.9419936350843,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 1,
+      "iteration": 250,
+      "accepted": null,
+      "train_loss": 282.9268708852386,
+      "validation_loss": 282.9268708852386,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 1,
+      "iteration": 251,
+      "accepted": null,
+      "train_loss": 282.8853153791516,
+      "validation_loss": 282.8853153791516,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 1,
+      "iteration": 252,
+      "accepted": null,
+      "train_loss": 282.87323790293317,
+      "validation_loss": 282.87323790293317,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 1,
+      "iteration": 253,
+      "accepted": null,
+      "train_loss": 282.82829330101913,
+      "validation_loss": 282.82829330101913,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 1,
+      "iteration": 254,
+      "accepted": null,
+      "train_loss": 282.8178689131641,
+      "validation_loss": 282.8178689131641,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 1,
+      "iteration": 255,
+      "accepted": null,
+      "train_loss": 282.79691032800855,
+      "validation_loss": 282.79691032800855,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 1,
+      "iteration": 256,
+      "accepted": null,
+      "train_loss": 282.7785529256602,
+      "validation_loss": 282.7785529256602,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 1,
+      "iteration": 257,
+      "accepted": null,
+      "train_loss": 282.74774492155404,
+      "validation_loss": 282.74774492155404,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 1,
+      "iteration": 258,
+      "accepted": null,
+      "train_loss": 282.71725224057957,
+      "validation_loss": 282.71725224057957,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 1,
+      "iteration": 259,
+      "accepted": null,
+      "train_loss": 282.6550534084322,
+      "validation_loss": 282.6550534084322,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 1,
+      "iteration": 260,
+      "accepted": null,
+      "train_loss": 282.62220283118916,
+      "validation_loss": 282.62220283118916,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 1,
+      "iteration": 261,
+      "accepted": null,
+      "train_loss": 282.5917271542184,
+      "validation_loss": 282.5917271542184,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 1,
+      "iteration": 262,
+      "accepted": null,
+      "train_loss": 282.55742054488786,
+      "validation_loss": 282.55742054488786,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 1,
+      "iteration": 263,
+      "accepted": null,
+      "train_loss": 282.52761544466597,
+      "validation_loss": 282.52761544466597,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 1,
+      "iteration": 264,
+      "accepted": null,
+      "train_loss": 282.51740626075076,
+      "validation_loss": 282.51740626075076,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 1,
+      "iteration": 265,
+      "accepted": null,
+      "train_loss": 282.4633376957571,
+      "validation_loss": 282.4633376957571,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 1,
+      "iteration": 266,
+      "accepted": null,
+      "train_loss": 282.4384810778953,
+      "validation_loss": 282.4384810778953,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 1,
+      "iteration": 267,
+      "accepted": null,
+      "train_loss": 282.4143836524444,
+      "validation_loss": 282.4143836524444,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 1,
+      "iteration": 268,
+      "accepted": null,
+      "train_loss": 282.39920539260123,
+      "validation_loss": 282.39920539260123,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 1,
+      "iteration": 269,
+      "accepted": null,
+      "train_loss": 282.39070386639554,
+      "validation_loss": 282.39070386639554,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 1,
+      "iteration": 270,
+      "accepted": null,
+      "train_loss": 282.3830910657433,
+      "validation_loss": 282.3830910657433,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 1,
+      "iteration": 271,
+      "accepted": null,
+      "train_loss": 282.3816279704239,
+      "validation_loss": 282.3816279704239,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 1,
+      "iteration": 272,
+      "accepted": null,
+      "train_loss": 282.37824990610295,
+      "validation_loss": 282.37824990610295,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 1,
+      "iteration": 273,
+      "accepted": null,
+      "train_loss": 282.36777103158084,
+      "validation_loss": 282.36777103158084,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 1,
+      "iteration": 274,
+      "accepted": null,
+      "train_loss": 282.3665777267303,
+      "validation_loss": 282.3665777267303,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 1,
+      "iteration": 275,
+      "accepted": null,
+      "train_loss": 282.3665776088551,
+      "validation_loss": 282.3665776088551,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "basin_end",
+      "basin": 1,
+      "iteration": 275,
+      "accepted": false,
+      "train_loss": 282.3665776088551,
+      "validation_loss": 282.3665776088551,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 2,
+      "iteration": 1,
+      "accepted": null,
+      "train_loss": 460.73643800897526,
+      "validation_loss": 460.73643800897526,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 2,
+      "iteration": 2,
+      "accepted": null,
+      "train_loss": 412.5338989049294,
+      "validation_loss": 412.5338989049294,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 2,
+      "iteration": 3,
+      "accepted": null,
+      "train_loss": 349.75003116586174,
+      "validation_loss": 349.75003116586174,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 2,
+      "iteration": 4,
+      "accepted": null,
+      "train_loss": 311.3572898065651,
+      "validation_loss": 311.3572898065651,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 2,
+      "iteration": 5,
+      "accepted": null,
+      "train_loss": 284.24624464942195,
+      "validation_loss": 284.24624464942195,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 2,
+      "iteration": 6,
+      "accepted": null,
+      "train_loss": 236.58733326087508,
+      "validation_loss": 236.58733326087508,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 2,
+      "iteration": 7,
+      "accepted": null,
+      "train_loss": 198.24299826050105,
+      "validation_loss": 198.24299826050105,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 2,
+      "iteration": 8,
+      "accepted": null,
+      "train_loss": 187.62009741245012,
+      "validation_loss": 187.62009741245012,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 2,
+      "iteration": 9,
+      "accepted": null,
+      "train_loss": 184.66791370957048,
+      "validation_loss": 184.66791370957048,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 2,
+      "iteration": 10,
+      "accepted": null,
+      "train_loss": 182.96889412441814,
+      "validation_loss": 182.96889412441814,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 2,
+      "iteration": 11,
+      "accepted": null,
+      "train_loss": 181.14821458099152,
+      "validation_loss": 181.14821458099152,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 2,
+      "iteration": 12,
+      "accepted": null,
+      "train_loss": 180.4668400754964,
+      "validation_loss": 180.4668400754964,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 2,
+      "iteration": 13,
+      "accepted": null,
+      "train_loss": 177.88019582560702,
+      "validation_loss": 177.88019582560702,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 2,
+      "iteration": 14,
+      "accepted": null,
+      "train_loss": 171.76493754752204,
+      "validation_loss": 171.76493754752204,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 2,
+      "iteration": 15,
+      "accepted": null,
+      "train_loss": 170.29991602770818,
+      "validation_loss": 170.29991602770818,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 2,
+      "iteration": 16,
+      "accepted": null,
+      "train_loss": 169.7152376842266,
+      "validation_loss": 169.7152376842266,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 2,
+      "iteration": 17,
+      "accepted": null,
+      "train_loss": 169.08182266465477,
+      "validation_loss": 169.08182266465477,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 2,
+      "iteration": 18,
+      "accepted": null,
+      "train_loss": 166.51697291553828,
+      "validation_loss": 166.51697291553828,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 2,
+      "iteration": 19,
+      "accepted": null,
+      "train_loss": 165.01801291648707,
+      "validation_loss": 165.01801291648707,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 2,
+      "iteration": 20,
+      "accepted": null,
+      "train_loss": 161.85428656247217,
+      "validation_loss": 161.85428656247217,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 2,
+      "iteration": 21,
+      "accepted": null,
+      "train_loss": 161.45444626843556,
+      "validation_loss": 161.45444626843556,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 2,
+      "iteration": 22,
+      "accepted": null,
+      "train_loss": 159.78522369459,
+      "validation_loss": 159.78522369459,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 2,
+      "iteration": 23,
+      "accepted": null,
+      "train_loss": 158.43127652327266,
+      "validation_loss": 158.43127652327266,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 2,
+      "iteration": 24,
+      "accepted": null,
+      "train_loss": 158.01769301303247,
+      "validation_loss": 158.01769301303247,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 2,
+      "iteration": 25,
+      "accepted": null,
+      "train_loss": 157.88619377608006,
+      "validation_loss": 157.88619377608006,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 2,
+      "iteration": 26,
+      "accepted": null,
+      "train_loss": 157.78520374150418,
+      "validation_loss": 157.78520374150418,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 2,
+      "iteration": 27,
+      "accepted": null,
+      "train_loss": 157.63019141581,
+      "validation_loss": 157.63019141581,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 2,
+      "iteration": 28,
+      "accepted": null,
+      "train_loss": 157.6188455168935,
+      "validation_loss": 157.6188455168935,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 2,
+      "iteration": 29,
+      "accepted": null,
+      "train_loss": 157.6143873225114,
+      "validation_loss": 157.6143873225114,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 2,
+      "iteration": 30,
+      "accepted": null,
+      "train_loss": 157.59845972218548,
+      "validation_loss": 157.59845972218548,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 2,
+      "iteration": 31,
+      "accepted": null,
+      "train_loss": 157.58048972208127,
+      "validation_loss": 157.58048972208127,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 2,
+      "iteration": 32,
+      "accepted": null,
+      "train_loss": 157.55697801647747,
+      "validation_loss": 157.55697801647747,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 2,
+      "iteration": 33,
+      "accepted": null,
+      "train_loss": 157.52548254418969,
+      "validation_loss": 157.52548254418969,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 2,
+      "iteration": 34,
+      "accepted": null,
+      "train_loss": 157.44006661678065,
+      "validation_loss": 157.44006661678065,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 2,
+      "iteration": 35,
+      "accepted": null,
+      "train_loss": 157.39898492833927,
+      "validation_loss": 157.39898492833927,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 2,
+      "iteration": 36,
+      "accepted": null,
+      "train_loss": 157.3431347792738,
+      "validation_loss": 157.3431347792738,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 2,
+      "iteration": 37,
+      "accepted": null,
+      "train_loss": 157.30811347841203,
+      "validation_loss": 157.30811347841203,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 2,
+      "iteration": 38,
+      "accepted": null,
+      "train_loss": 157.2855638517937,
+      "validation_loss": 157.2855638517937,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 2,
+      "iteration": 39,
+      "accepted": null,
+      "train_loss": 157.2748514806485,
+      "validation_loss": 157.2748514806485,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 2,
+      "iteration": 40,
+      "accepted": null,
+      "train_loss": 157.26773168667307,
+      "validation_loss": 157.26773168667307,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 2,
+      "iteration": 41,
+      "accepted": null,
+      "train_loss": 157.24736471497872,
+      "validation_loss": 157.24736471497872,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 2,
+      "iteration": 42,
+      "accepted": null,
+      "train_loss": 157.20104910206504,
+      "validation_loss": 157.20104910206504,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 2,
+      "iteration": 43,
+      "accepted": null,
+      "train_loss": 157.1158521761209,
+      "validation_loss": 157.1158521761209,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 2,
+      "iteration": 44,
+      "accepted": null,
+      "train_loss": 157.04702384913548,
+      "validation_loss": 157.04702384913548,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 2,
+      "iteration": 45,
+      "accepted": null,
+      "train_loss": 156.9405967602358,
+      "validation_loss": 156.9405967602358,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 2,
+      "iteration": 46,
+      "accepted": null,
+      "train_loss": 156.7321909764453,
+      "validation_loss": 156.7321909764453,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 2,
+      "iteration": 47,
+      "accepted": null,
+      "train_loss": 156.54825000233836,
+      "validation_loss": 156.54825000233836,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 2,
+      "iteration": 48,
+      "accepted": null,
+      "train_loss": 156.3912759773525,
+      "validation_loss": 156.3912759773525,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 2,
+      "iteration": 49,
+      "accepted": null,
+      "train_loss": 156.2758171735173,
+      "validation_loss": 156.2758171735173,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 2,
+      "iteration": 50,
+      "accepted": null,
+      "train_loss": 156.18684637078016,
+      "validation_loss": 156.18684637078016,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 2,
+      "iteration": 51,
+      "accepted": null,
+      "train_loss": 156.14189815565643,
+      "validation_loss": 156.14189815565643,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 2,
+      "iteration": 52,
+      "accepted": null,
+      "train_loss": 156.09407083993366,
+      "validation_loss": 156.09407083993366,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 2,
+      "iteration": 53,
+      "accepted": null,
+      "train_loss": 156.01794693702865,
+      "validation_loss": 156.01794693702865,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 2,
+      "iteration": 54,
+      "accepted": null,
+      "train_loss": 155.97577743961392,
+      "validation_loss": 155.97577743961392,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 2,
+      "iteration": 55,
+      "accepted": null,
+      "train_loss": 155.8908346366323,
+      "validation_loss": 155.8908346366323,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 2,
+      "iteration": 56,
+      "accepted": null,
+      "train_loss": 155.8408989580959,
+      "validation_loss": 155.8408989580959,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 2,
+      "iteration": 57,
+      "accepted": null,
+      "train_loss": 155.76713909216858,
+      "validation_loss": 155.76713909216858,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 2,
+      "iteration": 58,
+      "accepted": null,
+      "train_loss": 155.70672270469848,
+      "validation_loss": 155.70672270469848,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 2,
+      "iteration": 59,
+      "accepted": null,
+      "train_loss": 155.6154738746926,
+      "validation_loss": 155.6154738746926,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 2,
+      "iteration": 60,
+      "accepted": null,
+      "train_loss": 155.56248810454647,
+      "validation_loss": 155.56248810454647,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 2,
+      "iteration": 61,
+      "accepted": null,
+      "train_loss": 155.48740106151604,
+      "validation_loss": 155.48740106151604,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 2,
+      "iteration": 62,
+      "accepted": null,
+      "train_loss": 155.37639734357393,
+      "validation_loss": 155.37639734357393,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 2,
+      "iteration": 63,
+      "accepted": null,
+      "train_loss": 155.2518057573831,
+      "validation_loss": 155.2518057573831,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 2,
+      "iteration": 64,
+      "accepted": null,
+      "train_loss": 155.15139245873593,
+      "validation_loss": 155.15139245873593,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 2,
+      "iteration": 65,
+      "accepted": null,
+      "train_loss": 155.03624619611188,
+      "validation_loss": 155.03624619611188,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 2,
+      "iteration": 66,
+      "accepted": null,
+      "train_loss": 154.90377983957086,
+      "validation_loss": 154.90377983957086,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 2,
+      "iteration": 67,
+      "accepted": null,
+      "train_loss": 154.89750219622817,
+      "validation_loss": 154.89750219622817,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 2,
+      "iteration": 68,
+      "accepted": null,
+      "train_loss": 154.87592082742532,
+      "validation_loss": 154.87592082742532,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 2,
+      "iteration": 69,
+      "accepted": null,
+      "train_loss": 154.84506748709717,
+      "validation_loss": 154.84506748709717,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 2,
+      "iteration": 70,
+      "accepted": null,
+      "train_loss": 154.84367480226254,
+      "validation_loss": 154.84367480226254,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 2,
+      "iteration": 71,
+      "accepted": null,
+      "train_loss": 154.84336202061536,
+      "validation_loss": 154.84336202061536,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 2,
+      "iteration": 72,
+      "accepted": null,
+      "train_loss": 154.84215209427666,
+      "validation_loss": 154.84215209427666,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 2,
+      "iteration": 73,
+      "accepted": null,
+      "train_loss": 154.84214225563963,
+      "validation_loss": 154.84214225563963,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 2,
+      "iteration": 74,
+      "accepted": null,
+      "train_loss": 154.84021169578799,
+      "validation_loss": 154.84021169578799,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 2,
+      "iteration": 75,
+      "accepted": null,
+      "train_loss": 154.83859875201253,
+      "validation_loss": 154.83859875201253,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 2,
+      "iteration": 76,
+      "accepted": null,
+      "train_loss": 154.8325487204892,
+      "validation_loss": 154.8325487204892,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 2,
+      "iteration": 77,
+      "accepted": null,
+      "train_loss": 154.83026827090998,
+      "validation_loss": 154.83026827090998,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 2,
+      "iteration": 78,
+      "accepted": null,
+      "train_loss": 154.82894412383968,
+      "validation_loss": 154.82894412383968,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 2,
+      "iteration": 79,
+      "accepted": null,
+      "train_loss": 154.8258199048687,
+      "validation_loss": 154.8258199048687,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 2,
+      "iteration": 80,
+      "accepted": null,
+      "train_loss": 154.8240941372293,
+      "validation_loss": 154.8240941372293,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 2,
+      "iteration": 81,
+      "accepted": null,
+      "train_loss": 154.8228139077432,
+      "validation_loss": 154.8228139077432,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 2,
+      "iteration": 82,
+      "accepted": null,
+      "train_loss": 154.82195452104267,
+      "validation_loss": 154.82195452104267,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 2,
+      "iteration": 83,
+      "accepted": null,
+      "train_loss": 154.8213481474473,
+      "validation_loss": 154.8213481474473,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 2,
+      "iteration": 84,
+      "accepted": null,
+      "train_loss": 154.82032562851205,
+      "validation_loss": 154.82032562851205,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 2,
+      "iteration": 85,
+      "accepted": null,
+      "train_loss": 154.81972121512348,
+      "validation_loss": 154.81972121512348,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 2,
+      "iteration": 86,
+      "accepted": null,
+      "train_loss": 154.81927824365016,
+      "validation_loss": 154.81927824365016,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 2,
+      "iteration": 87,
+      "accepted": null,
+      "train_loss": 154.81849893050685,
+      "validation_loss": 154.81849893050685,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 2,
+      "iteration": 88,
+      "accepted": null,
+      "train_loss": 154.81793335550034,
+      "validation_loss": 154.81793335550034,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 2,
+      "iteration": 89,
+      "accepted": null,
+      "train_loss": 154.8155150192134,
+      "validation_loss": 154.8155150192134,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 2,
+      "iteration": 90,
+      "accepted": null,
+      "train_loss": 154.81439886100208,
+      "validation_loss": 154.81439886100208,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 2,
+      "iteration": 91,
+      "accepted": null,
+      "train_loss": 154.81291074105215,
+      "validation_loss": 154.81291074105215,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 2,
+      "iteration": 92,
+      "accepted": null,
+      "train_loss": 154.80856053015216,
+      "validation_loss": 154.80856053015216,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 2,
+      "iteration": 93,
+      "accepted": null,
+      "train_loss": 154.80551370339015,
+      "validation_loss": 154.80551370339015,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 2,
+      "iteration": 94,
+      "accepted": null,
+      "train_loss": 154.80367471058813,
+      "validation_loss": 154.80367471058813,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 2,
+      "iteration": 95,
+      "accepted": null,
+      "train_loss": 154.80329175191616,
+      "validation_loss": 154.80329175191616,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 2,
+      "iteration": 96,
+      "accepted": null,
+      "train_loss": 154.80311667919253,
+      "validation_loss": 154.80311667919253,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 2,
+      "iteration": 97,
+      "accepted": null,
+      "train_loss": 154.80293034894652,
+      "validation_loss": 154.80293034894652,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 2,
+      "iteration": 98,
+      "accepted": null,
+      "train_loss": 154.80292324324412,
+      "validation_loss": 154.80292324324412,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 2,
+      "iteration": 99,
+      "accepted": null,
+      "train_loss": 154.80290856796336,
+      "validation_loss": 154.80290856796336,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 2,
+      "iteration": 100,
+      "accepted": null,
+      "train_loss": 154.8029064177319,
+      "validation_loss": 154.8029064177319,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 2,
+      "iteration": 101,
+      "accepted": null,
+      "train_loss": 154.8029029407705,
+      "validation_loss": 154.8029029407705,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 2,
+      "iteration": 102,
+      "accepted": null,
+      "train_loss": 154.80290201715363,
+      "validation_loss": 154.80290201715363,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 2,
+      "iteration": 103,
+      "accepted": null,
+      "train_loss": 154.8028978679131,
+      "validation_loss": 154.8028978679131,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 2,
+      "iteration": 104,
+      "accepted": null,
+      "train_loss": 154.80289263555514,
+      "validation_loss": 154.80289263555514,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 2,
+      "iteration": 105,
+      "accepted": null,
+      "train_loss": 154.8028893545706,
+      "validation_loss": 154.8028893545706,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 2,
+      "iteration": 106,
+      "accepted": null,
+      "train_loss": 154.80288267918615,
+      "validation_loss": 154.80288267918615,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 2,
+      "iteration": 107,
+      "accepted": null,
+      "train_loss": 154.80285914425443,
+      "validation_loss": 154.80285914425443,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 2,
+      "iteration": 108,
+      "accepted": null,
+      "train_loss": 154.8028419810307,
+      "validation_loss": 154.8028419810307,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 2,
+      "iteration": 109,
+      "accepted": null,
+      "train_loss": 154.8027950749403,
+      "validation_loss": 154.8027950749403,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 2,
+      "iteration": 110,
+      "accepted": null,
+      "train_loss": 154.80275397301492,
+      "validation_loss": 154.80275397301492,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 2,
+      "iteration": 111,
+      "accepted": null,
+      "train_loss": 154.80274929706704,
+      "validation_loss": 154.80274929706704,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 2,
+      "iteration": 112,
+      "accepted": null,
+      "train_loss": 154.80262696039924,
+      "validation_loss": 154.80262696039924,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 2,
+      "iteration": 113,
+      "accepted": null,
+      "train_loss": 154.80261284670084,
+      "validation_loss": 154.80261284670084,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 2,
+      "iteration": 114,
+      "accepted": null,
+      "train_loss": 154.80228659283222,
+      "validation_loss": 154.80228659283222,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 2,
+      "iteration": 115,
+      "accepted": null,
+      "train_loss": 154.8022585233688,
+      "validation_loss": 154.8022585233688,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 2,
+      "iteration": 116,
+      "accepted": null,
+      "train_loss": 154.8016323830352,
+      "validation_loss": 154.8016323830352,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 2,
+      "iteration": 117,
+      "accepted": null,
+      "train_loss": 154.8004895206125,
+      "validation_loss": 154.8004895206125,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 2,
+      "iteration": 118,
+      "accepted": null,
+      "train_loss": 154.80013059715458,
+      "validation_loss": 154.80013059715458,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 2,
+      "iteration": 119,
+      "accepted": null,
+      "train_loss": 154.7984451198953,
+      "validation_loss": 154.7984451198953,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 2,
+      "iteration": 120,
+      "accepted": null,
+      "train_loss": 154.797930262379,
+      "validation_loss": 154.797930262379,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 2,
+      "iteration": 121,
+      "accepted": null,
+      "train_loss": 154.79566298350568,
+      "validation_loss": 154.79566298350568,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 2,
+      "iteration": 122,
+      "accepted": null,
+      "train_loss": 154.79113216746714,
+      "validation_loss": 154.79113216746714,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 2,
+      "iteration": 123,
+      "accepted": null,
+      "train_loss": 154.7871583705901,
+      "validation_loss": 154.7871583705901,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 2,
+      "iteration": 124,
+      "accepted": null,
+      "train_loss": 154.785612044517,
+      "validation_loss": 154.785612044517,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 2,
+      "iteration": 125,
+      "accepted": null,
+      "train_loss": 154.78409617159855,
+      "validation_loss": 154.78409617159855,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 2,
+      "iteration": 126,
+      "accepted": null,
+      "train_loss": 154.78312437326568,
+      "validation_loss": 154.78312437326568,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 2,
+      "iteration": 127,
+      "accepted": null,
+      "train_loss": 154.78196583020343,
+      "validation_loss": 154.78196583020343,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 2,
+      "iteration": 128,
+      "accepted": null,
+      "train_loss": 154.7788710349381,
+      "validation_loss": 154.7788710349381,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 2,
+      "iteration": 129,
+      "accepted": null,
+      "train_loss": 154.77676230558674,
+      "validation_loss": 154.77676230558674,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 2,
+      "iteration": 130,
+      "accepted": null,
+      "train_loss": 154.77560705821202,
+      "validation_loss": 154.77560705821202,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 2,
+      "iteration": 131,
+      "accepted": null,
+      "train_loss": 154.77384607419222,
+      "validation_loss": 154.77384607419222,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 2,
+      "iteration": 132,
+      "accepted": null,
+      "train_loss": 154.77344741720788,
+      "validation_loss": 154.77344741720788,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 2,
+      "iteration": 133,
+      "accepted": null,
+      "train_loss": 154.77245439096677,
+      "validation_loss": 154.77245439096677,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 2,
+      "iteration": 134,
+      "accepted": null,
+      "train_loss": 154.7712447385112,
+      "validation_loss": 154.7712447385112,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 2,
+      "iteration": 135,
+      "accepted": null,
+      "train_loss": 154.77068796743342,
+      "validation_loss": 154.77068796743342,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 2,
+      "iteration": 136,
+      "accepted": null,
+      "train_loss": 154.77005383245708,
+      "validation_loss": 154.77005383245708,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 2,
+      "iteration": 137,
+      "accepted": null,
+      "train_loss": 154.76969426931288,
+      "validation_loss": 154.76969426931288,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 2,
+      "iteration": 138,
+      "accepted": null,
+      "train_loss": 154.76924419862806,
+      "validation_loss": 154.76924419862806,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 2,
+      "iteration": 139,
+      "accepted": null,
+      "train_loss": 154.76903029221833,
+      "validation_loss": 154.76903029221833,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 2,
+      "iteration": 140,
+      "accepted": null,
+      "train_loss": 154.768682824465,
+      "validation_loss": 154.768682824465,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 2,
+      "iteration": 141,
+      "accepted": null,
+      "train_loss": 154.76853145645958,
+      "validation_loss": 154.76853145645958,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 2,
+      "iteration": 142,
+      "accepted": null,
+      "train_loss": 154.7683759025535,
+      "validation_loss": 154.7683759025535,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 2,
+      "iteration": 143,
+      "accepted": null,
+      "train_loss": 154.76826358465806,
+      "validation_loss": 154.76826358465806,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 2,
+      "iteration": 144,
+      "accepted": null,
+      "train_loss": 154.76825908818606,
+      "validation_loss": 154.76825908818606,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 2,
+      "iteration": 145,
+      "accepted": null,
+      "train_loss": 154.76822027580573,
+      "validation_loss": 154.76822027580573,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 2,
+      "iteration": 146,
+      "accepted": null,
+      "train_loss": 154.7681176183072,
+      "validation_loss": 154.7681176183072,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 2,
+      "iteration": 147,
+      "accepted": null,
+      "train_loss": 154.7680570811692,
+      "validation_loss": 154.7680570811692,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 2,
+      "iteration": 148,
+      "accepted": null,
+      "train_loss": 154.76794037920192,
+      "validation_loss": 154.76794037920192,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 2,
+      "iteration": 149,
+      "accepted": null,
+      "train_loss": 154.76790821555804,
+      "validation_loss": 154.76790821555804,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 2,
+      "iteration": 150,
+      "accepted": null,
+      "train_loss": 154.76789926202878,
+      "validation_loss": 154.76789926202878,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 2,
+      "iteration": 151,
+      "accepted": null,
+      "train_loss": 154.76788532083566,
+      "validation_loss": 154.76788532083566,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 2,
+      "iteration": 152,
+      "accepted": null,
+      "train_loss": 154.7678693296293,
+      "validation_loss": 154.7678693296293,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 2,
+      "iteration": 153,
+      "accepted": null,
+      "train_loss": 154.76786916980822,
+      "validation_loss": 154.76786916980822,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "basin_end",
+      "basin": 2,
+      "iteration": 153,
+      "accepted": true,
+      "train_loss": 154.76786916980822,
+      "validation_loss": 154.76786916980822,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 3,
+      "iteration": 1,
+      "accepted": null,
+      "train_loss": 324.0418679545107,
+      "validation_loss": 324.0418679545107,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 3,
+      "iteration": 2,
+      "accepted": null,
+      "train_loss": 309.4247842893668,
+      "validation_loss": 309.4247842893668,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 3,
+      "iteration": 3,
+      "accepted": null,
+      "train_loss": 248.8893024316276,
+      "validation_loss": 248.8893024316276,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 3,
+      "iteration": 4,
+      "accepted": null,
+      "train_loss": 240.90253863052055,
+      "validation_loss": 240.90253863052055,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 3,
+      "iteration": 5,
+      "accepted": null,
+      "train_loss": 229.64480078948145,
+      "validation_loss": 229.64480078948145,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 3,
+      "iteration": 6,
+      "accepted": null,
+      "train_loss": 216.89450254590128,
+      "validation_loss": 216.89450254590128,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 3,
+      "iteration": 7,
+      "accepted": null,
+      "train_loss": 207.2272420884867,
+      "validation_loss": 207.2272420884867,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 3,
+      "iteration": 8,
+      "accepted": null,
+      "train_loss": 193.90998862801425,
+      "validation_loss": 193.90998862801425,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 3,
+      "iteration": 9,
+      "accepted": null,
+      "train_loss": 185.35553891062747,
+      "validation_loss": 185.35553891062747,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 3,
+      "iteration": 10,
+      "accepted": null,
+      "train_loss": 182.5588953150902,
+      "validation_loss": 182.5588953150902,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 3,
+      "iteration": 11,
+      "accepted": null,
+      "train_loss": 178.47735090659984,
+      "validation_loss": 178.47735090659984,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 3,
+      "iteration": 12,
+      "accepted": null,
+      "train_loss": 174.92889322862678,
+      "validation_loss": 174.92889322862678,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 3,
+      "iteration": 13,
+      "accepted": null,
+      "train_loss": 171.3584834953778,
+      "validation_loss": 171.3584834953778,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 3,
+      "iteration": 14,
+      "accepted": null,
+      "train_loss": 169.71129046773916,
+      "validation_loss": 169.71129046773916,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 3,
+      "iteration": 15,
+      "accepted": null,
+      "train_loss": 167.78938257175218,
+      "validation_loss": 167.78938257175218,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 3,
+      "iteration": 16,
+      "accepted": null,
+      "train_loss": 163.05652452714628,
+      "validation_loss": 163.05652452714628,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 3,
+      "iteration": 17,
+      "accepted": null,
+      "train_loss": 157.80335366448085,
+      "validation_loss": 157.80335366448085,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 3,
+      "iteration": 18,
+      "accepted": null,
+      "train_loss": 157.07949592266863,
+      "validation_loss": 157.07949592266863,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 3,
+      "iteration": 19,
+      "accepted": null,
+      "train_loss": 156.33842211988386,
+      "validation_loss": 156.33842211988386,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 3,
+      "iteration": 20,
+      "accepted": null,
+      "train_loss": 156.09372887720588,
+      "validation_loss": 156.09372887720588,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 3,
+      "iteration": 21,
+      "accepted": null,
+      "train_loss": 156.08402522445616,
+      "validation_loss": 156.08402522445616,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 3,
+      "iteration": 22,
+      "accepted": null,
+      "train_loss": 156.01639739401185,
+      "validation_loss": 156.01639739401185,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 3,
+      "iteration": 23,
+      "accepted": null,
+      "train_loss": 155.8618394651748,
+      "validation_loss": 155.8618394651748,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 3,
+      "iteration": 24,
+      "accepted": null,
+      "train_loss": 155.79015043873528,
+      "validation_loss": 155.79015043873528,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 3,
+      "iteration": 25,
+      "accepted": null,
+      "train_loss": 155.7341158033814,
+      "validation_loss": 155.7341158033814,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 3,
+      "iteration": 26,
+      "accepted": null,
+      "train_loss": 155.48960379108473,
+      "validation_loss": 155.48960379108473,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 3,
+      "iteration": 27,
+      "accepted": null,
+      "train_loss": 155.41549530783593,
+      "validation_loss": 155.41549530783593,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 3,
+      "iteration": 28,
+      "accepted": null,
+      "train_loss": 155.38658461094326,
+      "validation_loss": 155.38658461094326,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 3,
+      "iteration": 29,
+      "accepted": null,
+      "train_loss": 155.3624512320335,
+      "validation_loss": 155.3624512320335,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 3,
+      "iteration": 30,
+      "accepted": null,
+      "train_loss": 155.31594147451779,
+      "validation_loss": 155.31594147451779,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 3,
+      "iteration": 31,
+      "accepted": null,
+      "train_loss": 155.24334001460693,
+      "validation_loss": 155.24334001460693,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 3,
+      "iteration": 32,
+      "accepted": null,
+      "train_loss": 155.1587365898923,
+      "validation_loss": 155.1587365898923,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 3,
+      "iteration": 33,
+      "accepted": null,
+      "train_loss": 155.0448670915043,
+      "validation_loss": 155.0448670915043,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 3,
+      "iteration": 34,
+      "accepted": null,
+      "train_loss": 154.9917769437217,
+      "validation_loss": 154.9917769437217,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 3,
+      "iteration": 35,
+      "accepted": null,
+      "train_loss": 154.93645323421114,
+      "validation_loss": 154.93645323421114,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 3,
+      "iteration": 36,
+      "accepted": null,
+      "train_loss": 154.86894073659886,
+      "validation_loss": 154.86894073659886,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 3,
+      "iteration": 37,
+      "accepted": null,
+      "train_loss": 154.839076524587,
+      "validation_loss": 154.839076524587,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 3,
+      "iteration": 38,
+      "accepted": null,
+      "train_loss": 154.83642605359606,
+      "validation_loss": 154.83642605359606,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 3,
+      "iteration": 39,
+      "accepted": null,
+      "train_loss": 154.83260348720617,
+      "validation_loss": 154.83260348720617,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 3,
+      "iteration": 40,
+      "accepted": null,
+      "train_loss": 154.82614272803855,
+      "validation_loss": 154.82614272803855,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 3,
+      "iteration": 41,
+      "accepted": null,
+      "train_loss": 154.8154423371162,
+      "validation_loss": 154.8154423371162,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 3,
+      "iteration": 42,
+      "accepted": null,
+      "train_loss": 154.80622750608705,
+      "validation_loss": 154.80622750608705,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 3,
+      "iteration": 43,
+      "accepted": null,
+      "train_loss": 154.80385483444923,
+      "validation_loss": 154.80385483444923,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 3,
+      "iteration": 44,
+      "accepted": null,
+      "train_loss": 154.79946891018005,
+      "validation_loss": 154.79946891018005,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 3,
+      "iteration": 45,
+      "accepted": null,
+      "train_loss": 154.7986847524749,
+      "validation_loss": 154.7986847524749,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 3,
+      "iteration": 46,
+      "accepted": null,
+      "train_loss": 154.7974327859184,
+      "validation_loss": 154.7974327859184,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 3,
+      "iteration": 47,
+      "accepted": null,
+      "train_loss": 154.79723459805538,
+      "validation_loss": 154.79723459805538,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 3,
+      "iteration": 48,
+      "accepted": null,
+      "train_loss": 154.79695150600216,
+      "validation_loss": 154.79695150600216,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 3,
+      "iteration": 49,
+      "accepted": null,
+      "train_loss": 154.79688306870452,
+      "validation_loss": 154.79688306870452,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 3,
+      "iteration": 50,
+      "accepted": null,
+      "train_loss": 154.79672753352935,
+      "validation_loss": 154.79672753352935,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 3,
+      "iteration": 51,
+      "accepted": null,
+      "train_loss": 154.7967070280534,
+      "validation_loss": 154.7967070280534,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 3,
+      "iteration": 52,
+      "accepted": null,
+      "train_loss": 154.79670674327284,
+      "validation_loss": 154.79670674327284,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "basin_end",
+      "basin": 3,
+      "iteration": 52,
+      "accepted": true,
+      "train_loss": 154.79670674327284,
+      "validation_loss": 154.79670674327284,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 4,
+      "iteration": 1,
+      "accepted": null,
+      "train_loss": 2831.594012238135,
+      "validation_loss": 2831.594012238135,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 4,
+      "iteration": 2,
+      "accepted": null,
+      "train_loss": 858.1927813862422,
+      "validation_loss": 858.1927813862422,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 4,
+      "iteration": 3,
+      "accepted": null,
+      "train_loss": 850.4679263131982,
+      "validation_loss": 850.4679263131982,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 4,
+      "iteration": 4,
+      "accepted": null,
+      "train_loss": 833.0526904416853,
+      "validation_loss": 833.0526904416853,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 4,
+      "iteration": 5,
+      "accepted": null,
+      "train_loss": 827.4775341276691,
+      "validation_loss": 827.4775341276691,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 4,
+      "iteration": 6,
+      "accepted": null,
+      "train_loss": 811.9801196928249,
+      "validation_loss": 811.9801196928249,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 4,
+      "iteration": 7,
+      "accepted": null,
+      "train_loss": 556.3795125509594,
+      "validation_loss": 556.3795125509594,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 4,
+      "iteration": 8,
+      "accepted": null,
+      "train_loss": 550.5351243681199,
+      "validation_loss": 550.5351243681199,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 4,
+      "iteration": 9,
+      "accepted": null,
+      "train_loss": 469.4527802501172,
+      "validation_loss": 469.4527802501172,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 4,
+      "iteration": 10,
+      "accepted": null,
+      "train_loss": 430.075096165544,
+      "validation_loss": 430.075096165544,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 4,
+      "iteration": 11,
+      "accepted": null,
+      "train_loss": 393.586778585203,
+      "validation_loss": 393.586778585203,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 4,
+      "iteration": 12,
+      "accepted": null,
+      "train_loss": 249.90531945250652,
+      "validation_loss": 249.90531945250652,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 4,
+      "iteration": 13,
+      "accepted": null,
+      "train_loss": 237.1750033636726,
+      "validation_loss": 237.1750033636726,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 4,
+      "iteration": 14,
+      "accepted": null,
+      "train_loss": 207.95992344684666,
+      "validation_loss": 207.95992344684666,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 4,
+      "iteration": 15,
+      "accepted": null,
+      "train_loss": 188.92509312833434,
+      "validation_loss": 188.92509312833434,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 4,
+      "iteration": 16,
+      "accepted": null,
+      "train_loss": 178.080490450742,
+      "validation_loss": 178.080490450742,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 4,
+      "iteration": 17,
+      "accepted": null,
+      "train_loss": 176.27580534001285,
+      "validation_loss": 176.27580534001285,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 4,
+      "iteration": 18,
+      "accepted": null,
+      "train_loss": 175.22504328532088,
+      "validation_loss": 175.22504328532088,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 4,
+      "iteration": 19,
+      "accepted": null,
+      "train_loss": 173.8600459089694,
+      "validation_loss": 173.8600459089694,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 4,
+      "iteration": 20,
+      "accepted": null,
+      "train_loss": 171.52913665948103,
+      "validation_loss": 171.52913665948103,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 4,
+      "iteration": 21,
+      "accepted": null,
+      "train_loss": 166.99085648033272,
+      "validation_loss": 166.99085648033272,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 4,
+      "iteration": 22,
+      "accepted": null,
+      "train_loss": 164.50664502592866,
+      "validation_loss": 164.50664502592866,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 4,
+      "iteration": 23,
+      "accepted": null,
+      "train_loss": 163.95073797666532,
+      "validation_loss": 163.95073797666532,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 4,
+      "iteration": 24,
+      "accepted": null,
+      "train_loss": 163.10513704520335,
+      "validation_loss": 163.10513704520335,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 4,
+      "iteration": 25,
+      "accepted": null,
+      "train_loss": 162.72253306078554,
+      "validation_loss": 162.72253306078554,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 4,
+      "iteration": 26,
+      "accepted": null,
+      "train_loss": 162.0180466262966,
+      "validation_loss": 162.0180466262966,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 4,
+      "iteration": 27,
+      "accepted": null,
+      "train_loss": 161.79224202717486,
+      "validation_loss": 161.79224202717486,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 4,
+      "iteration": 28,
+      "accepted": null,
+      "train_loss": 161.71316120223634,
+      "validation_loss": 161.71316120223634,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 4,
+      "iteration": 29,
+      "accepted": null,
+      "train_loss": 161.6809060908311,
+      "validation_loss": 161.6809060908311,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 4,
+      "iteration": 30,
+      "accepted": null,
+      "train_loss": 161.56895277191074,
+      "validation_loss": 161.56895277191074,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 4,
+      "iteration": 31,
+      "accepted": null,
+      "train_loss": 161.14547329004287,
+      "validation_loss": 161.14547329004287,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 4,
+      "iteration": 32,
+      "accepted": null,
+      "train_loss": 160.4035709098647,
+      "validation_loss": 160.4035709098647,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 4,
+      "iteration": 33,
+      "accepted": null,
+      "train_loss": 160.04350820305862,
+      "validation_loss": 160.04350820305862,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 4,
+      "iteration": 34,
+      "accepted": null,
+      "train_loss": 159.43729493487766,
+      "validation_loss": 159.43729493487766,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 4,
+      "iteration": 35,
+      "accepted": null,
+      "train_loss": 159.07607423607,
+      "validation_loss": 159.07607423607,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 4,
+      "iteration": 36,
+      "accepted": null,
+      "train_loss": 158.81659938037515,
+      "validation_loss": 158.81659938037515,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 4,
+      "iteration": 37,
+      "accepted": null,
+      "train_loss": 158.76270995315528,
+      "validation_loss": 158.76270995315528,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 4,
+      "iteration": 38,
+      "accepted": null,
+      "train_loss": 158.66935018833058,
+      "validation_loss": 158.66935018833058,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 4,
+      "iteration": 39,
+      "accepted": null,
+      "train_loss": 158.56883820682503,
+      "validation_loss": 158.56883820682503,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 4,
+      "iteration": 40,
+      "accepted": null,
+      "train_loss": 158.4924830062911,
+      "validation_loss": 158.4924830062911,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 4,
+      "iteration": 41,
+      "accepted": null,
+      "train_loss": 158.44709765594428,
+      "validation_loss": 158.44709765594428,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 4,
+      "iteration": 42,
+      "accepted": null,
+      "train_loss": 158.41560691364825,
+      "validation_loss": 158.41560691364825,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 4,
+      "iteration": 43,
+      "accepted": null,
+      "train_loss": 158.38669497490224,
+      "validation_loss": 158.38669497490224,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 4,
+      "iteration": 44,
+      "accepted": null,
+      "train_loss": 158.32752090110813,
+      "validation_loss": 158.32752090110813,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 4,
+      "iteration": 45,
+      "accepted": null,
+      "train_loss": 158.2641462029539,
+      "validation_loss": 158.2641462029539,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 4,
+      "iteration": 46,
+      "accepted": null,
+      "train_loss": 158.22215113034304,
+      "validation_loss": 158.22215113034304,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 4,
+      "iteration": 47,
+      "accepted": null,
+      "train_loss": 158.11309819016606,
+      "validation_loss": 158.11309819016606,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 4,
+      "iteration": 48,
+      "accepted": null,
+      "train_loss": 158.00300583930087,
+      "validation_loss": 158.00300583930087,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 4,
+      "iteration": 49,
+      "accepted": null,
+      "train_loss": 157.85138200650124,
+      "validation_loss": 157.85138200650124,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 4,
+      "iteration": 50,
+      "accepted": null,
+      "train_loss": 157.80999196274593,
+      "validation_loss": 157.80999196274593,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 4,
+      "iteration": 51,
+      "accepted": null,
+      "train_loss": 157.72551404417015,
+      "validation_loss": 157.72551404417015,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 4,
+      "iteration": 52,
+      "accepted": null,
+      "train_loss": 157.53529067867998,
+      "validation_loss": 157.53529067867998,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 4,
+      "iteration": 53,
+      "accepted": null,
+      "train_loss": 157.48232958118325,
+      "validation_loss": 157.48232958118325,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 4,
+      "iteration": 54,
+      "accepted": null,
+      "train_loss": 157.3498991468974,
+      "validation_loss": 157.3498991468974,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 4,
+      "iteration": 55,
+      "accepted": null,
+      "train_loss": 157.23129818357145,
+      "validation_loss": 157.23129818357145,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 4,
+      "iteration": 56,
+      "accepted": null,
+      "train_loss": 157.15405850979974,
+      "validation_loss": 157.15405850979974,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 4,
+      "iteration": 57,
+      "accepted": null,
+      "train_loss": 157.04395038425739,
+      "validation_loss": 157.04395038425739,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 4,
+      "iteration": 58,
+      "accepted": null,
+      "train_loss": 156.8794524764402,
+      "validation_loss": 156.8794524764402,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 4,
+      "iteration": 59,
+      "accepted": null,
+      "train_loss": 156.73030919011907,
+      "validation_loss": 156.73030919011907,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 4,
+      "iteration": 60,
+      "accepted": null,
+      "train_loss": 156.43487282188903,
+      "validation_loss": 156.43487282188903,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 4,
+      "iteration": 61,
+      "accepted": null,
+      "train_loss": 156.2604711068311,
+      "validation_loss": 156.2604711068311,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 4,
+      "iteration": 62,
+      "accepted": null,
+      "train_loss": 156.18184382728379,
+      "validation_loss": 156.18184382728379,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 4,
+      "iteration": 63,
+      "accepted": null,
+      "train_loss": 156.09607762830876,
+      "validation_loss": 156.09607762830876,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 4,
+      "iteration": 64,
+      "accepted": null,
+      "train_loss": 156.05452731986708,
+      "validation_loss": 156.05452731986708,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 4,
+      "iteration": 65,
+      "accepted": null,
+      "train_loss": 155.97625826397348,
+      "validation_loss": 155.97625826397348,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 4,
+      "iteration": 66,
+      "accepted": null,
+      "train_loss": 155.87009316851115,
+      "validation_loss": 155.87009316851115,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 4,
+      "iteration": 67,
+      "accepted": null,
+      "train_loss": 155.8021549745174,
+      "validation_loss": 155.8021549745174,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 4,
+      "iteration": 68,
+      "accepted": null,
+      "train_loss": 155.76273338145265,
+      "validation_loss": 155.76273338145265,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 4,
+      "iteration": 69,
+      "accepted": null,
+      "train_loss": 155.6936059854912,
+      "validation_loss": 155.6936059854912,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 4,
+      "iteration": 70,
+      "accepted": null,
+      "train_loss": 155.6220031350193,
+      "validation_loss": 155.6220031350193,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 4,
+      "iteration": 71,
+      "accepted": null,
+      "train_loss": 155.4618305939345,
+      "validation_loss": 155.4618305939345,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 4,
+      "iteration": 72,
+      "accepted": null,
+      "train_loss": 155.39529673895905,
+      "validation_loss": 155.39529673895905,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 4,
+      "iteration": 73,
+      "accepted": null,
+      "train_loss": 155.33474250657102,
+      "validation_loss": 155.33474250657102,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 4,
+      "iteration": 74,
+      "accepted": null,
+      "train_loss": 155.30968516927774,
+      "validation_loss": 155.30968516927774,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 4,
+      "iteration": 75,
+      "accepted": null,
+      "train_loss": 155.28713192208681,
+      "validation_loss": 155.28713192208681,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 4,
+      "iteration": 76,
+      "accepted": null,
+      "train_loss": 155.23509957669623,
+      "validation_loss": 155.23509957669623,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 4,
+      "iteration": 77,
+      "accepted": null,
+      "train_loss": 155.180098357363,
+      "validation_loss": 155.180098357363,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 4,
+      "iteration": 78,
+      "accepted": null,
+      "train_loss": 155.14363585450906,
+      "validation_loss": 155.14363585450906,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 4,
+      "iteration": 79,
+      "accepted": null,
+      "train_loss": 155.1365069364178,
+      "validation_loss": 155.1365069364178,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 4,
+      "iteration": 80,
+      "accepted": null,
+      "train_loss": 155.11648085005132,
+      "validation_loss": 155.11648085005132,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 4,
+      "iteration": 81,
+      "accepted": null,
+      "train_loss": 155.09854548761626,
+      "validation_loss": 155.09854548761626,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 4,
+      "iteration": 82,
+      "accepted": null,
+      "train_loss": 155.08190093535384,
+      "validation_loss": 155.08190093535384,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 4,
+      "iteration": 83,
+      "accepted": null,
+      "train_loss": 155.07532673826643,
+      "validation_loss": 155.07532673826643,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 4,
+      "iteration": 84,
+      "accepted": null,
+      "train_loss": 155.0735263672199,
+      "validation_loss": 155.0735263672199,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 4,
+      "iteration": 85,
+      "accepted": null,
+      "train_loss": 155.07087260969286,
+      "validation_loss": 155.07087260969286,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 4,
+      "iteration": 86,
+      "accepted": null,
+      "train_loss": 155.07024525195885,
+      "validation_loss": 155.07024525195885,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 4,
+      "iteration": 87,
+      "accepted": null,
+      "train_loss": 155.06809884938264,
+      "validation_loss": 155.06809884938264,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 4,
+      "iteration": 88,
+      "accepted": null,
+      "train_loss": 155.06705929720286,
+      "validation_loss": 155.06705929720286,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 4,
+      "iteration": 89,
+      "accepted": null,
+      "train_loss": 155.06653458288255,
+      "validation_loss": 155.06653458288255,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 4,
+      "iteration": 90,
+      "accepted": null,
+      "train_loss": 155.06569759635323,
+      "validation_loss": 155.06569759635323,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 4,
+      "iteration": 91,
+      "accepted": null,
+      "train_loss": 155.0606976143095,
+      "validation_loss": 155.0606976143095,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 4,
+      "iteration": 92,
+      "accepted": null,
+      "train_loss": 155.05447098188773,
+      "validation_loss": 155.05447098188773,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 4,
+      "iteration": 93,
+      "accepted": null,
+      "train_loss": 155.03167609937827,
+      "validation_loss": 155.03167609937827,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 4,
+      "iteration": 94,
+      "accepted": null,
+      "train_loss": 155.01988357626826,
+      "validation_loss": 155.01988357626826,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 4,
+      "iteration": 95,
+      "accepted": null,
+      "train_loss": 155.0008955588747,
+      "validation_loss": 155.0008955588747,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 4,
+      "iteration": 96,
+      "accepted": null,
+      "train_loss": 154.97506599365556,
+      "validation_loss": 154.97506599365556,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 4,
+      "iteration": 97,
+      "accepted": null,
+      "train_loss": 154.94787585009158,
+      "validation_loss": 154.94787585009158,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 4,
+      "iteration": 98,
+      "accepted": null,
+      "train_loss": 154.94290225699098,
+      "validation_loss": 154.94290225699098,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 4,
+      "iteration": 99,
+      "accepted": null,
+      "train_loss": 154.94162061878703,
+      "validation_loss": 154.94162061878703,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 4,
+      "iteration": 100,
+      "accepted": null,
+      "train_loss": 154.93995472122847,
+      "validation_loss": 154.93995472122847,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 4,
+      "iteration": 101,
+      "accepted": null,
+      "train_loss": 154.93909235421526,
+      "validation_loss": 154.93909235421526,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 4,
+      "iteration": 102,
+      "accepted": null,
+      "train_loss": 154.9386719568086,
+      "validation_loss": 154.9386719568086,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 4,
+      "iteration": 103,
+      "accepted": null,
+      "train_loss": 154.9384139433722,
+      "validation_loss": 154.9384139433722,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "iterate",
+      "basin": 4,
+      "iteration": 104,
+      "accepted": null,
+      "train_loss": 154.93841366346425,
+      "validation_loss": 154.93841366346425,
+      "eligible": true
+    },
+    {
+      "phase": "lbfgsb",
+      "event": "basin_end",
+      "basin": 4,
+      "iteration": 104,
+      "accepted": true,
+      "train_loss": 154.93841366346425,
+      "validation_loss": 154.93841366346425,
+      "eligible": true
+    }
+  ],
+  "lbfgsb_iterations": 703,
+  "scipy_result": {
+    "message": [
+      "requested number of basinhopping iterations completed successfully"
+    ],
+    "nit": 4,
+    "minimization_failures": 0,
+    "lowest_training_local_result": {
+      "success": true,
+      "status": 0,
+      "message": "CONVERGENCE: REL_REDUCTION_OF_F_<=_FACTR*EPSMCH",
+      "fun": 154.7545680317763,
+      "nit": 119,
+      "nfev": 2595,
+      "njev": 173
+    }
+  },
+  "elapsed_seconds": 62.746511514000304
+}

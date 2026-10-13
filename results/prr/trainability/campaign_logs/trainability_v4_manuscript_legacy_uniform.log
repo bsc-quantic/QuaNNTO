@@ -1,0 +1,48 @@
+Traceback (most recent call last):
+  File "/usr/lib/python3.10/runpy.py", line 196, in _run_module_as_main
+    return _run_code(code, main_globals, None,
+  File "/usr/lib/python3.10/runpy.py", line 86, in _run_code
+    exec(code, run_globals)
+  File "/home/tkrasimi/QuanticGit/Quannto/quannto/tasks/revision/trainability.py", line 1307, in <module>
+    cli()
+  File "/home/tkrasimi/QuanticGit/Quannto/quannto/tasks/revision/trainability.py", line 1303, in cli
+    run(args)
+  File "/home/tkrasimi/QuanticGit/Quannto/quannto/tasks/revision/trainability.py", line 1198, in run
+    return run_supervised(sys.modules[__name__], args)
+  File "/home/tkrasimi/QuanticGit/Quannto/quannto/tasks/revision/trainability_supervisor.py", line 848, in run_supervised
+    raise RuntimeError(
+RuntimeError: all requested configurations were attempted, but at least one failed; inspect RUN_STATUS.json/configuration_status.csv and rerun with --resume
+
+[configuration 1/15] N2_L1_K0_es1
+
+[configuration 2/15] N3_L1_K0_es1
+
+[configuration 3/15] N4_L1_K0_es1
+
+[configuration 4/15] N5_L1_K0_es1
+
+[configuration 5/15] N2_L1_K1_es1
+
+[configuration 6/15] N3_L1_K1_es1
+
+[configuration 7/15] N4_L1_K1_es1
+
+[configuration 8/15] N5_L1_K1_es1
+
+[configuration 9/15] N2_L2_K0_es1
+
+[configuration 10/15] N2_L3_K0_es1
+
+[configuration 11/15] N2_L2_K1_es1
+
+[configuration 12/15] N2_L3_K1_es1
+[failed but continuing] N2_L3_K1_es1: worker_error (see /home/tkrasimi/QuanticGit/Quannto/revision_trainability_final/barren_plateaus/bp_scalar_identity_legacy_uniform_T64_v4_manuscript_d470d9e983/configuration_logs/N2_L3_K1_es1.log)
+
+[configuration 13/15] N4_L1_K2_es1
+
+[configuration 14/15] N4_L1_K3_es1
+
+[configuration 15/15] N4_L1_K4_es1
+
+Saved partial trainability results to /home/tkrasimi/QuanticGit/Quannto/revision_trainability_final/barren_plateaus/bp_scalar_identity_legacy_uniform_T64_v4_manuscript_d470d9e983
+Completed 14/15 designed configurations; requested failures: 1.

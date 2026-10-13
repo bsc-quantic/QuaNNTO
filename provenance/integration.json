@@ -1,0 +1,35 @@
+{
+  "integration_date": "2026-10-13",
+  "package_version": "0.1.1",
+  "sources": [
+    {
+      "filename": "quannto-master-011026.zip",
+      "sha256": "6097bc13c383cdf7e93260e6ad4aa49c7ff379e78ed1ac80fda45ce46462b94a"
+    },
+    {
+      "filename": "trainability(1).zip",
+      "sha256": "dac6ee3f4f977b8fd5eafb2b62123dc35b6d03b5699d6d8e99242621fe4a38c8"
+    },
+    {
+      "filename": "catstate_full_parameter_audit_011026.zip",
+      "sha256": "c371b6f0824a83fe0a6a489ea61275ebe881b165fb3d1a18ae60f90d57a6cb2f"
+    },
+    {
+      "filename": "quannto-master-250926-random-fidelity.zip",
+      "sha256": "e41b50ee6e09054e11bfab20ab73ef71d3470204ee03bf23ab5cfdf1c7d1d37a"
+    },
+    {
+      "filename": "quannto-barren-140926.zip",
+      "sha256": "8fb9defeb8fb7d283004eda9a97f78deb7117e26bbcfa935bef91d021b1095e9"
+    }
+  ],
+  "merges": [
+    "October models and training API retained",
+    "Trainability protocol v4 and production campaign added",
+    "Multilayer Gaussian coefficients and Gaussian-core helper merged without insertion-engine experiments",
+    "Paired-baseline exporter and cat report recovered from September patch",
+    "Cat diagnostics moved to import-safe modules; argument/data paths updated"
+  ],
+  "immutable_data": "Numeric arrays, training records and original campaign artifacts are not replaced by reruns.",
+  "code_changes": "See CHANGELOG.md; generated caches are excluded."
+}

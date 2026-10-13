@@ -2,32 +2,31 @@
 requires = ["setuptools>=64", "wheel"]
 build-backend = "setuptools.build_meta"
 
-[tool.setuptools]
-include-package-data = true
+[project]
+name = "quannto"
+version = "0.1.1"
+description = "Exact moments of continuous-variable quantum optical neural networks"
+readme = "README.md"
+license = {file = "LICENSE"}
+requires-python = ">=3.10,<3.13"
+dependencies = [
+  "jax>=0.6.2,<0.7", "numpy>=1.26.4,<2", "scipy>=1.12,<1.14",
+  "sympy>=1.13", "optax>=0.2.4,<0.3", "jsonpickle>=4",
+  "matplotlib>=3.9,<3.11", "scikit-learn>=1.5", "seaborn>=0.13"
+]
+
+[project.optional-dependencies]
+mnist = ["tensorflow>=2.16"]
+sf = ["strawberryfields==0.23.0", "thewalrus==0.21.0"]
+dev = ["pytest>=8,<9", "build>=1.2", "wheel"]
+
+[project.scripts]
+quannto-verify-prr = "quannto.benchmarks.prr:main"
 
 [tool.setuptools.packages.find]
 where = ["."]
 include = ["quannto*"]
+exclude = ["archive*", "test*", "data*", "results*"]
 
-
-[project]
-name = "quannto"
-version = "0.1.0"
-description="QuaNNTO: Exact simulator of CV Quantum Optical Neural Networks"
-requires-python = ">=3.10"
-dependencies = [
-  "jax",
-  "jsonpickle",
-  "matplotlib",
-  "numpy",
-  "optax",
-  "scikit-learn",
-  "scipy",
-  "seaborn",
-  "sympy",
-]
-
-[project.optional-dependencies]
-mnist = ["tensorflow"]
-sf = ["strawberryfields"]
-dev = ["pip-tools", "deptry", "pytest"]
+[tool.setuptools.package-data]
+"quannto.tasks" = ["quantum_tables_manifest.json"]

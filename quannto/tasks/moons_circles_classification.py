@@ -8,11 +8,12 @@ from quannto.core.loss_functions import cross_entropy
 from quannto.core.qnn_trainers import *
 from quannto.utils.results_utils import plot_confusion_matrix, plot_qnn_decision
 
-np.random.seed(42)
+training_seed = 42
+np.random.seed(training_seed)
 
 # === HYPERPARAMETERS DEFINITION ===
 qnn_modes = 3
-qnn_ladder_modes = [[0]]
+qnn_ladder_modes = [[1]]
 qnn_layers = 1
 qnn_is_addition = False
 include_initial_squeezing = False
@@ -27,15 +28,15 @@ out_norm_range = (1, 3) # or None
 # === OPTIMIZER SETTINGS ===
 optimize = train_scipy
 loss_function = cross_entropy
-basinhopping_iters = 2
+basinhopping_iters = 4
 params = None
 
 # === DATASET SETTINGS ===
 dataset_name = 'circles' # 'moons' or 'circles'
-trainset_size = 100
+trainset_size = 200
 validset_size = 50
 num_cats = 2
-dataset_size_per_cat = trainset_size // 2
+trainset_size_per_cat = trainset_size // 2
 validset_size_per_cat = validset_size // 2
 model_name = f"{dataset_name}_{qnn_modes}modes_{qnn_layers}layers_ph{qnn_ladder_modes}_in{in_norm_range}_out{out_norm_range}_datasize{trainset_size}"
 task_name = f"{dataset_name}_{num_cats}categs_classification"
@@ -50,32 +51,48 @@ if os.path.isfile(dataset_dir + "_inputs.npy") and os.path.isfile(dataset_dir + 
     shuffling = np.random.permutation(len(inputs))
     dataset = [inputs, outputs]
     shuffled_dataset = [dataset[0][shuffling], dataset[1][shuffling]]
+    #shuffled_dataset = dataset
     input_ranges = np.array([(np.min(dataset[0][:,col]), np.max(dataset[0][:,col])) for col in range(len(dataset[0][0]))])
 else:
     raise FileNotFoundError("The requested dataset does not exist, generate it from sklearn.datasets.make_moons or sklearn.datasets.make_circles")
-    
+dataset_size_per_cat = len(dataset[0]) // num_cats
 # 2. BALANCED TRAINING DATASET
 train_dataset = (
     np.concatenate((
-        shuffled_dataset[0][:dataset_size_per_cat], shuffled_dataset[0][-dataset_size_per_cat:]
+        shuffled_dataset[0][:trainset_size_per_cat], shuffled_dataset[0][-trainset_size_per_cat:]
     )),
     np.concatenate(
-        (shuffled_dataset[1][:dataset_size_per_cat], shuffled_dataset[1][-dataset_size_per_cat:])
+        (shuffled_dataset[1][:trainset_size_per_cat], shuffled_dataset[1][-trainset_size_per_cat:])
     )
 )
 # 3. BALANCED VALIDATION DATASET (None for no validation)
 valid_dataset = (
     np.concatenate((
-        shuffled_dataset[0][dataset_size_per_cat:dataset_size_per_cat+validset_size_per_cat],
-        shuffled_dataset[0][-(dataset_size_per_cat+validset_size_per_cat):-dataset_size_per_cat]
+        shuffled_dataset[0][trainset_size_per_cat:trainset_size_per_cat+validset_size_per_cat],
+        shuffled_dataset[0][-(trainset_size_per_cat+validset_size_per_cat):-trainset_size_per_cat]
     )),
     np.concatenate((
-        shuffled_dataset[1][:dataset_size_per_cat], shuffled_dataset[1][-dataset_size_per_cat:]
+        shuffled_dataset[1][trainset_size_per_cat:trainset_size_per_cat+validset_size_per_cat],
+        shuffled_dataset[1][-(trainset_size_per_cat+validset_size_per_cat):-trainset_size_per_cat]
     ))
 )
+
+# 4. TESTING DATASET: Use the rest of moons (or circles) dataset
+test_dataset = dataset
+'''test_dataset = (
+    np.concatenate((
+        shuffled_dataset[0][trainset_size_per_cat+validset_size_per_cat : dataset_size_per_cat],
+        shuffled_dataset[0][dataset_size_per_cat :-(trainset_size_per_cat+validset_size_per_cat)]
+    )),
+    np.concatenate((
+        shuffled_dataset[1][trainset_size_per_cat+validset_size_per_cat : dataset_size_per_cat],
+        shuffled_dataset[1][dataset_size_per_cat :-(trainset_size_per_cat+validset_size_per_cat)]
+    ))
+)'''
+test_outputs_classes = test_dataset[1].ravel()
 # 4. TESTING DATASET: Use the entire moons (or circles) dataset
-test_dataset = (dataset[0], dataset[1])
-test_outputs_classes = dataset[1].ravel()
+#test_dataset = (dataset[0], dataset[1])
+#test_outputs_classes = dataset[1].ravel()
 
 # === PREPROCESSORS AND POSTPROCESSORS ===
 in_preprocessors = []
@@ -95,7 +112,8 @@ postprocessors = []
 # === BUILD, TRAIN AND TEST QNN ===
 qnn, train_loss, valid_loss = optimize(model_name, task_name, qnn_modes, qnn_layers, n_inputs, n_outputs, qnn_ladder_modes, qnn_is_addition, observable,
                                         include_initial_squeezing, include_initial_mixing, is_passive_gaussian,
-                                        train_dataset, valid_dataset, loss_function, basinhopping_iters, in_preprocessors, out_preprocessors, postprocessors)
+                                        train_dataset, valid_dataset, loss_function, basinhopping_iters, in_preprocessors, out_preprocessors, postprocessors, seed=training_seed,
+                                        run_metadata={"entrypoint": __name__, "data_seed": training_seed})
 qnn_preds, norms, loss_value = qnn.test_model(test_dataset[0], test_dataset[1], loss_function)
 qnn_probs_preds = softmax_discretization(qnn_preds)
 qnn_class_preds = np.ravel(greatest_probability(qnn_probs_preds))

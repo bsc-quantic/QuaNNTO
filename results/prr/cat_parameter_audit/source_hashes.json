@@ -1,0 +1,7 @@
+{
+  "repo/quannto/utils/strawberryfields/parameter_fock_reference.py": "0709b7dfe541cbab8f55ab813878b750ef603f21b3ff429f2deaf0c46bcab4d2",
+  "repo/datasets/catstate_phi0.0_trainsize1_stats15_cut20_rng-1to1_outputs.npy": "234109134a80d76dc1c09cc471f75569635e3414cf5ebbd30d8483d542e26817",
+  "repo/quannto/tasks/models/params/catstate_phi0.0_trainsize1_stats15_cut20_rng-1.0to-1.0_N1_L1_sub[[0]]_inNone.npy": "6b2030c86bd323c86bd1112495c05866c27d26d84a698eefb5243d2233e6cee7",
+  "repo/quannto/tasks/models/params/catstate_phi0.0_trainsize1_stats15_cut20_rng-1.0to-1.0_N2_L1_sub[[0, 1]]_inNone.npy": "2ba106eed98cf60aa8eba47ccf80985f5244f0ae6520d83b07a7c982e0fe1ce7",
+  "repo/quannto/tasks/models/params/catstate_phi0.0_trainsize1_stats15_cut20_rng-1.0to-1.0_N1_L2_sub[[0], [0]]_inNone.npy": "80af12e530d77551461e91ec91543844d46ecbeb58fc773fd4d145c36acfc4a6"
+}

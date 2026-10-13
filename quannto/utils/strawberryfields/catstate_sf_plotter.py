@@ -2,13 +2,14 @@ import numpy as np
 
 from quannto.utils.path_utils import figures_dir, models_operators_path
 from quannto.utils.strawberryfields.general_tools import cat_even_ket, fidelity_pure_vs_mixed, fidelity_two_pure, reduced_rho_from_ket, six_order_moments_operators, mode_moments_from_ket
+from quannto.utils.strawberryfields.multi_catstate_sf_plotter import _compact_subtraction_tex
 from quannto.utils.strawberryfields.qonn_builder import run_qonn
 from quannto.utils.strawberryfields.wigner_plotters import *
 
 
-N = 1
+N = 2
 L = 1
-subtractions = [[0,0]]
+subtractions = [[1,1]]
 input_range = (-1, 1)
 qnn_label = f'N={N}, L={L}, â in modes {[m+1 for m in subtractions[0]]}'
 print(qnn_label)
@@ -17,7 +18,7 @@ qonn_cutoff = 20
 trained_stats = 15
 input_alpha = -1.0 + 0.0j
 phi = 0.0
-qonn_model_name = f'catstate_phi{phi}_trainsize1_stats{trained_stats}_cut{cat_cutoff}_rng{input_range[0]}to{input_range[-1]}_N{N}_L{L}_sub{subtractions}_inNone'
+qonn_model_name = f'catstate_phi{phi}_trainsize1_stats{trained_stats}_cut{cat_cutoff}_rng{float(input_range[0])}to{float(input_range[0])}_N{N}_L{L}_sub{subtractions}_inNone'
 
 S_l = np.load(models_operators_path(qonn_model_name, "S_l", "npy"))
 D_l = np.load(models_operators_path(qonn_model_name, "D_l", "npy"))
@@ -47,15 +48,6 @@ qonn_stat_ops = six_order_moments_operators(qonn_cutoff)
 moments_cat = mode_moments_from_ket(ket_cat, cat_stat_ops, cutoff=cat_cutoff, mode=0)
 moments_qonn = mode_moments_from_ket(ket_out, qonn_stat_ops, cutoff=qonn_cutoff, mode=0)
 
-plot_wigner_2d_compare(
-    ket_L=ket_cat,  N_L=1, cutoff_L=cat_cutoff, mode_L=0,
-    ket_R=ket_out,   N_R=N, cutoff_R=qonn_cutoff, mode_R=0,
-    grid_lim=4.0, grid_pts=201,
-    zmin=-0.05, zmax=0.175,   # or leave None to auto-compute global min/max
-    title_L="Theoretical", title_R="Synthesized",
-    savepath=figures_dir() / "wigner_compare.pdf",
-)
-
 reduced_state_out = reduced_rho_from_ket(ket_out, cutoff=qonn_cutoff, N=N, mode=0)
 if cat_cutoff == qonn_cutoff:
     if N==1:
@@ -63,6 +55,20 @@ if cat_cutoff == qonn_cutoff:
     else:
         F0 = fidelity_pure_vs_mixed(ket_cat, reduced_state_out)
     print("Fidelity on measured mode 0 (cat vs reduced QONN):", F0)
+
+alpha_text = "1"
+title_cat = "Theoretical cat state\n" + rf"$|C_+(\alpha)\rangle \propto |\alpha\rangle+|-\alpha\rangle,\ \alpha={alpha_text}$"
+compact_op = _compact_subtraction_tex(subtractions)
+title_qonn = rf"QONN N={N}, L={L}, K=$[{compact_op}]$" + "\n" + rf"$F={F0:.3f}$"
+plot_wigner_2d_compare(
+    ket_L=ket_cat,  N_L=1, cutoff_L=cat_cutoff, mode_L=0,
+    ket_R=ket_out,   N_R=N, cutoff_R=qonn_cutoff, mode_R=0,
+    grid_lim=4.0, grid_pts=301,
+    xlim=(-3.1, 3.1), plim=(-2.3, 2.3),
+    zmin=None, zmax=None,   # shared extrema in the displayed quadrature convention
+    title_L=title_cat, title_R=title_qonn,
+    savepath=figures_dir() / f"wigner_compare_{qonn_model_name}.pdf",
+)
 
 input("Press Enter to continue with losses...")
 total_loss = 0

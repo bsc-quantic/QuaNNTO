@@ -1,0 +1,35 @@
+{
+  "depths": [
+    1,
+    2,
+    3
+  ],
+  "energy_scales": [
+    0.5,
+    1.0,
+    2.0,
+    4.0
+  ],
+  "ladder_orders": [
+    0,
+    1,
+    2,
+    3,
+    4
+  ],
+  "overwrite": false,
+  "quick": false,
+  "resume": true,
+  "sweeps": [
+    "width",
+    "depth",
+    "ladder",
+    "energy"
+  ],
+  "widths": [
+    2,
+    3,
+    4,
+    5
+  ]
+}

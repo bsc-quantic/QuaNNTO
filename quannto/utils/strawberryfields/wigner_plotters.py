@@ -16,6 +16,8 @@ def plot_state_diagnostics(
     grid_pts=200,
     use_textbook_axes=True,
     title_prefix=None,
+    xlim=None,
+    plim=None,
 ):
     """ state = state_from_ket(ket, cutoff=cutoff, N=N)
 
@@ -36,31 +38,19 @@ def plot_state_diagnostics(
     ax.set_ylabel("P(n)")
     plt.tight_layout()
 
-    # ----- Grid for Wigner + marginals -----
-    if use_textbook_axes:
-        x_phys = np.linspace(-grid_lim, grid_lim, grid_pts)
-        p_phys = np.linspace(-grid_lim, grid_lim, grid_pts)
-        xvec = np.sqrt(2) * x_phys   # convert to SF units
-        pvec = np.sqrt(2) * p_phys
-        x_plot, p_plot = x_phys, p_phys
-        xlabel, ylabel = "x", "p"
-    else:
-        xvec = np.linspace(-grid_lim, grid_lim, grid_pts)
-        pvec = np.linspace(-grid_lim, grid_lim, grid_pts)
-        x_plot, p_plot = xvec, pvec
-        xlabel, ylabel = "x (SF units)", "p (SF units)"
-
-    # ----- 2) Wigner -----
-    reduced_state = state_from_single_mode_rho(reduced_rho_from_ket(ket, cutoff=cutoff, N=N, mode=mode), cutoff=cutoff)
-    W = reduced_state.wigner(mode=mode, xvec=xvec, pvec=pvec)  # shape (len(xvec), len(pvec))
-    #W = state.wigner(mode=mode, xvec=xvec, pvec=pvec)
+    # After tracing other modes, the remaining single mode is indexed by 0.
+    reduced_state = state_from_single_mode_rho(
+        reduced_rho_from_ket(ket, cutoff=cutoff, N=N, mode=mode), cutoff=cutoff)
+    W, x_plot, p_plot, xlabel, ylabel = _compute_wigner_Z(
+        reduced_state, 0, grid_lim=grid_lim, grid_pts=grid_pts,
+        use_textbook_axes=use_textbook_axes, xlim=xlim, plim=plim)
 
     fig, ax = plt.subplots(1, 1, figsize=(6, 5))
     im = ax.imshow(
-        W.T,
+        W,
         extent=[x_plot[0], x_plot[-1], p_plot[0], p_plot[-1]],
         origin="lower",
-        aspect="auto",
+        aspect="equal",
     )
     ax.set_title(f"{title_prefix} — Wigner W(x,p) (cutoff={cutoff})")
     ax.set_xlabel(xlabel)
@@ -68,12 +58,10 @@ def plot_state_diagnostics(
     plt.colorbar(im, ax=ax, shrink=0.85, label="W(x,p)")
     plt.tight_layout()
 
-    # ----- 3) Quadrature marginals -----
-    # These are defined on the same (xvec,pvec) grid in SF units
-    """ Px = state.x_quad_values(mode=mode, xvec=xvec, pvec=pvec)
-    Pp = state.p_quad_values(mode=mode, xvec=xvec, pvec=pvec) """
-    Px = reduced_state.x_quad_values(mode=mode, xvec=xvec, pvec=pvec)
-    Pp = reduced_state.p_quad_values(mode=mode, xvec=xvec, pvec=pvec)
+    # Integrate the displayed density in the displayed coordinates. This
+    # includes the one-dimensional Jacobian and uses only this finite window.
+    Px = np.trapz(W, p_plot, axis=0)
+    Pp = np.trapz(W, x_plot, axis=1)
 
     fig, ax = plt.subplots(1, 2, figsize=(10, 3))
     ax[0].plot(x_plot, Px)
@@ -89,23 +77,39 @@ def plot_state_diagnostics(
 
     plt.show()
     
-def _compute_wigner_Z(state, mode, *, grid_lim, grid_pts, use_textbook_axes):
-    # Build xvec, pvec for SF wigner, and x/p axes to display
-    if use_textbook_axes:
-        x_phys = np.linspace(-grid_lim, grid_lim, grid_pts)
-        p_phys = np.linspace(-grid_lim, grid_lim, grid_pts)
-        xvec = np.sqrt(2) * x_phys
-        pvec = np.sqrt(2) * p_phys
-        x_plot, p_plot = x_phys, p_phys
-        xlabel, ylabel = "x", "p"
-    else:
-        xvec = np.linspace(-grid_lim, grid_lim, grid_pts)
-        pvec = np.linspace(-grid_lim, grid_lim, grid_pts)
-        x_plot, p_plot = xvec, pvec
-        xlabel, ylabel = "x (SF units)", "p (SF units)"
+def _compute_wigner_Z(state, mode, *, grid_lim, grid_pts, use_textbook_axes,
+                      xlim=None, plim=None):
+    """Return W[p_index, x_index], normalized in the displayed coordinates.
 
-    W = state.wigner(mode=mode, xvec=xvec, pvec=pvec)  # (len(xvec), len(pvec))
-    Z = W.T  # for imshow: x horizontal, p vertical
+    Textbook axes use [x,p]=i: x_SF=sqrt(state.hbar)*x and similarly for p.
+    Consequently W_display=state.hbar*W_SF; native SF axes use no Jacobian.
+    xlim/plim are increasing (min,max) pairs in displayed units; each overrides
+    grid_lim for that axis. Omitted limits default to (-grid_lim,grid_lim).
+    The density is not renormalized to compensate for a finite plotting window.
+    """
+    if not isinstance(mode, (int, np.integer)) or not 0 <= mode < state.num_modes:
+        raise ValueError("Invalid mode index")
+    if not np.isfinite(grid_lim) or grid_lim <= 0:
+        raise ValueError("grid_lim must be positive and finite")
+    if not isinstance(grid_pts, (int, np.integer)) or grid_pts < 2:
+        raise ValueError("grid_pts must be an integer >= 2")
+    scale = np.sqrt(float(state.hbar)) if use_textbook_axes else 1.0
+    if not np.isfinite(scale) or scale <= 0:
+        raise ValueError("The state's hbar must be positive and finite")
+    def axis_grid(limits, name):
+        bounds = np.asarray((-grid_lim, grid_lim) if limits is None else limits, dtype=float)
+        if bounds.shape != (2,) or not np.isfinite(bounds).all() or bounds[0] >= bounds[1]:
+            raise ValueError(f"{name} must contain two finite, strictly increasing limits")
+        return np.linspace(bounds[0], bounds[1], grid_pts)
+    x_plot = axis_grid(xlim, "xlim")
+    p_plot = axis_grid(plim, "plim")
+    W = np.asarray(state.wigner(mode=mode, xvec=scale*x_plot, pvec=scale*p_plot))
+    # SF's implementation uses meshgrid(xvec,pvec): rows are p, columns x.
+    # Transposing here would exchange the physical quadratures.
+    if W.shape != (len(p_plot), len(x_plot)):
+        raise ValueError("Unexpected Wigner array shape")
+    Z = scale**2 * W
+    xlabel, ylabel = ("x", "p") if use_textbook_axes else ("x (SF units)", "p (SF units)")
     return Z, x_plot, p_plot, xlabel, ylabel
 
 
@@ -116,6 +120,7 @@ def plot_wigner_2d_compare(*,
                           state_R=None, ket_R=None, N_R=None, cutoff_R=None, mode_R=0,
                           # grid/plot
                           grid_lim=4.0, grid_pts=201,
+                          xlim=None, plim=None,
                           use_textbook_axes=True,
                           cmap_name="turbo",
                           show_contours=True,
@@ -151,10 +156,12 @@ def plot_wigner_2d_compare(*,
 
     # --- compute Wigners on same grid ---
     ZL, x_plot, p_plot, xlabel, ylabel = _compute_wigner_Z(
-        state_L, mode_L, grid_lim=grid_lim, grid_pts=grid_pts, use_textbook_axes=use_textbook_axes
+        state_L, mode_L, grid_lim=grid_lim, grid_pts=grid_pts, use_textbook_axes=use_textbook_axes,
+        xlim=xlim, plim=plim
     )
     ZR, x_plot2, p_plot2, _, _ = _compute_wigner_Z(
-        state_R, mode_R, grid_lim=grid_lim, grid_pts=grid_pts, use_textbook_axes=use_textbook_axes
+        state_R, mode_R, grid_lim=grid_lim, grid_pts=grid_pts, use_textbook_axes=use_textbook_axes,
+        xlim=xlim, plim=plim
     )
 
     # sanity: grids should match
@@ -171,6 +178,7 @@ def plot_wigner_2d_compare(*,
     norm = Normalize(vmin=zmin, vmax=zmax)
 
     # --- draw ---
+    font_size = 21
     fig, axes = plt.subplots(1, 2, figsize=(10, 5.0), sharex=True, sharey=True,
                          constrained_layout=True)
 
@@ -180,7 +188,7 @@ def plot_wigner_2d_compare(*,
             Z,
             origin="lower",
             extent=[x_plot[0], x_plot[-1], p_plot[0], p_plot[-1]],
-            aspect="auto",
+            aspect="equal",
             cmap=cmap,
             norm=norm,
             interpolation="nearest",
@@ -197,16 +205,13 @@ def plot_wigner_2d_compare(*,
                 alpha=0.35,
             )
 
-        ax.set_title(t, fontsize=22)
+        ax.set_title(t, fontsize=font_size)
 
     # labels/ticks (match your style)
-    font_size = 22
     for ax in axes:
-        ax.set_yticks([-3, 0, 3])
-        ax.set_xticks([-2, 0, 2])
         ax.tick_params(labelsize=font_size)
-        ax.set_xlim(-2, 2)
-        ax.set_ylim(-3.5, 3.5)
+        ax.set_xlim(x_plot[0], x_plot[-1])
+        ax.set_ylim(p_plot[0], p_plot[-1])
 
     axes[0].set_xlabel(xlabel, fontsize=font_size)
     axes[0].set_ylabel(ylabel, fontsize=font_size)
@@ -221,7 +226,7 @@ def plot_wigner_2d_compare(*,
 
     # optional min/max labels like you did
     cbar.ax.tick_params(labelsize=font_size-2)
-    cbar.ax.text(0.5, -0.01, f'−{np.abs(zmin):.2f}', transform=cbar.ax.transAxes,
+    cbar.ax.text(0.5, -0.01, f'{zmin:.3g}', transform=cbar.ax.transAxes,
                  va='top', ha='left', fontsize=font_size)
     cbar.ax.text(0.5, 1.0, f'{zmax:.3f}', transform=cbar.ax.transAxes,
                  va='bottom', ha='left', fontsize=font_size)
@@ -241,6 +246,7 @@ def plot_wigner_2d(*,
                    ket=None, N=None, cutoff=None,
                    mode=0,
                    grid_lim=4.0, grid_pts=201,
+                   xlim=None, plim=None,
                    use_textbook_axes=True,
                    cmap_name="turbo",
                    show_contours=True,
@@ -261,27 +267,10 @@ def plot_wigner_2d(*,
     if state.num_modes <= mode:
         raise ValueError(f"State has num_modes={state.num_modes}, can't plot mode={mode}.")
 
-    # Build xvec, pvec for SF wigner, and x/p axes to display
-    if use_textbook_axes:
-        x_phys = np.linspace(-grid_lim, grid_lim, grid_pts)
-        p_phys = np.linspace(-grid_lim, grid_lim, grid_pts)
-        xvec = np.sqrt(2) * x_phys
-        pvec = np.sqrt(2) * p_phys
-        x_plot, p_plot = x_phys, p_phys
-        xlabel, ylabel = "x", "p"
-    else:
-        xvec = np.linspace(-grid_lim, grid_lim, grid_pts)
-        pvec = np.linspace(-grid_lim, grid_lim, grid_pts)
-        x_plot, p_plot = xvec, pvec
-        xlabel, ylabel = "x (SF units)", "p (SF units)"
-
-    W = state.wigner(mode=mode, xvec=xvec, pvec=pvec)  # shape (len(xvec), len(pvec))
-
-    # For imshow, we transpose so x corresponds to horizontal axis and p to vertical
-    Z = W.T
+    Z, x_plot, p_plot, xlabel, ylabel = _compute_wigner_Z(
+        state, mode, grid_lim=grid_lim, grid_pts=grid_pts,
+        use_textbook_axes=use_textbook_axes, xlim=xlim, plim=plim)
     zmin, zmax = float(np.min(Z)), float(np.max(Z))
-    zmin = -0.05
-    zmax = 0.175
 
     cmap = matplotlib.colormaps[cmap_name]
     norm = Normalize(vmin=zmin, vmax=zmax)
@@ -291,7 +280,7 @@ def plot_wigner_2d(*,
         Z,
         origin="lower",
         extent=[x_plot[0], x_plot[-1], p_plot[0], p_plot[-1]],
-        aspect="auto",
+        aspect="equal",
         cmap=cmap,
         norm=norm,
         interpolation="nearest",
@@ -313,13 +302,11 @@ def plot_wigner_2d(*,
     #cbar.set_ticks([round(zmin,2), round(0.0,2), round(zmax,2)])
     cbar.set_ticks([])
     cbar.ax.tick_params(labelsize=font_size-2)
-    cbar.ax.text(0.5, -0.01, f'−{np.abs(zmin):.2f}', transform=cbar.ax.transAxes, 
+    cbar.ax.text(0.5, -0.01, f'{zmin:.3g}', transform=cbar.ax.transAxes, 
         va='top', ha='left', fontsize=font_size)
     cbar.ax.text(0.5, 1.0, f'{zmax:.3f}', transform=cbar.ax.transAxes, 
         va='bottom', ha='left', fontsize=font_size)
 
-    ax.set_yticks([-3, 0, 3])
-    ax.set_xticks([-3, 0, 3])
     ax.set_xlabel(xlabel, fontsize=font_size)
     ax.set_ylabel(ylabel, fontsize=font_size)
     
@@ -329,8 +316,8 @@ def plot_wigner_2d(*,
     
     plt.xticks(fontsize=font_size)
     plt.yticks(fontsize=font_size)
-    plt.xlim(-3, 3)
-    plt.ylim(-3.5, 3.5)
+    ax.set_xlim(x_plot[0], x_plot[-1])
+    ax.set_ylim(p_plot[0], p_plot[-1])
 
     plt.tight_layout()
     plt.savefig(figures_dir() / f"wigner_2d_{title}.pdf")
@@ -373,6 +360,7 @@ def plot_wigner_3d(*,
                    ket=None, N=None, cutoff=None,
                    mode=0,
                    grid_lim=4.0, grid_pts=161,
+                   xlim=None, plim=None,
                    use_textbook_axes=True,
                    cmap_name="turbo",
                    downsample=2,
@@ -394,24 +382,10 @@ def plot_wigner_3d(*,
             raise ValueError("Provide either `state=...` or (`ket=...`, `N=...`, `cutoff=...`).")
         state = state_from_ket(ket, N, cutoff)
 
-    # Axes conversion: SF uses its own units; if you want textbook axes, scale the grid
-    if use_textbook_axes:
-        x_phys = np.linspace(-grid_lim, grid_lim, grid_pts)
-        p_phys = np.linspace(-grid_lim, grid_lim, grid_pts)
-        xvec = np.sqrt(2) * x_phys
-        pvec = np.sqrt(2) * p_phys
-        x_plot, p_plot = x_phys, p_phys
-        xlabel, ylabel = "x", "p"
-    else:
-        xvec = np.linspace(-grid_lim, grid_lim, grid_pts)
-        pvec = np.linspace(-grid_lim, grid_lim, grid_pts)
-        x_plot, p_plot = xvec, pvec
-        xlabel, ylabel = "x (SF units)", "p (SF units)"
-
-    W = state.wigner(mode=mode, xvec=xvec, pvec=pvec)  # shape (len(xvec), len(pvec))
-
+    Z, x_plot, p_plot, xlabel, ylabel = _compute_wigner_Z(
+        state, mode, grid_lim=grid_lim, grid_pts=grid_pts,
+        use_textbook_axes=use_textbook_axes, xlim=xlim, plim=plim)
     X, P = np.meshgrid(x_plot, p_plot, indexing="xy")
-    Z = W.T
 
     s = max(int(downsample), 1)
     Xs, Ps, Zs = X[::s, ::s], P[::s, ::s], Z[::s, ::s]

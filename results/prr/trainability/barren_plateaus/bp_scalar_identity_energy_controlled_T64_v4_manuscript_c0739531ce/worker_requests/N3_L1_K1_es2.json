@@ -1,0 +1,21 @@
+{
+  "dataset_hash": "6f0e805f2920930963bac9452a712291b65c927524dd41a5b555d485d663e3d9",
+  "dataset_path": "/home/tkrasimi/QuanticGit/Quannto/revision_trainability_final/barren_plateaus/bp_scalar_identity_energy_controlled_T64_v4_manuscript_c0739531ce/fixed_cost_dataset.npz",
+  "ensemble": "energy_controlled",
+  "expectation_backend": "loop_matchings",
+  "output_directory": "/home/tkrasimi/QuanticGit/Quannto/revision_trainability_final/barren_plateaus/bp_scalar_identity_energy_controlled_T64_v4_manuscript_c0739531ce",
+  "overwrite": false,
+  "parameter_seed": 2026,
+  "point": {
+    "energy_scale": 2.0,
+    "family": "subtracted",
+    "k_subtractions": 1,
+    "layers": 1,
+    "n_modes": 3,
+    "size": 2.0,
+    "sweep": "energy"
+  },
+  "protocol_version": 4,
+  "resume": true,
+  "trials": 64
+}

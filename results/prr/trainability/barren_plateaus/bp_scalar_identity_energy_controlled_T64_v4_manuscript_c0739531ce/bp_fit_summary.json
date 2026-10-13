@@ -1,0 +1,108 @@
+{
+  "fits": {
+    "depth:gaussian": {
+      "probe_displacement__gradient_variance": {
+        "decay_rate": -0.10900110325488517,
+        "intercept": -3.64519392899113,
+        "r2_log_fit": 0.23853244138189345,
+        "slope": 0.10900110325488517
+      },
+      "probe_passive__gradient_variance": {
+        "decay_rate": -0.43660284571904673,
+        "intercept": -7.063021200195885,
+        "r2_log_fit": 0.988909528557024,
+        "slope": 0.43660284571904673
+      },
+      "probe_squeezing__gradient_variance": {
+        "decay_rate": -0.010966744643167188,
+        "intercept": -2.552153916234926,
+        "r2_log_fit": 0.07299408819911646,
+        "slope": 0.010966744643167188
+      },
+      "x": "L"
+    },
+    "depth:subtracted": {
+      "probe_displacement__gradient_variance": {
+        "decay_rate": 0.8647880233516116,
+        "intercept": -1.2785586440829073,
+        "r2_log_fit": 0.954660325881578,
+        "slope": -0.8647880233516116
+      },
+      "probe_passive__gradient_variance": {
+        "decay_rate": -1.1178191044444623,
+        "intercept": -7.285626292175099,
+        "r2_log_fit": 0.9846955928142381,
+        "slope": 1.1178191044444623
+      },
+      "probe_squeezing__gradient_variance": {
+        "decay_rate": -0.16781003862313107,
+        "intercept": 1.9871903784383722,
+        "r2_log_fit": 0.7707522829288048,
+        "slope": 0.16781003862313107
+      },
+      "x": "L"
+    },
+    "energy:subtracted": {
+      "probe_displacement__gradient_variance": {
+        "intercept": 2.9145792479015284,
+        "power_exponent": 2.3415034395963525,
+        "r2_loglog_fit": 0.8557029641299645
+      },
+      "probe_passive__gradient_variance": {
+        "intercept": -1.7004570804002475,
+        "power_exponent": 1.8934534003520231,
+        "r2_loglog_fit": 0.9881692035541211
+      },
+      "probe_squeezing__gradient_variance": {
+        "intercept": 3.937356681975373,
+        "power_exponent": 0.8390128462974906,
+        "r2_loglog_fit": 0.9620736753683863
+      },
+      "x": "measured mean Gaussian-core photons per mode"
+    },
+    "width:gaussian": {
+      "probe_displacement__gradient_variance": {
+        "decay_rate": 0.0019892223830382666,
+        "intercept": -3.373899404715648,
+        "r2_log_fit": 7.696339550167242e-05,
+        "slope": -0.0019892223830382666
+      },
+      "probe_passive__gradient_variance": {
+        "decay_rate": 0.12618782470941317,
+        "intercept": -6.386934058010761,
+        "r2_log_fit": 0.34849150447123456,
+        "slope": -0.12618782470941317
+      },
+      "probe_squeezing__gradient_variance": {
+        "decay_rate": 0.15083349578284955,
+        "intercept": -2.2388494717489293,
+        "r2_log_fit": 0.9162694976040449,
+        "slope": -0.15083349578284955
+      },
+      "x": "N"
+    },
+    "width:subtracted": {
+      "probe_displacement__gradient_variance": {
+        "decay_rate": 0.07742570128551622,
+        "intercept": -1.8726064887847633,
+        "r2_log_fit": 0.3599425794596375,
+        "slope": -0.07742570128551622
+      },
+      "probe_passive__gradient_variance": {
+        "decay_rate": 0.08820348447304696,
+        "intercept": -6.089343198133801,
+        "r2_log_fit": 0.18748589486388612,
+        "slope": -0.08820348447304696
+      },
+      "probe_squeezing__gradient_variance": {
+        "decay_rate": 0.08729019496423625,
+        "intercept": 2.3408841773858766,
+        "r2_log_fit": 0.613615989738739,
+        "slope": -0.08729019496423625
+      },
+      "x": "N"
+    }
+  },
+  "interpretation": "Exploratory finite-size fits of the three pre-registered matched derivatives only. Width/depth semilog slopes and energy log-log slopes do not establish or exclude an asymptotic barren plateau.",
+  "ladder_fit_omitted": "No fit is assigned to ladder order K: conditional normalization and heralding probability change with K, so K is not a circuit-size scaling variable for a barren-plateau claim."
+}

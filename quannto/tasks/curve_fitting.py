@@ -9,13 +9,14 @@ from quannto.core.loss_functions import mse
 from quannto.core.qnn_trainers import *
 from quannto.utils.results_utils import plot_noisy_dataset, plot_qnns_loglosses, plot_qnns_testing
 
-np.random.seed(42)
+training_seed = 42
+np.random.seed(training_seed)
 
 # === HYPERPARAMETERS DEFINITION ===
-qnns_modes = [4]
-qnns_ladder_modes = [[[1,2,3]]]
-qnns_layers = [1]
-qnns_is_addition = [False]
+qnns_modes = [3,4,4]
+qnns_ladder_modes = [[[0,1,2]], [[0,1,2]], [[1,2,3]]]
+qnns_layers = [1,1,1]
+qnns_is_addition = [False,False,False]
 include_initial_squeezing = False
 include_initial_mixing = False
 is_passive_gaussian = False
@@ -30,14 +31,14 @@ out_norm_ranges = [(1, 3)]*len(qnns_modes)
 # === OPTIMIZER SETTINGS ===
 optimize = train_scipy
 loss_function = mse
-basinhopping_iters = 2
+basinhopping_iters = 4
 params = None
 
 # === DATASET (TARGET FUNCTION) SETTINGS ===
 target_function = trig_fun
 input_range = (-1, 2.5)
 trainset_noise = 0.1
-trainset_size = 20
+trainset_size = 100
 testset_size = 200
 validset_size = 50
 task_name = f"curvefitting_{target_function.__name__}_trainsize{trainset_size}_noise{trainset_noise}_rng{input_range[0]}to{input_range[1]}"
@@ -92,7 +93,8 @@ for (N, l, ladder_modes, is_addition, in_norm_range, out_norm_range) in zip(qnns
     qnn, train_loss, valid_loss = optimize(model_name, task_name, N, l, n_inputs, n_outputs, ladder_modes, is_addition, observable,
                                            include_initial_squeezing, include_initial_mixing, is_passive_gaussian,
                                            train_dataset, valid_dataset, loss_function, basinhopping_iters,
-                                           in_preprocessors, out_preprocessors, postprocessors, init_pars=params)
+                                           in_preprocessors, out_preprocessors, postprocessors, init_pars=params, seed=training_seed,
+                                           run_metadata={"entrypoint": __name__, "data_seed": training_seed})
     qnn_pred, norm, loss_value = qnn.test_model(test_dataset[0], test_dataset[1], loss_function)
     
     qnns.append(qnn)
@@ -113,5 +115,5 @@ for (N, l, ladder_modes, is_addition, in_norm_range, out_norm_range) in zip(qnns
 # === PLOT AND SAVE JOINT RESULTS ===
 nongauss_ops = ['â†' if is_addition else 'â' for is_addition in qnns_is_addition]
 filename = task_name+"_N"+str(qnns_modes)+"_L"+str(qnns_layers)+"_ph"+str(nongauss_ops)+str(qnns_ladder_modes)
-plot_qnns_testing(test_dataset[0], test_dataset[1], qnns_preds, legend_labels, filename, top_ylim=output_range[1] + len(qnns)*0.5 + 0.3)
+plot_qnns_testing(test_dataset[0], test_dataset[1], qnns_preds, legend_labels, filename, top_ylim=output_range[1] + len(qnns)*0.5 + 0.3, hide_ylabel=True)
 plot_qnns_loglosses(train_losses, valid_losses, legend_labels, filename)

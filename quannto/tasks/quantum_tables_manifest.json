@@ -1,0 +1,248 @@
+{
+  "schema_version": 1,
+  "description": "PRR revised manuscript: Table II (five cubic checkpoints) and Table III (eight cat checkpoints). Mode indices are zero based. Models are not selected by fidelity.",
+  "tasks": {
+    "cat": {
+      "dataset_stem": "catstate_phi0.0_trainsize1_stats15_cut20_rng-1to1",
+      "target_alpha": 1.0,
+      "phi": 0.0,
+      "target_generation_cutoff": 20
+    },
+    "cubic": {
+      "dataset_stem": "fock_cubicphase_gamma0.2_trainsize50_rng-2.0to2.0",
+      "gamma_sf": 0.2,
+      "hbar_sf": 2.0,
+      "target_generation_cutoff": 200,
+      "evaluation_inputs": "midpoints of adjacent training amplitudes (49 unseen real coherent inputs)"
+    }
+  },
+  "models": [
+    {
+      "id": "cubic_n2_l1",
+      "figure": 3,
+      "task": "cubic",
+      "N": 2,
+      "subtractions": [
+        [
+          1
+        ]
+      ],
+      "checkpoint_stem": "fock_cubicphase_gamma0.2_trainsize50_rng-2.0to2.0_N2_L1_sub[[1]]_inNone",
+      "loss_history": "fock_cubicphase_gamma0.2_trainsize50_rng-2.0to2.0_N2_L1_sub[[1]]_inNone.txt",
+      "notes": "Checkpoint with training_record supplied in 150926 ZIP. Use the .txt (NPY-format) trajectory; the .npy trajectory under the same stem is historical.",
+      "included_in_paper": true,
+      "table": "II"
+    },
+    {
+      "id": "cubic_n2_l2",
+      "figure": 3,
+      "task": "cubic",
+      "N": 2,
+      "subtractions": [
+        [
+          1
+        ],
+        [
+          1
+        ]
+      ],
+      "checkpoint_stem": "fock_cubicphase_gamma0.2_trainsize50_rng-2.0to2.0_N2_L2_sub[[1], [1]]_inNone",
+      "loss_history": "fock_cubicphase_gamma0.2_trainsize50_rng-2.0to2.0_N2_L2_sub[[1], [1]]_inNone.txt",
+      "notes": "Checkpoint with training_record supplied in 150926 ZIP. Use the .txt (NPY-format) trajectory; the .npy trajectory under the same stem is historical.",
+      "included_in_paper": true,
+      "table": "II"
+    },
+    {
+      "id": "cubic_n3_l1",
+      "figure": 3,
+      "task": "cubic",
+      "N": 3,
+      "subtractions": [
+        [
+          1,
+          2
+        ]
+      ],
+      "checkpoint_stem": "fock_cubicphase_gamma0.2_trainsize50_rng-2.0to2.0_N3_L1_sub[[1, 2]]_inNone",
+      "loss_history": "fock_cubicphase_gamma0.2_trainsize50_rng-2.0to2.0_N3_L1_sub[[1, 2]]_inNone.txt",
+      "notes": "Checkpoint with training_record supplied in 150926 ZIP. Use the .txt (NPY-format) trajectory; the .npy trajectory under the same stem is historical.",
+      "included_in_paper": true,
+      "table": "II"
+    },
+    {
+      "id": "cubic_n4_l1",
+      "figure": 3,
+      "task": "cubic",
+      "N": 4,
+      "subtractions": [
+        [
+          1,
+          2,
+          3
+        ]
+      ],
+      "checkpoint_stem": "fock_cubicphase_gamma0.2_trainsize50_rng-2.0to2.0_N4_L1_sub[[1, 2, 3]]_inNone",
+      "loss_history": "fock_cubicphase_gamma0.2_trainsize50_rng-2.0to2.0_N4_L1_sub[[1, 2, 3]]_inNone.txt",
+      "notes": "Checkpoint with training_record supplied in 150926 ZIP. Use the .txt (NPY-format) trajectory; the .npy trajectory under the same stem is historical.",
+      "included_in_paper": true,
+      "table": "II"
+    },
+    {
+      "id": "cubic_n2_double",
+      "figure": 3,
+      "task": "cubic",
+      "N": 2,
+      "subtractions": [
+        [
+          1,
+          1
+        ]
+      ],
+      "checkpoint_stem": "fock_cubicphase_gamma0.2_trainsize50_rng-2.0to2.0_N2_L1_sub[[1, 1]]_inNone",
+      "loss_history": "fock_cubicphase_gamma0.2_trainsize50_rng-2.0to2.0_N2_L1_sub[[1, 1]]_inNone.txt",
+      "notes": "Repeated subtraction on the auxiliary mode; fifth row of revised Table II. Seed 42, four basinhopping proposals, training_record available.",
+      "included_in_paper": true,
+      "table": "II"
+    },
+    {
+      "id": "cat_n1_double",
+      "figure": 4,
+      "task": "cat",
+      "N": 1,
+      "subtractions": [
+        [
+          0,
+          0
+        ]
+      ],
+      "checkpoint_stem": "catstate_phi0.0_trainsize1_stats15_cut20_rng-1.0to-1.0_N1_L1_sub[[0, 0]]_inNone",
+      "loss_history": "catstate_phi0.0_trainsize1_stats15_cut20_rng-1.0to-1.0_N1_L1_sub[[0, 0]]_inNone.txt",
+      "notes": "Updated checkpoint supplied in quannto-master-150926: seed 42, four basinhopping proposals, training_record available.",
+      "included_in_paper": true,
+      "table": "III"
+    },
+    {
+      "id": "cat_n2_aux_double",
+      "figure": 4,
+      "task": "cat",
+      "N": 2,
+      "subtractions": [
+        [
+          1,
+          1
+        ]
+      ],
+      "checkpoint_stem": "catstate_phi0.0_trainsize1_stats15_cut20_rng-1.0to-1.0_N2_L1_sub[[1, 1]]_inNone",
+      "loss_history": "catstate_phi0.0_trainsize1_stats15_cut20_rng-1.0to-1.0_N2_L1_sub[[1, 1]]_inNone.txt",
+      "notes": "Updated checkpoint supplied in quannto-master-150926: seed 42, four basinhopping proposals, training_record available.",
+      "included_in_paper": true,
+      "table": "III"
+    },
+    {
+      "id": "cat_n2_both",
+      "figure": 4,
+      "task": "cat",
+      "N": 2,
+      "subtractions": [
+        [
+          0,
+          1
+        ]
+      ],
+      "checkpoint_stem": "catstate_phi0.0_trainsize1_stats15_cut20_rng-1.0to-1.0_N2_L1_sub[[0, 1]]_inNone",
+      "loss_history": "catstate_phi0.0_trainsize1_stats15_cut20_rng-1.0to-1.0_N2_L1_sub[[0, 1]]_inNone.txt",
+      "notes": "Updated checkpoint supplied in quannto-master-150926: seed 42, four basinhopping proposals, training_record available.",
+      "included_in_paper": true,
+      "table": "III"
+    },
+    {
+      "id": "cat_n3_aux_pair",
+      "figure": 4,
+      "task": "cat",
+      "N": 3,
+      "subtractions": [
+        [
+          1,
+          2
+        ]
+      ],
+      "checkpoint_stem": "catstate_phi0.0_trainsize1_stats15_cut20_rng-1.0to-1.0_N3_L1_sub[[1, 2]]_inNone",
+      "loss_history": "catstate_phi0.0_trainsize1_stats15_cut20_rng-1.0to-1.0_N3_L1_sub[[1, 2]]_inNone.txt",
+      "notes": "Updated checkpoint supplied in quannto-master-150926: seed 42, four basinhopping proposals, training_record available.",
+      "included_in_paper": true,
+      "table": "III"
+    },
+    {
+      "id": "cat_n2_l2",
+      "figure": 4,
+      "task": "cat",
+      "N": 2,
+      "subtractions": [
+        [
+          1
+        ],
+        [
+          1
+        ]
+      ],
+      "checkpoint_stem": "catstate_phi0.0_trainsize1_stats15_cut20_rng-1.0to-1.0_N2_L2_sub[[1], [1]]_inNone",
+      "loss_history": "catstate_phi0.0_trainsize1_stats15_cut20_rng-1.0to-1.0_N2_L2_sub[[1], [1]]_inNone.txt",
+      "notes": "Updated checkpoint supplied in quannto-master-150926: seed 42, four basinhopping proposals, training_record available.",
+      "included_in_paper": true,
+      "table": "III"
+    },
+    {
+      "id": "cat_n1_single",
+      "figure": 4,
+      "task": "cat",
+      "N": 1,
+      "subtractions": [
+        [
+          0
+        ]
+      ],
+      "checkpoint_stem": "catstate_phi0.0_trainsize1_stats15_cut20_rng-1.0to-1.0_N1_L1_sub[[0]]_inNone",
+      "loss_history": "catstate_phi0.0_trainsize1_stats15_cut20_rng-1.0to-1.0_N1_L1_sub[[0]]_inNone.txt",
+      "notes": "Additional cat configuration in the 150926 campaign (not an original Fig. 4 curve); seed 42 and four basinhopping proposals.",
+      "included_in_paper": true,
+      "table": "III"
+    },
+    {
+      "id": "cat_n1_triple",
+      "figure": 4,
+      "task": "cat",
+      "N": 1,
+      "subtractions": [
+        [
+          0,
+          0,
+          0
+        ]
+      ],
+      "checkpoint_stem": "catstate_phi0.0_trainsize1_stats15_cut20_rng-1.0to-1.0_N1_L1_sub[[0, 0, 0]]_inNone",
+      "loss_history": "catstate_phi0.0_trainsize1_stats15_cut20_rng-1.0to-1.0_N1_L1_sub[[0, 0, 0]]_inNone.txt",
+      "notes": "Additional cat configuration in the 150926 campaign (not an original Fig. 4 curve); seed 42 and four basinhopping proposals.",
+      "included_in_paper": true,
+      "table": "III"
+    },
+    {
+      "id": "cat_n1_l2",
+      "figure": 4,
+      "task": "cat",
+      "N": 1,
+      "subtractions": [
+        [
+          0
+        ],
+        [
+          0
+        ]
+      ],
+      "checkpoint_stem": "catstate_phi0.0_trainsize1_stats15_cut20_rng-1.0to-1.0_N1_L2_sub[[0], [0]]_inNone",
+      "loss_history": "catstate_phi0.0_trainsize1_stats15_cut20_rng-1.0to-1.0_N1_L2_sub[[0], [0]]_inNone.txt",
+      "notes": "Additional cat configuration in the 150926 campaign (not an original Fig. 4 curve); seed 42 and four basinhopping proposals.",
+      "included_in_paper": true,
+      "table": "III"
+    }
+  ]
+}

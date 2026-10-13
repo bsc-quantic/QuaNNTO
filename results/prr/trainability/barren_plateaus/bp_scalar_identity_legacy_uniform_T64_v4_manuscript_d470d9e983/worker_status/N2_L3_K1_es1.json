@@ -1,0 +1,9 @@
+{
+  "architecture_key": "N2_L3_K1_es1",
+  "duration_seconds": 305.86651055898983,
+  "error": "heralding norm has a material imaginary component: max |Im|=4.075e-10",
+  "error_type": "ValueError",
+  "finished_utc": "2026-09-02T16:12:01.921067Z",
+  "status": "failed",
+  "traceback": "Traceback (most recent call last):\n  File \"/home/tkrasimi/QuanticGit/Quannto/quannto/tasks/revision/trainability_supervisor.py\", line 182, in run_worker_request\n    runtime._run_configuration(\n  File \"/home/tkrasimi/QuanticGit/Quannto/quannto/tasks/revision/trainability.py\", line 620, in _run_configuration\n    norms_real = _real_checked(norms, name=\"heralding norm\")\n  File \"/home/tkrasimi/QuanticGit/Quannto/quannto/tasks/revision/trainability.py\", line 133, in _real_checked\n    raise ValueError(\nValueError: heralding norm has a material imaginary component: max |Im|=4.075e-10\n"
+}

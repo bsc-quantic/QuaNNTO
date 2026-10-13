@@ -7,13 +7,14 @@ from quannto.core.loss_functions import mse
 from quannto.core.qnn_trainers import *
 from quannto.utils.results_utils import plot_qnns_loglosses
 
-np.random.seed(42)
+training_seed = 42
+np.random.seed(training_seed)
 
 # === HYPERPARAMETERS DEFINITION ===
-qnns_modes = [2, 3, 4]
-qnns_ladder_modes = [[[1]], [[1,2]], [[1,2,3]]]
-qnns_layers = [1, 1, 1]
-qnns_is_addition = [False, False, False]
+qnns_modes = [2, 3, 4, 2, 2]
+qnns_ladder_modes = [[[1]], [[1,2]], [[1,2,3]], [[1,1]], [[1],[1]]]
+qnns_layers = [1, 1, 1, 1, 2]
+qnns_is_addition = [False, False, False, False, False]
 include_initial_squeezing = False
 include_initial_mixing = False
 is_passive_gaussian = False
@@ -23,9 +24,9 @@ observable = 'cubicphase'
 in_norm_ranges = [None]*len(qnns_modes) # or ranges (a, b)
 
 # === OPTIMIZER SETTINGS ===
-optimize = train_hybrid_adamjax_scipy
+optimize = train_scipy
 loss_function = mse
-basinhopping_iters = 0
+basinhopping_iters = 4
 params = None
 
 # === DATASET SETTINGS === (Statistics of specific Non-Gaussian gate action over target quantum states)
@@ -65,7 +66,8 @@ for (N, l, ladder_modes, is_addition, in_norm_range) in zip(qnns_modes, qnns_lay
     qnn, train_loss, valid_loss = optimize(model_name, task_name, N, l, n_inputs, n_outputs, ladder_modes, is_addition, observable,
                                            include_initial_squeezing, include_initial_mixing, is_passive_gaussian,
                                            train_dataset, None, loss_function, basinhopping_iters,
-                                           in_preprocessors, out_preprocessors, postprocessors, init_pars=params)
+                                           in_preprocessors, out_preprocessors, postprocessors, init_pars=params, seed=training_seed,
+                                           run_metadata={"entrypoint": __name__, "data_seed": training_seed})
     qnn_test_outputs, norm, loss_value = qnn.test_model(train_dataset[0], train_dataset[1], loss_function)
     
     qnns.append(qnn)

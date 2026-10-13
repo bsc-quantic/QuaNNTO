@@ -1,10 +1,5 @@
 import numpy as np
-import math
-import scipy.integrate as si
-if not hasattr(si, "simps") and hasattr(si, "simpson"): # Temporary fix for older scipy versions where simps was named simpson
-    si.simps = si.simpson
-from strawberryfields import Engine, Program
-from strawberryfields.ops import Ket, DensityMatrix, Coherent, Vgate
+from scipy.special import gammaln
 
 def annihilation_matrix(cutoff):
     a = np.zeros((cutoff, cutoff), dtype=complex)
@@ -19,12 +14,22 @@ def ladder_ops(cutoff):
     return a, adag
 
 def coherent_ket(alpha, cutoff):
-    """|alpha> in the Fock basis up to 'cutoff' (standard convention)."""
+    """Unnormalized projection of |alpha> on levels 0,...,cutoff-1.
+
+    Keeping the truncated norm lets callers diagnose the missing Fock tail.
+    Log-factorials avoid object arrays and overflow at cutoffs above 21.
+    """
+    if isinstance(cutoff, bool) or not isinstance(cutoff, (int, np.integer)) or cutoff < 1:
+        raise ValueError("cutoff must be a positive integer")
+    alpha = complex(alpha)
+    if not np.isfinite(alpha):
+        raise ValueError("alpha must be finite")
+    if alpha == 0:
+        ket = np.zeros(cutoff, dtype=complex)
+        ket[0] = 1
+        return ket
     n = np.arange(cutoff)
-    coeffs = np.exp(-0.5 * np.abs(alpha)**2) * (alpha**n) / np.sqrt(np.maximum(1, np.array([math.factorial(k) for k in n])))
-    # factorial(0)=1; the max(1, ...) avoids divide-by-zero in vectorized form (safe anyway)
-    coeffs[0] = np.exp(-0.5 * np.abs(alpha)**2)  # ensure exact for n=0
-    return coeffs.astype(complex)
+    return np.exp(-abs(alpha)**2 / 2 + n * np.log(alpha) - gammaln(n + 1) / 2)
 
 def cat_even_ket(alpha, cutoff, phi=0.0):
     """
@@ -37,13 +42,17 @@ def cat_even_ket(alpha, cutoff, phi=0.0):
     unnorm = ket_plus + ket_minus * np.exp(1j*phi)
     # Normalization: N = 1/sqrt(2(1 + e^{-2|α|^2} cos φ))
     s = np.exp(-2 * (abs(alpha)**2))
-    N = 1.0 / np.sqrt(2.0 * (1.0 + s * np.cos(phi)))
+    norm_squared = 2.0 * (1.0 + s * np.cos(phi))
+    if not np.isfinite(norm_squared) or norm_squared <= 0:
+        raise ValueError("The requested cat superposition has zero or invalid norm")
+    N = 1.0 / np.sqrt(norm_squared)
     return (N * unnorm).astype(complex)
 
 def apply_annihilation_to_ket(ket, cutoff, mode):
     """
     Apply a_mode to a pure ket in truncated Fock basis and renormalize.
-    Returns (ket_new, success_prob_conditional).
+    Returns (ket_new, squared_norm). This ideal-annihilation weight is not
+    a physical heralding probability; it can exceed one.
     """
     dim = ket.size
     N = int(round(np.log(dim) / np.log(cutoff)))
@@ -60,7 +69,7 @@ def apply_annihilation_to_ket(ket, cutoff, mode):
             f"Photon subtraction produced ~zero state on mode {mode}. "
             "Try increasing cutoff or check the state has photons in that mode."
         )
-    p = norm**2  # conditional success prob of the annihilation
+    p = norm**2  # squared norm for the ideal, unbounded operator a
     return (out_flat / norm).reshape([cutoff]*N), p
 
 def six_order_moments_operators(cutoff):
@@ -124,7 +133,7 @@ def mode_moments_from_ket(ket, moments, cutoff, mode=0):
 
     # <O_mode> = Tr( psi0^† (O psi0) )
     def expval(O):
-        return np.trace(ket0.conj().T @ (O @ ket0))
+        return np.vdot(ket0, O @ ket0)
     
     moments_keys = moments.keys()
     moments_expvals = {key : expval(moments[key]) for key in moments_keys}
@@ -132,6 +141,9 @@ def mode_moments_from_ket(ket, moments, cutoff, mode=0):
 
 def state_from_ket(ket, N, cutoff):
     """Load a ket into SF and return the state."""
+    from strawberryfields import Engine, Program
+    from strawberryfields.ops import Ket
+
     eng = Engine("fock", backend_options={"cutoff_dim": cutoff})
     prog = Program(N)
     with prog.context as q:
@@ -168,6 +180,9 @@ def state_from_single_mode_rho(rho, cutoff):
         raise ValueError("rho has ~zero trace")
     rho = rho / tr
 
+    from strawberryfields import Engine, Program
+    from strawberryfields.ops import DensityMatrix
+
     eng = Engine("fock", backend_options={"cutoff_dim": cutoff})
     prog = Program(1)
     with prog.context as q:
@@ -180,6 +195,9 @@ def catstate_moments(alpha, moments, cutoff=20, phi=0.0):
     [<a>, <a^2>, <a^3>, <a^\dagger n>, <n>]
     Returns: list of tuples (alpha, np.array([...])).
     """
+    from strawberryfields import Engine, Program
+    from strawberryfields.ops import Ket
+
     eng = Engine(backend="fock", backend_options={"cutoff_dim": cutoff})
     # Prepare the cat ket and load it into the backend
     ket = cat_even_ket(alpha, cutoff, phi=phi)
@@ -200,6 +218,9 @@ def cubicphase_moments(alpha, gamma, cutoff=20):
     after applying Vgate(gamma) to |alpha>, using cutoff n_max.
     """
     # 1) Run the SF program
+    from strawberryfields import Engine, Program
+    from strawberryfields.ops import Coherent, Vgate
+
     eng = Engine("fock", backend_options={"cutoff_dim": cutoff})
     prog = Program(1)
     
@@ -236,16 +257,38 @@ def cubicphase_moments(alpha, gamma, cutoff=20):
         "n2": n2
     }
 
+def _normalized_ket(ket):
+    psi = np.asarray(ket, dtype=complex).reshape(-1)
+    norm = np.linalg.norm(psi)
+    if not np.all(np.isfinite(psi)) or not np.isfinite(norm) or norm <= 0:
+        raise ValueError("ket must be finite and have nonzero norm")
+    return psi / norm
+
+
 def fidelity_pure_vs_mixed(ket_pure, rho_mix):
-    """F = <ket|rho|ket> for pure |ket> and density matrix rho."""
-    psi = np.asarray(ket_pure, dtype=complex).reshape(-1)
-    psi = psi / np.linalg.norm(psi)
-    return float(np.real_if_close(np.vdot(psi, rho_mix @ psi)))
+    """Squared fidelity <psi|rho|psi>, normalizing both input states.
+
+    Truncation convergence must be checked separately before interpreting this
+    value as a fidelity of the corresponding infinite-dimensional states.
+    """
+    psi = _normalized_ket(ket_pure)
+    rho = np.asarray(rho_mix, dtype=complex)
+    if rho.shape != (psi.size, psi.size) or not np.all(np.isfinite(rho)):
+        raise ValueError("rho must be a finite square matrix matching the ket")
+    if not np.allclose(rho, rho.conj().T, rtol=0, atol=1e-10):
+        raise ValueError("rho must be Hermitian")
+    trace = np.trace(rho).real
+    if trace <= 0 or not np.isfinite(trace):
+        raise ValueError("rho must have positive finite trace")
+    rho = rho / trace
+    if np.linalg.eigvalsh(rho).min() < -1e-10:
+        raise ValueError("rho must be positive semidefinite")
+    return float(np.clip(np.vdot(psi, rho @ psi).real, 0.0, 1.0))
+
 
 def fidelity_two_pure(ket1, ket2):
-    """F = <ket1|ket2> for two pure states |ket1> and |ket2>."""
-    psi = np.asarray(ket1, dtype=complex).reshape(-1)
-    phi = np.asarray(ket2, dtype=complex).reshape(-1)
-    psi = psi / np.linalg.norm(psi)
-    phi = phi / np.linalg.norm(phi)
-    return float(np.real_if_close(np.vdot(psi, phi), tol=1e-5))
+    """Squared fidelity |<psi|phi>|^2, invariant under global phase."""
+    psi, phi = _normalized_ket(ket1), _normalized_ket(ket2)
+    if psi.shape != phi.shape:
+        raise ValueError("The two kets must have the same dimension")
+    return float(np.clip(abs(np.vdot(psi, phi))**2, 0.0, 1.0))

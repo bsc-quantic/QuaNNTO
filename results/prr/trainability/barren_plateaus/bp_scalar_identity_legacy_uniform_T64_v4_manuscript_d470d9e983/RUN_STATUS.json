@@ -1,0 +1,24 @@
+{
+  "all_recorded_gradchecks_passed": true,
+  "design_complete": false,
+  "ensemble": "legacy_uniform",
+  "failed_requested_architectures": [
+    "N2_L3_K1_es1"
+  ],
+  "incomplete_designed_architectures": [
+    "N2_L3_K1_es1"
+  ],
+  "num_completed_unique_configurations": 14,
+  "num_designed_unique_configurations": 15,
+  "num_partial_configurations": 0,
+  "num_plotted_scan_points_available": 18,
+  "num_probable_oom_or_sigkill": 0,
+  "num_requested_failures": 1,
+  "num_requested_unique_configurations": 15,
+  "num_timeouts": 0,
+  "protocol_version": 4,
+  "requested_complete": false,
+  "status_table": "configuration_status.csv",
+  "trials": 64,
+  "updated_utc": "2026-09-02T16:12:25.456581Z"
+}

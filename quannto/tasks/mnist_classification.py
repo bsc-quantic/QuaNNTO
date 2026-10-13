@@ -8,13 +8,16 @@ from quannto.core.loss_functions import cross_entropy
 from quannto.core.qnn_trainers import *
 from quannto.utils.results_utils import plot_confusion_matrix, plot_per_class_accuracy_hist, plot_per_class_accuracy_markers
 
-np.random.seed(42)
+training_seed = 42
+np.random.seed(training_seed)
 
 # === HYPERPARAMETERS DEFINITION ===
-qnns_modes = [5,5]
-qnns_ladder_modes = [[[]],[[0]]]
-qnns_layers = [1,1]
-qnns_is_addition = [False,False]
+qnns_modes = [6,6,6]
+qnns_ladder_modes = [[[]], [[5]], [[4,5]]]#, [[0],[1,2]]]
+#qnns_ladder_modes = [[[4],[5]]]#, [[0],[1,2]]]
+#qnns_ladder_modes = [[[0],[1,2]]]
+qnns_layers = [1,1,1]
+qnns_is_addition = [False,False,False,False]
 include_initial_squeezing = False
 include_initial_mixing = False
 is_passive_gaussian = False
@@ -27,14 +30,14 @@ out_norm_ranges = [(1, 3)]*len(qnns_modes)
 # === OPTIMIZER SETTINGS ===
 optimize = train_scipy
 loss_function = cross_entropy
-basinhopping_iters = 3
+basinhopping_iters = 4
 params = None
 
 # === DATASET SETTINGS ===
 categories = [0, 1, 2, 3, 4]
 num_cats = len(categories)
-dataset_size = 75*num_cats
-validset_size = 20*num_cats
+dataset_size = 90*num_cats
+validset_size = 30*num_cats
 continuize_method = 'pca' # 'pca' or 'encoding' for Autoencoder
 task_name = f'mnist_{continuize_method}_{n_inputs}lat_{num_cats}cats'
 dataset_dir = str(datasets_dir() / task_name)
@@ -59,14 +62,20 @@ else:
     with open(dataset_dir + "_outputs.npy", "wb") as f:
         np.save(f, dataset[1])
 shuffling = np.random.permutation(len(dataset[0]))
-shuffled_dataset = [dataset[0][shuffling], dataset[1][shuffling]]
+#shuffled_dataset = [dataset[0][shuffling], dataset[1][shuffling]]
+shuffled_dataset = dataset
 # 2. TRAINING DATASET
 train_dataset = (shuffled_dataset[0][:dataset_size], shuffled_dataset[1][:dataset_size])
 # 3. VALIDATION DATASET (None for no validation)
 valid_dataset = (shuffled_dataset[0][dataset_size : dataset_size+validset_size], shuffled_dataset[1][dataset_size : dataset_size+validset_size])
 # 4. TESTING DATASET: Use the entire MNIST dataset
-test_dataset = (dataset[0], dataset[1])
-test_outputs_cats = dataset[1].reshape((len(dataset[1])))
+#test_dataset = (dataset[0], dataset[1])
+test_dataset = (shuffled_dataset[0][dataset_size+validset_size:], shuffled_dataset[1][dataset_size+validset_size:])
+#test_outputs_cats = test_dataset[1].reshape((len(test_dataset[1])))
+test_outputs_cats = test_dataset[1].ravel()
+
+print(len(train_dataset[0]), len(valid_dataset[0]), len(test_dataset[0]), len(dataset[0]))
+input('w8')
 
 # === BUILD, TRAIN AND TEST QNN MODELS WITH DIFFERENT MODES ===
 qnns = []
@@ -79,8 +88,15 @@ for (N, l, ladder_modes, is_addition, in_norm_range, out_norm_range) in zip(qnns
     # === NAME AND LEGEND OF THE QONN MODEL ===
     model_name = task_name + "_N" + str(N) + "_L" + str(l) + ("_add" if is_addition else "_sub") + str(ladder_modes) + "_in" + str(in_norm_range) + "_out" + str(out_norm_range)
     nongauss_op = "â†" if is_addition else "â"
-    legend_labels.append(f'N={N}, L={l}, {nongauss_op} in modes {np.array(ladder_modes[0])+1}')
-    
+    #legend_labels.append(f'N={N}, L={l}, {nongauss_op} per layer {np.array(ladder_modes[0])+1}')
+    if all(not layer for layer in ladder_modes):
+        resource = "Gaussian"
+    elif l == 1:
+        resource = f"{nongauss_op}={(np.array(ladder_modes[0])+1).tolist()}"
+    else:
+        resource = f"{nongauss_op}/layer={[(np.array(layer)+1).tolist() for layer in ladder_modes]}"
+    legend_labels.append(f"N={N}, L={l}, {resource}")
+
     # === PREPROCESSORS AND POSTPROCESSORS ===
     in_preprocessors = []
     if in_norm_range != None:
@@ -100,7 +116,8 @@ for (N, l, ladder_modes, is_addition, in_norm_range, out_norm_range) in zip(qnns
     qnn, train_loss, valid_loss = optimize(model_name, task_name, N, l, n_inputs, n_outputs, ladder_modes, is_addition, observable, 
                                            include_initial_squeezing, include_initial_mixing, is_passive_gaussian,
                                            train_dataset, valid_dataset, loss_function, basinhopping_iters,
-                                           in_preprocessors, out_preprocessors, postprocessors, init_pars=params)
+                                           in_preprocessors, out_preprocessors, postprocessors, init_pars=params, seed=training_seed,
+                                           run_metadata={"entrypoint": __name__, "data_seed": training_seed})
     qnn_preds, norms, loss_value = qnn.test_model(test_dataset[0], test_dataset[1], loss_function)
     qnn_hits = np.equal(qnn_preds, test_outputs_cats).sum()
     accuracy = qnn_hits/len(qnn_preds)
@@ -119,7 +136,7 @@ for (N, l, ladder_modes, is_addition, in_norm_range, out_norm_range) in zip(qnns
         np.save(f, np.array(valid_loss))
     with open(models_testing_results_path(model_name, "txt"), "wb") as f:
         np.save(f, np.array(qnn_preds))
-    plot_confusion_matrix(model_name, test_outputs_cats, qnn_preds)
+    #plot_confusion_matrix(model_name, test_outputs_cats, qnn_preds)
 
 # === PLOT AND SAVE JOINT RESULTS ===
 nongauss_ops = ['â†' if is_addition else 'â' for is_addition in qnns_is_addition]

@@ -1,0 +1,11 @@
+{
+  "architecture_key": "N3_L1_K1_es0p25",
+  "duration_seconds": 2.458093901979737,
+  "failure_kind": null,
+  "log_path": "/home/tkrasimi/QuanticGit/Quannto/revision_trainability_final/barren_plateaus/bp_scalar_identity_energy_controlled_T64_v4_manuscript_c0739531ce/configuration_logs/N3_L1_K1_es0p25.log",
+  "probable_oom": false,
+  "returncode": 0,
+  "signal": null,
+  "updated_utc": "2026-09-02T16:06:05.554365Z",
+  "worker_status": "completed"
+}

@@ -1,67 +1,111 @@
 # QuaNNTO
-**Qua**ntum **N**eural **N**etworks with **T**unable **O**ptics
 
-_Article:_ [Hardware-inspired Continuous Variables Quantum Optical Neural Networks](https://arxiv.org/abs/2512.05204)
+**Qua**ntum **N**eural **N**etworks with **T**unable **O**ptics.
 
-_QuaNNTO_ is an HPC library made with [JAX](https://github.com/jax-ml/jax) for exact simulation of continuous-variable quantum optical neural networks (QONN). The simulation technique is based on Wick-Isserlis expansions and Bogoliubov transformations, which allows an exact computation of expectation values of continuous observables (such as position) on quantum states built by a finite set of Gaussian and creation/annihilation operators, avoiding truncations in the infinite-dimensional Hilbert space that describe the quantum optical system.
+QuaNNTO evaluates continuous-variable QONNs built from Gaussian transformations
+and finite photon addition/subtraction sequences. Bogoliubov transformations and
+Wick–Isserlis expansions provide analytic ladder-operator moments without a Fock
+cutoff. JAX differentiates the moment evaluator. The optional independent Fock
+backend validates conditional output states and fidelities numerically.
 
-## Installation
+This release integrates the code, saved models and diagnostics used for the PRR
+revision of *Hardware-inspired quantum optical neural networks in continuous
+variables*. Scientific scope and archived-data provenance are documented in
+[docs/reproducibility.md](docs/reproducibility.md).
 
-Clone and install `QuaNNTO` with its necessary modules in a Python virtual environment.
+## Install and verify
 
-```sh
-git clone https://github.com/bsc-quantic/QuaNNTO.git
-cd QuaNNTO
-python -m venv .venv
-source .venv/bin/activate  # on Windows: .venv\Scripts\activate
-pip install -U pip
-pip install -e .
+Python 3.12 on Linux is the tested reference environment. Python 3.10–3.12 is the
+supported dependency range. From the unzipped repository root:
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install -c requirements/prr-lock-py312.txt -e '.[dev,sf]'
+python -m quannto.benchmarks.prr
+python -m pytest
 ```
 
-### Optional modules
+The verification checks archived SHA-256 hashes, all 13 quantum checkpoints,
+the fixed trainability dataset, all 1,280 initialization vectors, 60 derivative
+variances and 16 recorded finite-difference gradient checks. It does not retrain
+models or claim a full independent rerun of every experiment.
 
-TensorFlow for _MNIST_ preprocessing through _PCA_ or _Autoencoders_:
+For the analytic simulator alone, `python -m pip install -e .` is sufficient.
+TensorFlow is optional (`.[mnist]`) and is needed only for MNIST preprocessing.
+The wheel contains code and the checkpoint-selection manifest. Research data
+remain in this source checkout; set `QUANNTO_REPO_ROOT` when using a wheel from
+another directory.
 
-    pip install "quannto[mnist]"
+## Repository layout
 
-Strawberry Fields plugging:
+| Location | Contents |
+|---|---|
+| `quannto/core/` | QNN, analytic expectations, data processing and optimizers |
+| `quannto/tasks/` | Original training tasks and audited quantum-table exporter |
+| `quannto/tasks/revision/` | Trainability protocol, isolated workers and campaign launchers |
+| `quannto/tasks/diagnostics/` | Cat parity, moment hierarchy and parameter-space diagnostics |
+| `quannto/benchmarks/` | Verification of the archived PRR artifacts |
+| `data/datasets/` | Original numeric datasets |
+| `results/models/` | Saved parameters, operators, losses and training records |
+| `results/prr/` | Archived diagnostic campaigns and paired initial fidelity baselines |
+| `figures/paper/` | Figure sources of the final manuscript |
+| `figures/legacy/`, `archive/` | Historical exports and superseded code, retained for provenance |
+| `test/` | Scientific and software regression tests |
+| `requirements/`, `provenance/` | Tested dependency lock, source mapping and artifact hashes |
 
-    pip install "quannto[sf]"
+## Use the simulator
 
-Developer tools (testing / dependency checks):
+```python
+import numpy as np
+import jax.numpy as jnp
+from quannto.core.qnn import QNN
 
-    pip install "quannto[dev]"
+qnn = QNN("example", "demo", N=1, layers=1, n_in=1, n_out=1,
+          ladder_modes=[[0]], is_addition=False, observable="position")
+qnn.build_QNN(np.zeros(5))
+mean, branch_norm = qnn.eval_QNN(jnp.array([0.4, 0.0]))
+# <x> = sqrt(2)*0.4; ideal subtraction-branch norm = 0.4**2.
+```
 
-## User guide
+Mode indices in code start at zero. Inputs use coherent amplitudes in `xxpp`
+order: real parts, followed by imaginary parts. `[x,p]=i`. The returned branch
+norm is not a physical detector-click probability unless a heralding model is
+specified. A zero-norm branch has no normalized conditional state.
 
-__In `examples_ipynb`, Jupyter notebooks examples are provided for a diverse number of tasks, all of them explanatory and ready to run.__
+The default `loop_matchings` expectation backend is the one used in the
+manuscript. `subset_dp` is an optional exact recurrence backend; it is not
+silently substituted for the recorded training protocol.
 
-The main QONN hyperparameters:
+## Reproduce the diagnostics
 
-- ***modes*** is an integer denoting the number of optical modes in the QONN.
-- ***is_addition*** is a boolean variable denoting which ladder operator (non-Gaussian resource), photon addition (`True`) or photon subtraction (`False`), is implemented in the QONN.
-- ***layers*** is an integer denoting the amount of layers of the QONN.
-- ***ladder_modes*** is a list of lists that defines the ladder operators' modes in each layer. E.g.: `[[0],[1]]` would mean a 2-layer QONN where the first layer has a ladder operator on mode $0$ and the second layer has another in mode $1$.
-- ***n_inputs*** and ***n_outputs*** refer to the amount of inputs and outputs desired in the QONN model.
-- ***observable*** is a string variable that allows to choose which operator's expectation value is to be measured, typically acting as the QONN output(s). In `quannto/core/expectation_value.py`, one can find the different observables that are available and, additionally, can implement different ones as long as the observable can be represented in Fock basis through ladder operators.
-- ***in_norm_ranges*** and ***out_norm_ranges*** indicate the re-scaling ranges of the inputs (real coherent states) and outputs (position expectation values) respectively.
-- ***include_initial_squeezing*** and ***include_initial_mixing*** are flags to add an initial squeezing and/or mixing interferometer after the coherent state encoding and before the QONN layers (typically set to `False`).
-***is_passive_gaussian*** is a flag to indicate the general Gaussian operators of the QONN layers not to include squeezing, this is, for the Gaussian transformation to be built only with one interferometer per layer.
+```bash
+python -m quannto.tasks.quantum_tables --audit
+python -m quannto.tasks.diagnostics.catstate_parity_diagnostics
+python -m quannto.tasks.diagnostics.catstate_moment_hierarchy_sweep
+```
 
-The different addressed tasks are contained in `quannto/tasks` directory (accessible as Jupyter Notebooks in `examples_ipynb` directory) and they train multiple QONN models with their hyperparameters defined at the beggining of each task file. They are divided in the following scripts:
+Full fidelity exports require cutoff convergence and can use substantial
+memory. See [docs/quantum_fidelity_baselines.md](docs/quantum_fidelity_baselines.md)
+for the paired baseline and cutoff controls. A `not_converged` result requests
+more numerical resolution; it is never replaced by an invented table value.
 
-- `curve_fitting.py` trains QONNs to fit a specific range of some target continuous function indicated in the script by using a noisy dataset chosen from `quannto/dataset_gens/synthetic_datasets.py`. The loss function to be minimized is MSE between the predicted and actual values of the 
+A small end-to-end trainability workflow is:
 
-- `mnist_classification.py` is the MNIST classification task (discrete-variable inputs). PCA or Autoencoders for input continuization can be chosen in the dataset setting inside the script. The loss function to minimize is cross-entropy, using logarithmic softmax over the continous outputs (position average of optical modes) to transform them into class probabilites.
+```bash
+export QUANNTO_RESULTS_DIR="$PWD/results/local/trainability_smoke"
+python -m quannto.tasks.revision.trainability --quick --resume
+```
 
-- `moons_circles_classification.py` is a continuous-variable input classification task where two interleaved moons or two concentric circles have to be discerned by a learned boundary that separates both moons/circles. As in the MNIST case, the loss function is cross-entropy with logarithmic softmax.
+Smoke results are separate from manuscript results. For new training, use a
+separate `QUANNTO_RESULTS_DIR` so a reused model name cannot replace archived
+checkpoints. `QUANNTO_CACHE_DIR` overrides the writable architecture cache;
+`QUANNTO_DATASETS_DIR`/`DATASETS_DIR` and `QUANNTO_FIGURES_DIR`/`FIGURES_DIR` override
+data and plot locations. See [docs/migration.md](docs/migration.md) when applying
+this release to an existing Git checkout.
 
-- `nongauss_gate_synthesis.py` is the first quantum task where a certain QONN architecture approximates a complex non-Gaussian gate action over a set of states given their final state high-order statistical moments. In this example, the non-Gaussian operator is the cubic phase gate of strength=$0.2$ acting on real coherent states in the range $(-2,2)$. Specific datasets for this task are built by `quannto/dataset_gens/nongauss_gate_stats.py` where the non-Gaussian gate, their parameters and the target states can be freely chosen. The loss function for this task is MSE between the predicted and the actual values of all statistical moments.
-
-- `catstate_synthesis.py` corresponds to the second quantum task where the QONN architecture is to approach some target quantum cat state using, as in the non-Gaussian gate synthesis, high-order statistics of the state. Such datasets are generated by `quannto/dataset_gens/catstates_stats.py` for some target cat state where Strawberry Fields library is used. Again, the loss function used for this task is MSE between the predicted and the actual values of all statistical moments.
-
-The different tasks can be run directly from the `QuaNNTO` root directory via the command `python3 -m quannto.tasks.<file>` without the `.py` at the end. E.g.: `python3 -m quannto.tasks.curve_fitting` and the training will start for each of the QONN setups defined in the hyperparameters of such a script.
-
-In `quannto/core/qnn_trainers.py`, one could change parameter bounds such as the one for the squeezing, fixed by default to state-of-the-art limit $r \in (-1.7, 1.7)$.
-
-<ins>**NOTE:**</ins> This library is still under development. 
+Existing notebooks are in `examples_ipynb/`; their old execution outputs have
+been cleared. Previous documentation is retained in `docs/archive/` and is not
+the authoritative protocol for this release. See [docs/validation.md](docs/validation.md) for the executed
+checks and their scope. No new optimizer runs have been
+substituted for the original paper checkpoints.
