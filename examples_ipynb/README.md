@@ -8,7 +8,9 @@ the notebook. The saved outputs can also be viewed directly on GitHub.
 Install from the repository root:
 
 ```bash
-python -m pip install -e '.[sf]' 'setuptools<81' ipykernel pandas
+python -m pip install -r requirements/reproducible-py312.txt
+python -m pip install --no-build-isolation -c requirements/reproducible-py312.txt -e '.[sf]'
+python -m pip install ipykernel
 python -m ipykernel install --user --name quannto --display-name QuaNNTO
 ```
 
