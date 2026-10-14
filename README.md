@@ -2,6 +2,10 @@
 
 **Qua**ntum **N**eural **N**etworks with **T**unable **O**ptics.
 
+**Related paper:** [Hardware-inspired Continuous Variables Quantum Optical Neural Networks](https://arxiv.org/abs/2512.05204v2)  
+Todor Krasimirov-Ivanov, Alba Cervera-Lierta, Paolo Stornati and Federico Centrone.  
+arXiv:2512.05204v2 [quant-ph].
+
 QuaNNTO evaluates continuous-variable QONNs built from Gaussian transformations
 and finite photon addition/subtraction sequences. Bogoliubov transformations and
 Wick–Isserlis expansions provide analytic ladder-operator moments without a Fock
