@@ -857,6 +857,38 @@ def _fit_sweeps(rows: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
     return result
 
 
+def _sweep_plot_title(rows, sweep):
+    """Describe the sweep and its fixed architecture/initialization settings."""
+    selected = [row for row in rows if row["sweep"] == sweep]
+    base = {"width": "Width", "depth": "Depth", "ladder": "Subtraction count",
+            "energy": "Initialization scale"}[sweep]
+    fixed = []
+    for field, symbol in (("N", "N"), ("L", "L"), ("K", "K"), ("energy_scale", "s")):
+        values = sorted({float(row[field]) for row in selected})
+        if len(values) == 1:
+            fixed.append(f"{symbol}={values[0]:g}")
+    return base + ("\n$" + r",\ ".join(fixed) + "$" if fixed else "")
+
+
+def _scan_family_label(rows, family):
+    """Use explicit subtraction patterns in plot legends."""
+    import ast
+    patterns = []
+    for row in rows:
+        value = row["ladder_modes_zero_indexed"]
+        if isinstance(value, str):
+            value = ast.literal_eval(value)
+        patterns.extend(tuple(int(mode) for mode in layer) for layer in value)
+    unique = set(patterns)
+    if unique == {()}:
+        return "Gaussian ($K=0$)"
+    if unique == {(0,)}:
+        return r"QONN: $\hat a_1$ / layer ($K=1$)"
+    if all(pattern == tuple(range(len(pattern))) for pattern in unique):
+        return r"$\hat a_1\cdots\hat a_K$ ($K=0$: Gaussian)"
+    return "QONN (patterns in scan settings)"
+
+
 def _plot_gradient_variance(
     rows: Sequence[Mapping[str, Any]], output_directory: Path, *, show: bool = False,
 ) -> None:
@@ -896,6 +928,7 @@ def _plot_gradient_variance(
                 if not selected:
                     continue
                 color, linestyle, marker, label = family_style[family]
+                label = _scan_family_label(selected, family)
                 x = np.asarray([r["size"] for r in selected], dtype=float)
                 metric = f"probe_{kind}__gradient_variance"
                 y = np.asarray([r[metric] for r in selected], dtype=float)
@@ -923,19 +956,7 @@ def _plot_gradient_variance(
                 float(r["size"]) for r in rows if r["sweep"] == sweep
             }))
             axis.set_ylabel(r"$\mathrm{Var}_{\theta}(\partial_{\theta_i} C)$")
-            relevant_rows = [r for r in rows if r["sweep"] == sweep]
-            fixed_layers = sorted({int(r["L"]) for r in relevant_rows})
-            fixed_modes = sorted({int(r["N"]) for r in relevant_rows})
-            title = {
-                "width": (
-                    f"Width ($L={fixed_layers[0]}$)"
-                    if len(fixed_layers) == 1 else "Width"
-                ),
-                "depth": (
-                    f"Depth ($N={fixed_modes[0]}$)"
-                    if len(fixed_modes) == 1 else "Depth"
-                ),
-            }[sweep]
+            title = _sweep_plot_title(rows, sweep)
             axis.set_title(
                 f"({'abcdef'[panel_index]}) {title}: {probe_labels[kind]}",
                 fontsize=12,
@@ -985,12 +1006,12 @@ def _plot_nongaussian_and_energy(
             ], dtype=float)
             axis.set_xscale("log")
             axis.set_xlabel("Mean Gaussian-core photons per mode")
-            title = "Energy dependence"
+            title = "Core-energy dependence"
         else:
             x = np.asarray([r["size"] for r in selected], dtype=float)
             axis.set_xlabel("$K$")
             axis.set_xticks(x)
-            title = "Ladder-order diagnostic"
+            title = "Subtraction-count diagnostic"
         for index, kind in enumerate(("passive", "squeezing", "displacement")):
             metric = f"probe_{kind}__gradient_variance"
             y = np.asarray([r[metric] for r in selected], dtype=float)
@@ -1011,7 +1032,7 @@ def _plot_nongaussian_and_energy(
             )
         axis.set_yscale("log")
         axis.set_ylabel(r"$\mathrm{Var}_{\theta}(\partial_{\theta_i} C)$")
-        axis.set_title(f"({'ab'[panel]}) {title}")
+        axis.set_title(f"({'ab'[panel]}) {title}\n" + _sweep_plot_title(rows, sweep).split("\n", 1)[-1])
         axis.grid(linestyle="--", linewidth=0.4, which="both")
         axis.legend(fontsize=9)
     figure.tight_layout()
@@ -1026,7 +1047,7 @@ def _plot_nongaussian_and_energy(
 
 
 def _plot_aggregate_diagnostics(
-    rows: Sequence[Mapping[str, Any]], output_directory: Path,
+    rows: Sequence[Mapping[str, Any]], output_directory: Path, *, show: bool = False,
 ) -> None:
     try:
         import matplotlib.pyplot as plt
@@ -1050,6 +1071,7 @@ def _plot_aggregate_diagnostics(
                 key=lambda r: float(r["size"]),
             )
             color, linestyle, marker, label = styles[str(family)]
+            label = _scan_family_label(selected, family)
             x = [r["size"] for r in selected]
             axes[0, column].plot(
                 x, [r["mean_total_grad_norm"] for r in selected],
@@ -1063,25 +1085,27 @@ def _plot_aggregate_diagnostics(
         axes[0, column].set_ylabel(r"Mean $\|\nabla C\|_2$")
         axes[1, column].set_ylabel("Inactive-coordinate fraction")
         axes[1, column].set_ylim(-0.03, 1.03)
-        axes[0, column].set_title(sweep.capitalize())
+        axes[0, column].set_title(_sweep_plot_title(rows, sweep))
         for row_index in (0, 1):
             axes[row_index, column].set_xlabel({
                 "width": "$N$", "depth": "$L$", "ladder": "$K$",
-                "energy": "Energy scale",
+                "energy": "Initialization scale $s$",
             }[sweep])
             axes[row_index, column].grid(linestyle="--", linewidth=0.4, which="both")
-            axes[row_index, column].legend(fontsize=8)
+            axes[row_index, column].legend(fontsize=7.5)
     figure.tight_layout()
     for suffix, kwargs in (("pdf", {}), ("png", {"dpi": 220})):
         figure.savefig(
             output_directory / f"aggregate_gradient_diagnostics.{suffix}",
             bbox_inches="tight", **kwargs,
         )
+    if show:
+        plt.show()
     plt.close(figure)
 
 
 def _plot_parameter_families(
-    rows: Sequence[Mapping[str, Any]], output_directory: Path,
+    rows: Sequence[Mapping[str, Any]], output_directory: Path, *, show: bool = False,
 ) -> None:
     try:
         import matplotlib.pyplot as plt
@@ -1120,10 +1144,7 @@ def _plot_parameter_families(
         axis.set_yscale("log")
         axis.set_xlabel({"width": "$N$", "depth": "$L$", "ladder": "$K$"}[sweep])
         axis.set_ylabel(r"Median $\mathrm{Var}(\partial_\theta C)$")
-        axis.set_title({
-            "width": "QONN width", "depth": "QONN depth",
-            "ladder": "Ladder order",
-        }[sweep])
+        axis.set_title(_sweep_plot_title(relevant, sweep))
         axis.grid(linestyle="--", linewidth=0.4, which="both")
         axis.legend(fontsize=10)
     figure.tight_layout()
@@ -1135,11 +1156,13 @@ def _plot_parameter_families(
         output_directory / "parameter_family_gradient_variance.png",
         dpi=220, bbox_inches="tight",
     )
+    if show:
+        plt.show()
     plt.close(figure)
 
 
 def _plot_physical_controls(
-    rows: Sequence[Mapping[str, Any]], output_directory: Path,
+    rows: Sequence[Mapping[str, Any]], output_directory: Path, *, show: bool = False,
 ) -> None:
     try:
         import matplotlib.pyplot as plt
@@ -1162,6 +1185,7 @@ def _plot_physical_controls(
                 "subtracted": (colors[1], linestyles[1], "s", "QONN"),
                 "ladder": (colors[2], linestyles[2], "D", "Ladder sweep"),
             }[family]
+            label = _scan_family_label(selected, family)
             x = [r["size"] for r in selected]
             axes[0, column].plot(
                 x, [r["mean_gaussian_core_photons_per_mode"] for r in selected],
@@ -1171,19 +1195,19 @@ def _plot_physical_controls(
                 x, [r["mean_heralding_norm"] for r in selected],
                 color=color, linestyle=linestyle, marker=marker, label=label,
             )
-        axes[0, column].set_title(sweep.capitalize())
+        axes[0, column].set_title(_sweep_plot_title(rows, sweep))
         axes[0, column].set_ylabel("Core photons per mode")
-        axes[1, column].set_ylabel("Mean heralding norm")
+        axes[1, column].set_ylabel("Mean ideal branch denominator")
         axes[1, column].set_yscale("log")
         for row_index in (0, 1):
             axes[row_index, column].set_xlabel({
                 "width": "$N$", "depth": "$L$", "ladder": "$K$",
-                "energy": "Energy scale",
+                "energy": "Initialization scale $s$",
             }[sweep])
             axes[row_index, column].grid(
                 linestyle="--", linewidth=0.4, which="both",
             )
-            axes[row_index, column].legend(fontsize=9)
+            axes[row_index, column].legend(fontsize=7.5)
     figure.tight_layout()
     figure.savefig(
         output_directory / "physical_control_diagnostics.pdf", bbox_inches="tight",
@@ -1192,6 +1216,8 @@ def _plot_physical_controls(
         output_directory / "physical_control_diagnostics.png",
         dpi=220, bbox_inches="tight",
     )
+    if show:
+        plt.show()
     plt.close(figure)
 
 
