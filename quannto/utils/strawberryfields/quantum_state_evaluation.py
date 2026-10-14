@@ -198,6 +198,8 @@ def reference_ket(task, alpha, cutoff, gamma=0.2, hbar=2.0, cat_alpha=1.0, phi=0
         raise ValueError("gamma must be finite and hbar positive")
     # SF 0.23: V = exp(i gamma x^3 / (3 hbar)); this is the same cached matrix
     # called by the Fock backend's public Vgate, with hbar passed explicitly.
+    from quannto.utils.strawberryfields.compat import import_strawberryfields
+    import_strawberryfields()
     from strawberryfields.backends.fockbackend.ops import cubicPhase
     return cubicPhase(gamma, hbar, cutoff) @ coherent_ket(alpha, cutoff)
 

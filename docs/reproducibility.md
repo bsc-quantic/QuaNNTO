@@ -1,5 +1,18 @@
 # PRR reproducibility and provenance
 
+## Reference environment and Strawberry Fields compatibility
+
+The constraints file `requirements/reproducible-py312.txt` pins the tested
+Python 3.12 environment. It includes patched setuptools and pytest releases.
+QuaNNTO's Strawberry Fields utilities supply its legacy dataset-resource lookup
+through `importlib.resources`, allowing Strawberry Fields 0.23 to work with
+modern setuptools. For direct use of Strawberry Fields, load it with:
+
+```python
+from quannto.utils.strawberryfields.compat import import_strawberryfields
+sf = import_strawberryfields()
+```
+
 ## Included sources
 
 This integration uses the October 1 QuaNNTO snapshot as its primary source and

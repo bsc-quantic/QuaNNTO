@@ -1,11 +1,20 @@
 # === test_qnn_2mode_double_sub_vs_sf.py ===
 import numpy as np
 import pytest
+from importlib.util import find_spec
+from quannto.utils.strawberryfields.compat import import_strawberryfields
+
+
+def _optional_sf():
+    if find_spec("strawberryfields") is None:
+        pytest.skip("Strawberry Fields is not installed", allow_module_level=True)
+    return import_strawberryfields()
+
 import scipy.integrate as si
 # Temporary fix for older scipy versions where simps was named simpson
 if not hasattr(si, "simps") and hasattr(si, "simpson"):
     si.simps = si.simpson
-sf = pytest.importorskip("strawberryfields")
+sf = _optional_sf()
 from strawberryfields import Engine, Program
 from strawberryfields.ops import Dgate, GaussianTransform
 

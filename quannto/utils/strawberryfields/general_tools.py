@@ -141,6 +141,8 @@ def mode_moments_from_ket(ket, moments, cutoff, mode=0):
 
 def state_from_ket(ket, N, cutoff):
     """Load a ket into SF and return the state."""
+    from quannto.utils.strawberryfields.compat import import_strawberryfields
+    import_strawberryfields()
     from strawberryfields import Engine, Program
     from strawberryfields.ops import Ket
 
@@ -180,6 +182,8 @@ def state_from_single_mode_rho(rho, cutoff):
         raise ValueError("rho has ~zero trace")
     rho = rho / tr
 
+    from quannto.utils.strawberryfields.compat import import_strawberryfields
+    import_strawberryfields()
     from strawberryfields import Engine, Program
     from strawberryfields.ops import DensityMatrix
 
@@ -195,6 +199,8 @@ def catstate_moments(alpha, moments, cutoff=20, phi=0.0):
     [<a>, <a^2>, <a^3>, <a^\dagger n>, <n>]
     Returns: list of tuples (alpha, np.array([...])).
     """
+    from quannto.utils.strawberryfields.compat import import_strawberryfields
+    import_strawberryfields()
     from strawberryfields import Engine, Program
     from strawberryfields.ops import Ket
 
@@ -218,6 +224,8 @@ def cubicphase_moments(alpha, gamma, cutoff=20):
     after applying Vgate(gamma) to |alpha>, using cutoff n_max.
     """
     # 1) Run the SF program
+    from quannto.utils.strawberryfields.compat import import_strawberryfields
+    import_strawberryfields()
     from strawberryfields import Engine, Program
     from strawberryfields.ops import Coherent, Vgate
 

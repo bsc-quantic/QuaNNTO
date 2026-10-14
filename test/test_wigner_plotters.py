@@ -4,8 +4,17 @@ matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import numpy as np
 import pytest
+from importlib.util import find_spec
+from quannto.utils.strawberryfields.compat import import_strawberryfields
 
-sf = pytest.importorskip('strawberryfields')
+
+def _optional_sf():
+    if find_spec("strawberryfields") is None:
+        pytest.skip("Strawberry Fields is not installed", allow_module_level=True)
+    return import_strawberryfields()
+
+
+sf = _optional_sf()
 from strawberryfields.backends.states import BaseFockState
 from quannto.utils.strawberryfields.general_tools import coherent_ket
 from quannto.utils.strawberryfields import wigner_plotters as wp

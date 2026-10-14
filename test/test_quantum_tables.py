@@ -4,6 +4,15 @@ from pathlib import Path
 
 import numpy as np
 import pytest
+from importlib.util import find_spec
+from quannto.utils.strawberryfields.compat import import_strawberryfields
+
+
+def _optional_sf():
+    if find_spec("strawberryfields") is None:
+        pytest.skip("Strawberry Fields is not installed", allow_module_level=True)
+    return import_strawberryfields()
+
 
 from quannto.tasks.quantum_tables import (load_numeric, load_checkpoint, load_initial_operators,
                                            load_task_data, audit_model, main)
@@ -102,7 +111,7 @@ def test_affine_displacements_and_subtraction_norms(L):
 @pytest.mark.parametrize("N,L,subs", [(1, 1, [[0, 0]]), (2, 1, [[0, 1]]),
                                      (2, 2, [[1], [0]]), (2, 3, [[1], [0], [1]])])
 def test_gaussian_polynomial_matches_literal_strawberry_fields(N, L, subs, monkeypatch):
-    sf = pytest.importorskip("strawberryfields")
+    sf = _optional_sf()
     monkeypatch.setattr(sf, "hbar", 2)
     from quannto.utils.strawberryfields.qonn_builder import run_qonn
     # Low energy makes the independent, literal Fock simulation converge through sixth moments at D=30.
@@ -132,7 +141,7 @@ def test_projection_consistency_with_larger_cutoff():
 
 @pytest.mark.parametrize("hbar", [1.0, 2.0])
 def test_cubic_reference_matches_public_vgate(hbar, monkeypatch):
-    sf = pytest.importorskip("strawberryfields")
+    sf = _optional_sf()
     from strawberryfields.ops import Coherent, Vgate
     monkeypatch.setattr(sf, "hbar", hbar)
     D, alpha, gamma = 40, 0.4, 0.2
@@ -206,7 +215,7 @@ def test_cli_missing_checkpoint_exports_explicit_failure(tmp_path):
 
 
 def test_cubic_cli_end_to_end_against_position_quadrature(tmp_path):
-    pytest.importorskip("strawberryfields")
+    _optional_sf()
     from scipy.special import roots_hermite
     root = Path(__file__).resolve().parents[1]
     manifest = json.loads((root / "quannto/tasks/quantum_tables_manifest.json").read_text())
@@ -248,7 +257,7 @@ def test_cubic_cli_end_to_end_against_position_quadrature(tmp_path):
 
 @pytest.mark.parametrize("id", ["cat_n1_double", "cat_n2_aux_double", "cat_n2_both", "cat_n3_aux_pair", "cat_n2_l2", "cat_n1_single", "cat_n1_triple", "cat_n1_l2"])
 def test_saved_cat_operators_against_independent_fock(id, monkeypatch):
-    sf = pytest.importorskip("strawberryfields")
+    sf = _optional_sf()
     monkeypatch.setattr(sf, "hbar", 2)
     from quannto.utils.strawberryfields.qonn_builder import run_qonn
     root = Path(__file__).resolve().parents[1]

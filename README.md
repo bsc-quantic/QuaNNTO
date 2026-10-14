@@ -8,20 +8,23 @@ Wick–Isserlis expansions provide analytic ladder-operator moments without a Fo
 cutoff. JAX differentiates the moment evaluator. The optional independent Fock
 backend validates conditional output states and fidelities numerically.
 
-This release integrates the code, saved models and diagnostics used for the PRR
-revision of *Hardware-inspired quantum optical neural networks in continuous
-variables*. Scientific scope and archived-data provenance are documented in
+Examples cover curve fitting, binary and MNIST classification, cat-state
+engineering, gate synthesis and finite-size trainability. The repository
+includes saved models, datasets and executed notebooks. Scientific scope,
+dependency details and archived-data provenance are documented in
 [docs/reproducibility.md](docs/reproducibility.md).
 
 ## Install and verify
 
 Python 3.12 on Linux is the tested reference environment. Python 3.10–3.12 is the
-supported dependency range. From the unzipped repository root:
+supported dependency range. To install the complete reference environment,
+run these commands from the repository root:
 
 ```bash
-python3 -m venv .venv
+python3.12 -m venv .venv
 source .venv/bin/activate
-python -m pip install -c requirements/prr-lock-py312.txt -e '.[dev,sf]'
+python -m pip install -r requirements/reproducible-py312.txt
+python -m pip install --no-build-isolation -c requirements/reproducible-py312.txt -e '.[dev,sf]'
 python -m quannto.benchmarks.prr
 python -m pytest
 ```
@@ -42,7 +45,8 @@ another directory.
 | Location | Contents |
 |---|---|
 | `quannto/core/` | QNN, analytic expectations, data processing and optimizers |
-| `quannto/tasks/` | Original training tasks and audited quantum-table exporter |
+| `quannto/tasks/` | Training tasks and quantum-table exporter |
+| `examples_ipynb/` | Executed notebooks that load saved models or train when needed |
 | `quannto/tasks/trainability/` | Trainability protocol, isolated workers and campaign launchers |
 | `quannto/tasks/diagnostics/` | Cat parity, moment hierarchy and parameter-space diagnostics |
 | `quannto/benchmarks/` | Verification of the archived PRR artifacts |
@@ -104,8 +108,15 @@ checkpoints. `QUANNTO_CACHE_DIR` overrides the writable architecture cache;
 data and plot locations. See [docs/migration.md](docs/migration.md) when applying
 this release to an existing Git checkout.
 
-Existing notebooks are in `examples_ipynb/`; their old execution outputs have
-been cleared. Previous documentation is retained in `docs/archive/` and is not
-the authoritative protocol for this release. See [docs/validation.md](docs/validation.md) for the executed
-checks and their scope. No new optimizer runs have been
-substituted for the original paper checkpoints.
+## Notebooks
+
+Open `examples_ipynb/` for guided examples with saved outputs and figures.
+The model-based examples load a checkpoint for the selected task and settings,
+or train and save a model when no matching checkpoint exists. They evaluate
+predictions or states and generate plots through the task utilities.
+The trainability notebook analyzes stored initialization-gradient checkpoints.
+
+See [examples_ipynb/README.md](examples_ipynb/README.md) for the notebook list.
+Historical documentation is retained in `docs/archive/`;
+[docs/reproducibility.md](docs/reproducibility.md) describes the current protocol,
+and [docs/validation.md](docs/validation.md) records the release validation.

@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools>=64", "wheel"]
+requires = ["setuptools>=83", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -18,7 +18,7 @@ dependencies = [
 [project.optional-dependencies]
 mnist = ["tensorflow>=2.16"]
 sf = ["strawberryfields==0.23.0", "thewalrus==0.21.0"]
-dev = ["pytest>=8,<9", "build>=1.2", "wheel"]
+dev = ["pytest>=9.0.3,<10", "build>=1.2", "wheel"]
 
 [project.scripts]
 quannto-verify-prr = "quannto.benchmarks.prr:main"

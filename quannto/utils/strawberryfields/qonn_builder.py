@@ -2,6 +2,8 @@ import numpy as np
 import scipy.integrate as si
 if not hasattr(si, "simps") and hasattr(si, "simpson"):
     si.simps = si.simpson
+from quannto.utils.strawberryfields.compat import import_strawberryfields
+import_strawberryfields()
 from strawberryfields import Engine, Program
 from strawberryfields.ops import Ket, GaussianTransform, Dgate
 
