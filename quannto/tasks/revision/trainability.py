@@ -858,7 +858,7 @@ def _fit_sweeps(rows: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
 
 
 def _plot_gradient_variance(
-    rows: Sequence[Mapping[str, Any]], output_directory: Path,
+    rows: Sequence[Mapping[str, Any]], output_directory: Path, *, show: bool = False,
 ) -> None:
     try:
         import matplotlib.pyplot as plt
@@ -952,11 +952,13 @@ def _plot_gradient_variance(
         output_directory / "paper_style_gradient_variance.png",
         dpi=220, bbox_inches="tight",
     )
+    if show:
+        plt.show()
     plt.close(figure)
 
 
 def _plot_nongaussian_and_energy(
-    rows: Sequence[Mapping[str, Any]], output_directory: Path,
+    rows: Sequence[Mapping[str, Any]], output_directory: Path, *, show: bool = False,
 ) -> None:
     try:
         import matplotlib.pyplot as plt
@@ -1018,6 +1020,8 @@ def _plot_nongaussian_and_energy(
             output_directory / f"non_gaussian_energy_gradient_variance.{suffix}",
             bbox_inches="tight", **kwargs,
         )
+    if show:
+        plt.show()
     plt.close(figure)
 
 
