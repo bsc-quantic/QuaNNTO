@@ -15041,40 +15041,40 @@
   },
   {
     "source": "trainability(1).zip: code patch",
-    "source_path": "quannto/tasks/revision/trainability.py",
-    "path": "quannto/tasks/revision/trainability.py",
+    "source_path": "quannto/tasks/trainability/trainability.py",
+    "path": "quannto/tasks/trainability/trainability.py",
     "sha256": "b03ef41d9d046e7f9994170cddb5b2d0be6a985fe04a881ea780582cce816067",
     "integrated_sha256": "b03ef41d9d046e7f9994170cddb5b2d0be6a985fe04a881ea780582cce816067",
     "preserved_bytes": true
   },
   {
     "source": "trainability(1).zip: code patch",
-    "source_path": "quannto/tasks/revision/trainability_protocol.py",
-    "path": "quannto/tasks/revision/trainability_protocol.py",
+    "source_path": "quannto/tasks/trainability/trainability_protocol.py",
+    "path": "quannto/tasks/trainability/trainability_protocol.py",
     "sha256": "119d8fdd38e650beaeae6b66b92f8b09f037712633cef70ad0e0bb0f04c9353a",
     "integrated_sha256": "119d8fdd38e650beaeae6b66b92f8b09f037712633cef70ad0e0bb0f04c9353a",
     "preserved_bytes": true
   },
   {
     "source": "trainability(1).zip: code patch",
-    "source_path": "quannto/tasks/revision/trainability_supervisor.py",
-    "path": "quannto/tasks/revision/trainability_supervisor.py",
+    "source_path": "quannto/tasks/trainability/trainability_supervisor.py",
+    "path": "quannto/tasks/trainability/trainability_supervisor.py",
     "sha256": "1dd47d3625c8a449981116acbf751778cf45bd34bcef3dbc26e39117373fc305",
     "integrated_sha256": "1dd47d3625c8a449981116acbf751778cf45bd34bcef3dbc26e39117373fc305",
     "preserved_bytes": true
   },
   {
     "source": "trainability(1).zip: code patch",
-    "source_path": "quannto/tasks/revision/run_trainability_campaign.sh",
-    "path": "quannto/tasks/revision/run_trainability_campaign.sh",
+    "source_path": "quannto/tasks/trainability/run_trainability_campaign.sh",
+    "path": "quannto/tasks/trainability/run_trainability_campaign.sh",
     "sha256": "0cac4e9c5290b11356e2c949e7531900eb702941b213f70158f96a46818214d9",
     "integrated_sha256": "0cac4e9c5290b11356e2c949e7531900eb702941b213f70158f96a46818214d9",
     "preserved_bytes": true
   },
   {
     "source": "trainability(1).zip: code patch",
-    "source_path": "quannto/tasks/revision/run_trainability_mn5_extended.sh",
-    "path": "quannto/tasks/revision/run_trainability_mn5_extended.sh",
+    "source_path": "quannto/tasks/trainability/run_trainability_mn5_extended.sh",
+    "path": "quannto/tasks/trainability/run_trainability_mn5_extended.sh",
     "sha256": "dbc3ef75d99e6d256d2023f22484ca2d8b74ef7e836486edf78664f8322ae9e2",
     "integrated_sha256": "dbc3ef75d99e6d256d2023f22484ca2d8b74ef7e836486edf78664f8322ae9e2",
     "preserved_bytes": true

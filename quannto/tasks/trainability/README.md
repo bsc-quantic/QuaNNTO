@@ -8,7 +8,7 @@ From the repository root:
 
 ```bash
 export QUANNTO_RESULTS_DIR="$PWD/results/local/trainability_smoke"
-python -m quannto.tasks.revision.trainability --quick --resume
+python -m quannto.tasks.trainability.trainability --quick --resume
 ```
 
 For a complete manuscript-profile campaign, omit `--quick`. Workers execute in

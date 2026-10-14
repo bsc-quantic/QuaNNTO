@@ -43,7 +43,7 @@ another directory.
 |---|---|
 | `quannto/core/` | QNN, analytic expectations, data processing and optimizers |
 | `quannto/tasks/` | Original training tasks and audited quantum-table exporter |
-| `quannto/tasks/revision/` | Trainability protocol, isolated workers and campaign launchers |
+| `quannto/tasks/trainability/` | Trainability protocol, isolated workers and campaign launchers |
 | `quannto/tasks/diagnostics/` | Cat parity, moment hierarchy and parameter-space diagnostics |
 | `quannto/benchmarks/` | Verification of the archived PRR artifacts |
 | `data/datasets/` | Original numeric datasets |
@@ -94,7 +94,7 @@ A small end-to-end trainability workflow is:
 
 ```bash
 export QUANNTO_RESULTS_DIR="$PWD/results/local/trainability_smoke"
-python -m quannto.tasks.revision.trainability --quick --resume
+python -m quannto.tasks.trainability.trainability --quick --resume
 ```
 
 Smoke results are separate from manuscript results. For new training, use a

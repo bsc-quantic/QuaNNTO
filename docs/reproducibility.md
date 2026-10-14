@@ -92,7 +92,7 @@ To recompute from random initializations, use a fresh results directory:
 
 ```bash
 export QUANNTO_RESULTS_DIR="$PWD/results/local/trainability_full"
-python -m quannto.tasks.revision.trainability --resume
+python -m quannto.tasks.trainability.trainability --resume
 ```
 
 This is the full numerical campaign and can be expensive. The manuscript uses

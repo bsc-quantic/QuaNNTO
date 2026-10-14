@@ -4,15 +4,15 @@ from tempfile import TemporaryDirectory
 
 import numpy as np
 
-from quannto.tasks.revision import trainability
-from quannto.tasks.revision.trainability_protocol import (
+from quannto.tasks.trainability import trainability
+from quannto.tasks.trainability.trainability_protocol import (
     bootstrap_scalar_variance_ci, build_scan_points, dataset_sha256,
     make_fixed_scalar_dataset,
     matched_probe_indices, parameter_seed, parameter_types, sample_initial_parameters,
     parameter_diagnostic_rows, semilog_fit, loglog_fit, summarize_gradients,
     unique_architectures,
 )
-from quannto.tasks.revision.trainability_supervisor import (
+from quannto.tasks.trainability.trainability_supervisor import (
     classify_worker_outcome,
 )
 

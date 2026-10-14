@@ -1,6 +1,6 @@
 """Dependency-light protocol helpers for the finite-size trainability scan.
 
-The JAX/QONN runner lives in :mod:`quannto.tasks.revision.trainability`.  This
+The JAX/QONN runner lives in :mod:`quannto.tasks.trainability.trainability`.  This
 module deliberately depends only on NumPy so the experimental design,
 initialization ensembles, and statistical summaries can be unit-tested without
 compiling a photonic circuit.

@@ -8,7 +8,7 @@ from pathlib import Path
 import numpy as np
 
 from quannto.utils.path_utils import repository_root
-from quannto.tasks.revision.trainability_protocol import (
+from quannto.tasks.trainability.trainability_protocol import (
     build_scan_points, unique_architectures, make_fixed_scalar_dataset,
     parameter_types, sample_initial_parameters, parameter_seed,
 )

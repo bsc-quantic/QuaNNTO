@@ -23,7 +23,7 @@ from typing import Any, Mapping, Sequence
 
 import numpy as np
 
-from quannto.tasks.revision.trainability_protocol import (
+from quannto.tasks.trainability.trainability_protocol import (
     ENSEMBLES, PROTOCOL_VERSION, SWEEPS, ScanPoint, canonical_json,
     loglog_fit, matched_probe_indices, parameter_seed,
     parameter_types, sample_initial_parameters, semilog_fit,
@@ -1223,7 +1223,7 @@ def _plot_physical_controls(
 
 # Failure-tolerant protocol entry point.
 def run(args: argparse.Namespace) -> Path:
-    from quannto.tasks.revision.trainability_supervisor import run_supervised
+    from quannto.tasks.trainability.trainability_supervisor import run_supervised
 
     return run_supervised(sys.modules[__name__], args)
 
@@ -1314,7 +1314,7 @@ def cli() -> None:
     parser.add_argument("--worker-request", default=None, help=argparse.SUPPRESS)
     args = parser.parse_args()
     if args.worker_request is not None:
-        from quannto.tasks.revision.trainability_supervisor import (
+        from quannto.tasks.trainability.trainability_supervisor import (
             run_worker_request,
         )
         run_worker_request(sys.modules[__name__], Path(args.worker_request))

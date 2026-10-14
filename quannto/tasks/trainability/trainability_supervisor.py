@@ -21,7 +21,7 @@ from typing import Any, Mapping, Sequence
 
 import numpy as np
 
-from quannto.tasks.revision.trainability_protocol import (
+from quannto.tasks.trainability.trainability_protocol import (
     EMPIRICALLY_INACTIVE_TOLERANCE,
     PROTOCOL_VERSION,
     SWEEPS,
@@ -100,7 +100,7 @@ def run_worker_subprocess(
     command = [
         sys.executable,
         "-m",
-        "quannto.tasks.revision.trainability",
+        "quannto.tasks.trainability.trainability",
         "--worker-request",
         str(request_path.resolve()),
     ]

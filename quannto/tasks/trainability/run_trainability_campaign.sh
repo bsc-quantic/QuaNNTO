@@ -14,7 +14,7 @@ cd "${repo_root}"
 
 # Avoid the accidental duplicate execution that would otherwise compile the
 # same JAX configurations twice and contend for the same checkpoints.
-results_dir="${QUANNTO_RESULTS_DIR:-${repo_root}/revision_trainability_results}"
+results_dir="${QUANNTO_RESULTS_DIR:-${repo_root}/trainability_trainability_results}"
 export QUANNTO_RESULTS_DIR="${results_dir}"
 mkdir -p "${results_dir}/campaign_logs"
 if command -v flock >/dev/null 2>&1; then
@@ -34,7 +34,7 @@ run_ensemble() {
     local sweeps="$2"
     local log_file="${results_dir}/campaign_logs/trainability_v4_${profile}_${ensemble}.log"
     printf '[start] trainability %s (%s profile)\n' "${ensemble}" "${profile}"
-    "${python_bin}" -m quannto.tasks.revision.trainability \
+    "${python_bin}" -m quannto.tasks.trainability.trainability \
         --profile "${profile}" \
         --ensemble "${ensemble}" \
         --sweeps "${sweeps}" \
