@@ -38,7 +38,7 @@ Run
 ---
 From anywhere with NumPy/SciPy/Matplotlib installed:
 
-    python catstate_moment_hierarchy_sweep.py
+    python -m quannto.tasks.diagnostics.catstate_moment_hierarchy_sweep
 
 Outputs are written to results/local/catstate_moment_hierarchy_sweep/ and
 include CSV, JSON, PNG/PDF plots, and a text summary. Use --output to select

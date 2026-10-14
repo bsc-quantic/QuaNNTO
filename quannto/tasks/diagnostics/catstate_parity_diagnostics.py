@@ -2,7 +2,7 @@
 """Diagnostics for the even-cat state-engineering checkpoints.
 
 Run from the QuaNNTO repository root:
-    python /path/to/catstate_parity_diagnostics.py
+    python -m quannto.tasks.diagnostics.catstate_parity_diagnostics
 
 The script reconstructs the same reduced output states used by the independent
 fidelity/Wigner evaluator and checks whether the low-moment-loss solutions are
